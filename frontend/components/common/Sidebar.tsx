@@ -8,23 +8,22 @@ import {
   Package,
   DollarSign,
   Briefcase,
-  FolderKanban,
+  ShoppingCart,
   HeadphonesIcon,
-  BarChart3,
   Settings,
   Plus,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "CRM", href: "/sales", icon: Users },
-  { name: "Inventory", href: "/inventory", icon: Package },
-  { name: "Finance", href: "/finance", icon: DollarSign },
-  { name: "HRM", href: "/hr", icon: Briefcase },
-  { name: "Projects", href: "/projects", icon: FolderKanban },
-  { name: "Support", href: "/support", icon: HeadphonesIcon },
-  { name: "Reports", href: "/reports", icon: BarChart3 },
-  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Team Dashboard", href: "/dashboard/team", icon: Users },
+  { name: "Activity Feed", href: "/dashboard/activity", icon: LayoutDashboard },
+  { name: "Sales Orders", href: "/sales/orders", icon: ShoppingCart },
+  { name: "RFQ List", href: "/procurement/rfq", icon: Package },
+  { name: "Journal Entries", href: "/finance/journal", icon: DollarSign },
+  { name: "Leave Approvals", href: "/hr/leaves", icon: Briefcase },
+  { name: "Knowledge Base", href: "/support/knowledge", icon: HeadphonesIcon },
+  { name: "Currencies", href: "/settings/currencies", icon: Settings },
 ];
 
 export function Sidebar() {

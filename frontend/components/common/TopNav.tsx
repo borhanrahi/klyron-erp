@@ -2,6 +2,7 @@
 
 import { Bell, Search, Menu, User, Settings } from "lucide-react";
 import Link from "next/link";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) {
   return (
@@ -31,6 +32,8 @@ export function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) {
           <Bell className="h-5 w-5" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-danger rounded-full" />
         </button>
+
+        <ThemeToggle />
 
         <button className="p-2 hover:bg-muted rounded-lg transition-colors hidden sm:flex">
           <Settings className="h-5 w-5" />
