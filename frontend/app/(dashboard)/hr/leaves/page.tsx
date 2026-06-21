@@ -125,7 +125,7 @@ export default function LeaveApprovalPage() {
         description="Review and manage team time-off requests."
         icon={<Calendar className="h-6 w-6 text-primary" />}
         actions={
-          <button className="border border-border bg-card text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/10 flex items-center gap-2">
+          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
             <Download className="h-4 w-4" />
             Export Report
           </button>
@@ -162,7 +162,7 @@ export default function LeaveApprovalPage() {
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+            className="px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
           >
             <option value="All">Status: All</option>
             <option value="Pending">Pending</option>

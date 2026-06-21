@@ -77,25 +77,25 @@ export default function PortalQuotationsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Quote ID
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4 hidden md:table-cell">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
                   Date
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
                   Valid Until
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
                   Items
                 </th>
-                <th className="text-right text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Total
                 </th>
-                <th className="text-right text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Status
                 </th>
-                <th className="text-right text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Actions
                 </th>
               </tr>

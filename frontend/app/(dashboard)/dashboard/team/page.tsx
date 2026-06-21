@@ -151,7 +151,7 @@ export default function TeamDashboardPage() {
         description="Manage your team's tasks and progress."
         icon={<LayoutDashboard className="h-6 w-6 text-primary" />}
         actions={
-          <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
+          <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Add Task
           </button>

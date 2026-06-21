@@ -121,11 +121,11 @@ export default function SupplierProfilePage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="border border-border bg-card text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/10 flex items-center gap-2">
+          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
             <Edit className="h-4 w-4" />
             Edit
           </button>
-          <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
+          <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2">
             <Plus className="h-4 w-4" />
             New Purchase Order
           </button>
@@ -187,19 +187,19 @@ export default function SupplierProfilePage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Order ID
                     </th>
-                    <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4 hidden md:table-cell">
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
                       Date
                     </th>
-                    <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
                       Items
                     </th>
-                    <th className="text-right text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                    <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Total
                     </th>
-                    <th className="text-right text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                    <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Status
                     </th>
                   </tr>

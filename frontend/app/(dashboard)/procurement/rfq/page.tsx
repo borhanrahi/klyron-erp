@@ -112,11 +112,11 @@ export default function RFQListPage() {
         icon={<FileText className="h-6 w-6 text-primary" />}
         actions={
           <div className="flex items-center gap-3">
-            <button className="border border-border bg-card text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/10 flex items-center gap-2">
+            <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
               <Download className="h-4 w-4" />
               Export
             </button>
-            <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
+            <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Create RFQ
             </button>
@@ -156,7 +156,7 @@ export default function RFQListPage() {
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                className="px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               >
                 <option value="All">Status: All</option>
                 <option value="Pending">Pending</option>
@@ -177,34 +177,34 @@ export default function RFQListPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   <button className="flex items-center gap-1 hover:text-foreground transition-colors">
                     RFQ ID
                     <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Supplier
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4 hidden md:table-cell">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
                   Date
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
                   Due Date
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
                   Items
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Total Estimate
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Status
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4 hidden xl:table-cell">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden xl:table-cell">
                   Quotes
                 </th>
-                <th className="text-right text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Actions
                 </th>
               </tr>

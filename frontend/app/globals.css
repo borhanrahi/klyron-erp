@@ -131,3 +131,40 @@ html {
   outline: 2px solid var(--color-ring);
   outline-offset: 2px;
 }
+
+/* Global button reset */
+button,
+[role="button"],
+a {
+  cursor: pointer;
+}
+
+/* Secondary buttons — visible in both themes */
+.btn-outline {
+  background-color: var(--color-card);
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border);
+}
+.btn-outline:hover {
+  background-color: var(--color-muted);
+}
+
+/* Table header text visibility */
+.table-header {
+  color: var(--color-muted-foreground);
+}
+
+/* Select / option visibility */
+select {
+  color: var(--color-foreground);
+  background-color: var(--color-muted);
+}
+
+/* Primary button text always white */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+}
+.btn-primary:hover {
+  background-color: var(--color-primary-hover);
+}

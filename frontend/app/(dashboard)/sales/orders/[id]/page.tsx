@@ -109,15 +109,15 @@ export default function SalesOrderDetailsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="border border-border bg-card text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/10 flex items-center gap-2">
+          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
             <Download className="h-4 w-4" />
             Export
           </button>
-          <button className="border border-border bg-card text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/10 flex items-center gap-2">
+          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
             <Printer className="h-4 w-4" />
             Print
           </button>
-          <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
+          <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2">
             <Truck className="h-4 w-4" />
             Ship Order
           </button>
@@ -139,16 +139,16 @@ export default function SalesOrderDetailsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Item
                     </th>
-                    <th className="text-right text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                    <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Qty
                     </th>
-                    <th className="text-right text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                    <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Price
                     </th>
-                    <th className="text-right text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                    <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Total
                     </th>
                   </tr>

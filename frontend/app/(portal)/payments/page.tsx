@@ -109,22 +109,22 @@ export default function PortalPaymentsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Payment ID
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4 hidden md:table-cell">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
                   Date
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
                   Invoice
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
                   Method
                 </th>
-                <th className="text-right text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Amount
                 </th>
-                <th className="text-right text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Status
                 </th>
               </tr>

@@ -61,7 +61,7 @@ export default function PortalTicketsPage() {
             Get help from our support team
           </p>
         </div>
-        <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
+        <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2">
           <Plus className="h-4 w-4" />
           New Ticket
         </button>
@@ -83,25 +83,25 @@ export default function PortalTicketsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   <button className="flex items-center gap-1 hover:text-foreground transition-colors">
                     Ticket ID
                     <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Subject
                 </th>
-                <th className="text-left text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4 hidden md:table-cell">
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
                   Last Update
                 </th>
-                <th className="text-right text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
                   Priority
                 </th>
-                <th className="text-right text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Status
                 </th>
-                <th className="text-right text-xs font-semibold text-muted uppercase tracking-wider py-3 px-4">
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Actions
                 </th>
               </tr>
