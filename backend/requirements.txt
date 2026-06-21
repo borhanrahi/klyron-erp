@@ -15,7 +15,7 @@ celery[redis]==5.4.0
 openpyxl==3.1.5
 pandas==2.2.3
 reportlab==4.2.2
-python-barcode==1.2.0
+python-barcode==0.16.1
 slack-sdk==3.31.0
 python-telegram-bot==21.5
 twilio==9.3.4
