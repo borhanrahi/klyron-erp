@@ -1,53 +1,42 @@
-version: "3.8"
-
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: klyron_postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: erp_db
-      POSTGRES_USER: erp_user
-      POSTGRES_PASSWORD: erp_password
+      POSTGRES_USER: klyron_borhan
+      POSTGRES_PASSWORD: "pOA521453269!@@"
+      POSTGRES_DB: klyron_erp
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U klyron_borhan -d klyron_erp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: klyron_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@klyron.com
+      PGADMIN_DEFAULT_PASSWORD: "pOA521453269!@@"
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine
+    container_name: klyron_redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      - ./backend:/app
-    ports:
-      - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql+asyncpg://erp_user:erp_password@postgres:5432/erp_db
-      REDIS_URL: redis://redis:6379/0
-      JWT_SECRET_KEY: change-me-in-production
-    depends_on:
-      - postgres
-      - redis
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
-    ports:
-      - "3000:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
-    depends_on:
-      - backend
 
 volumes:
   postgres_data:

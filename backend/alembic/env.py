@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.database import Base
-from app.models import *  # noqa: F401, F403
+from app.models.base import *  # noqa: F401, F403
 
 config = context.config
 
@@ -17,7 +17,9 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 def get_url():
-    return os.getenv("DATABASE_URL", "postgresql+asyncpg://erp_user:erp_password@localhost:5432/erp_db")
+    from dotenv import load_dotenv
+    load_dotenv()
+    return os.getenv("DATABASE_URL", "postgresql+asyncpg://klyron_borhan:klyron123@localhost:5433/klyron_erp")
 
 def run_migrations_offline() -> None:
     url = get_url()

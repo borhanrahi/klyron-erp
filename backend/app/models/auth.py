@@ -35,9 +35,9 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
-    role = relationship("Role", back_populates="users")
-    company = relationship("Company", back_populates="users")
-    branch = relationship("Branch", back_populates="users")
+    role = relationship("Role", back_populates="users", foreign_keys="[User.role_id]")
+    company = relationship("Company", back_populates="users", foreign_keys="[User.company_id]")
+    branch = relationship("Branch", back_populates="users", foreign_keys="[User.branch_id]")
 
 class Role(Base):
     __tablename__ = "roles"
@@ -84,7 +84,7 @@ class Branch(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     company = relationship("Company", back_populates="branches")
-    users = relationship("User", back_populates="branch")
+    users = relationship("User", back_populates="branch", foreign_keys="[User.branch_id]")
 
 class Department(Base):
     __tablename__ = "departments"
