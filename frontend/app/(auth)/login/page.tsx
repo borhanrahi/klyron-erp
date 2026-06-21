@@ -13,9 +13,12 @@ export default function LoginPage() {
     password: "",
   });
 
+  const [error, setError] = useState("");
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Replace with actual auth logic
+    // Demo bypass — accept any email/password
+    // TODO: Replace with real auth once backend is ready
     router.push("/dashboard");
   };
 
@@ -122,6 +125,11 @@ export default function LoginPage() {
                 Sign In
               </button>
             </div>
+
+            {/* Demo Hint */}
+            <p className="text-center text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+              Demo mode — enter any email & password to sign in
+            </p>
           </form>
 
           {/* Divider */}

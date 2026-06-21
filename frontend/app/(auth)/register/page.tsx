@@ -18,7 +18,7 @@ export default function RegisterPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Replace with actual auth logic
+    // Demo bypass — TODO: Replace with real auth
     router.push("/dashboard");
   };
 
