@@ -40,13 +40,27 @@ cd backend
 
 # Create virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Activate virtual environment
+# Linux/Mac:
+source venv/bin/activate
+# Windows (Git Bash/MSYS2):
+source venv/Scripts/activate
+# Windows (CMD):
+venv\Scripts\activate.bat
+# Windows (PowerShell):
+venv\Scripts\Activate.ps1
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Copy environment file
+# Linux/Mac:
 cp .env.example .env
+# Windows (CMD):
+copy .env.example .env
+# Windows (PowerShell):
+Copy-Item .env.example .env
 # Edit .env with your database credentials
 
 # Run migrations
@@ -65,7 +79,12 @@ cd frontend
 npm install
 
 # Copy environment file
+# Linux/Mac:
 cp .env.example .env.local
+# Windows (CMD):
+copy .env.example .env.local
+# Windows (PowerShell):
+Copy-Item .env.example .env.local
 # Edit .env.local if needed
 
 # Start development server
