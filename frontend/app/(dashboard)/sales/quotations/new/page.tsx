@@ -2,400 +2,264 @@
 
 import { useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
-import {
-  FileText,
-  ArrowLeft,
-  Save,
-  Plus,
-  Trash2,
-  Building2,
-  Calendar,
-  User,
-  Send,
-  Download,
-} from "lucide-react";
+import { FileText, Plus, Trash2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { apiPost } from "@/lib/api";
 
-interface QuoteItem {
-  id: number;
-  description: string;
-  quantity: number;
-  unitPrice: number;
+interface QuotationItemDraft {
+  item_id: number;
+  qty: number;
+  price: number;
+  tax: number;
   total: number;
 }
 
-export default function NewQuotationPage() {
-  const [formData, setFormData] = useState({
-    customer: "",
-    contact: "",
-    email: "",
-    quoteDate: "",
-    validUntil: "",
-    paymentTerms: "",
-    notes: "",
-    discount: "",
+export default function CreateQuotationPage() {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    quote_number: "",
+    customer_id: 0,
+    status: "draft",
+    date: "",
+    expiry: "",
   });
+  const [items, setItems] = useState<QuotationItemDraft[]>([]);
 
-  const [items, setItems] = useState<QuoteItem[]>([
-    { id: 1, description: "", quantity: 1, unitPrice: 0, total: 0 },
-  ]);
+  function addItem() {
+    setItems((prev) => [...prev, { item_id: 0, qty: 1, price: 0, tax: 0, total: 0 }]);
+  }
 
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
-  ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  function removeItem(index: number) {
+    setItems((prev) => prev.filter((_, i) => i !== index));
+  }
 
-  const addItem = () => {
-    setItems([
-      ...items,
-      {
-        id: items.length + 1,
-        description: "",
-        quantity: 1,
-        unitPrice: 0,
-        total: 0,
-      },
-    ]);
-  };
-
-  const removeItem = (id: number) => {
-    if (items.length > 1) {
-      setItems(items.filter((item) => item.id !== id));
-    }
-  };
-
-  const updateItem = (
-    id: number,
-    field: keyof QuoteItem,
-    value: string | number
-  ) => {
-    setItems(
-      items.map((item) => {
-        if (item.id === id) {
-          const updated = { ...item, [field]: value };
-          updated.total = updated.quantity * updated.unitPrice;
-          return updated;
-        }
-        return item;
+  function updateItem(index: number, field: keyof QuotationItemDraft, value: number) {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item;
+        const updated = { ...item, [field]: value };
+        updated.total = updated.qty * updated.price + updated.tax;
+        return updated;
       })
     );
-  };
+  }
 
-  const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-  const discountAmount = subtotal * (parseFloat(formData.discount || "0") / 100);
-  const total = subtotal - discountAmount;
+  const subtotal = items.reduce((sum, item) => sum + item.qty * item.price, 0);
+  const totalTax = items.reduce((sum, item) => sum + item.tax, 0);
+  const total = subtotal + totalTax;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await apiPost("/sales/quotations", {
+        ...form,
+        customer_id: Number(form.customer_id),
+        subtotal,
+        tax: totalTax,
+        total,
+        items,
+      });
+      router.push("/sales/quotations");
+    } catch (err) {
+      console.error("Failed to create quotation:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <div className="space-y-6 animate-in fade-in-0 duration-200 max-w-5xl mx-auto">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-        <Link
-          href="/sales"
-          className="hover:text-foreground transition-colors"
-        >
-          Sales
-        </Link>
-        <span>/</span>
-        <Link
-          href="/sales/quotations"
-          className="hover:text-foreground transition-colors"
-        >
-          Quotations
-        </Link>
-        <span className="text-primary font-bold border-b-2 border-primary pb-0.5">
-          New Quotation
-        </span>
-      </div>
+    <div className="space-y-6 animate-in fade-in-0 duration-200 max-w-4xl mx-auto">
+      <Link
+        href="/sales/quotations"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to Quotations
+      </Link>
 
       <PageHeader
         title="Create Quotation"
-        description="Create a new quotation for your customer."
         icon={<FileText className="h-6 w-6 text-primary" />}
-        actions={
-          <Link
-            href="/sales/quotations"
-            className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Quotations
-          </Link>
-        }
       />
 
-      <div className="rounded-2xl border border-border bg-card shadow-sm">
-        <div className="p-6 border-b border-border">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-primary" />
-            Customer Details
-          </h3>
-        </div>
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Customer *
-            </label>
-            <select
-              name="customer"
-              value={formData.customer}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-            >
-              <option value="">Select customer</option>
-              <option value="acme">Acme Corp</option>
-              <option value="techstart">TechStart Inc</option>
-              <option value="global">Global Industries</option>
-              <option value="creative">Creative Solutions</option>
-              <option value="dataflow">DataFlow Systems</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Contact Person
-            </label>
-            <input
-              type="text"
-              name="contact"
-              value={formData.contact}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-              placeholder="Contact name"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-              placeholder="email@company.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Payment Terms
-            </label>
-            <select
-              name="paymentTerms"
-              value={formData.paymentTerms}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-            >
-              <option value="">Select terms</option>
-              <option value="net15">Net 15</option>
-              <option value="net30">Net 30</option>
-              <option value="net45">Net 45</option>
-              <option value="net60">Net 60</option>
-              <option value="due-receipt">Due on Receipt</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Quote Date *
-            </label>
-            <input
-              type="date"
-              name="quoteDate"
-              value={formData.quoteDate}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Valid Until *
-            </label>
-            <input
-              type="date"
-              name="validUntil"
-              value={formData.validUntil}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-border bg-card shadow-sm">
-        <div className="p-6 border-b border-border flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Line Items</h3>
-          <button
-            onClick={addItem}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Add Item
-          </button>
-        </div>
-        <div className="p-6">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-2 px-3 w-10">
-                    #
-                  </th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-2 px-3">
-                    Description
-                  </th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-2 px-3 w-24">
-                    Qty
-                  </th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-2 px-3 w-32">
-                    Unit Price
-                  </th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-2 px-3 w-32">
-                    Total
-                  </th>
-                  <th className="w-10"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, index) => (
-                  <tr key={item.id} className="border-b border-border/50">
-                    <td className="py-2 px-3 text-sm text-muted-foreground">
-                      {index + 1}
-                    </td>
-                    <td className="py-2 px-3">
-                      <input
-                        type="text"
-                        value={item.description}
-                        onChange={(e) =>
-                          updateItem(item.id, "description", e.target.value)
-                        }
-                        className="w-full px-3 py-1.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                        placeholder="Item description"
-                      />
-                    </td>
-                    <td className="py-2 px-3">
-                      <input
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) =>
-                          updateItem(
-                            item.id,
-                            "quantity",
-                            parseInt(e.target.value) || 0
-                          )
-                        }
-                        className="w-full px-3 py-1.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                        min="0"
-                      />
-                    </td>
-                    <td className="py-2 px-3">
-                      <input
-                        type="number"
-                        value={item.unitPrice}
-                        onChange={(e) =>
-                          updateItem(
-                            item.id,
-                            "unitPrice",
-                            parseFloat(e.target.value) || 0
-                          )
-                        }
-                        className="w-full px-3 py-1.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                        min="0"
-                        step="0.01"
-                      />
-                    </td>
-                    <td className="py-2 px-3">
-                      <span className="text-sm font-medium">
-                        ${item.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3">
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <div className="rounded-2xl border border-border bg-card shadow-sm">
-            <div className="p-6 border-b border-border">
-              <h3 className="text-lg font-semibold">Notes</h3>
+      <form onSubmit={handleSubmit}>
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">
+                Quote Number <span className="text-danger">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={form.quote_number}
+                onChange={(e) => setForm((f) => ({ ...f, quote_number: e.target.value }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
             </div>
-            <div className="p-6">
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                rows={4}
-                className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-none"
-                placeholder="Add any additional notes or terms..."
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">
+                Customer ID
+              </label>
+              <input
+                type="number"
+                value={form.customer_id || ""}
+                onChange={(e) => setForm((f) => ({ ...f, customer_id: Number(e.target.value) }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">
+                Status
+              </label>
+              <select
+                value={form.status}
+                onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              >
+                <option value="draft">Draft</option>
+                <option value="sent">Sent</option>
+                <option value="accepted">Accepted</option>
+                <option value="rejected">Rejected</option>
+                <option value="expired">Expired</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">
+                Date
+              </label>
+              <input
+                type="date"
+                value={form.date}
+                onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">
+                Expiry Date
+              </label>
+              <input
+                type="date"
+                value={form.expiry}
+                onChange={(e) => setForm((f) => ({ ...f, expiry: e.target.value }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>
           </div>
         </div>
 
-        <div>
-          <div className="rounded-2xl border border-border bg-card shadow-sm p-6">
-            <h3 className="text-lg font-semibold mb-4">Summary</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Subtotal</span>
-                <span className="text-sm font-medium">
-                  ${subtotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                </span>
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4 mt-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Items</h3>
+            <button
+              type="button"
+              onClick={addItem}
+              className="text-sm text-primary hover:text-primary-hover flex items-center gap-1"
+            >
+              <Plus className="h-4 w-4" />
+              Add Item
+            </button>
+          </div>
+
+          {items.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              No items added yet. Click &quot;Add Item&quot; to begin.
+            </p>
+          )}
+
+          {items.map((item, i) => (
+            <div key={i} className="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end p-3 rounded-xl bg-muted/50">
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Item ID</label>
+                <input
+                  type="number"
+                  value={item.item_id || ""}
+                  onChange={(e) => updateItem(i, "item_id", Number(e.target.value))}
+                  className="w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm focus:border-primary outline-none"
+                />
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Discount</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    name="discount"
-                    value={formData.discount}
-                    onChange={handleChange}
-                    className="w-20 px-3 py-1.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-right"
-                    min="0"
-                    max="100"
-                    placeholder="0"
-                  />
-                  <span className="text-sm text-muted-foreground">%</span>
-                </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Qty</label>
+                <input
+                  type="number"
+                  value={item.qty}
+                  onChange={(e) => updateItem(i, "qty", Number(e.target.value))}
+                  className="w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm focus:border-primary outline-none"
+                />
               </div>
-              <div className="border-t border-border pt-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-base font-semibold">Total</span>
-                  <span className="text-xl font-bold text-primary">
-                    ${total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                  </span>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Price</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={item.price}
+                  onChange={(e) => updateItem(i, "price", Number(e.target.value))}
+                  className="w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm focus:border-primary outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Tax</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={item.tax}
+                  onChange={(e) => updateItem(i, "tax", Number(e.target.value))}
+                  className="w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm focus:border-primary outline-none"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <label className="block text-xs text-muted-foreground mb-1">Total</label>
+                  <div className="px-2 py-1.5 bg-background border border-border rounded-lg text-sm font-semibold">
+                    ${item.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => removeItem(i)}
+                  className="p-1.5 text-muted-foreground hover:text-danger transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
+          ))}
 
-      <div className="flex items-center justify-end gap-3 pb-8">
-        <Link
-          href="/sales/quotations"
-          className="border border-border bg-muted text-foreground px-6 py-2.5 rounded-lg font-medium transition-all hover:bg-muted/80"
-        >
-          Cancel
-        </Link>
-        <button className="border border-border bg-muted text-foreground px-6 py-2.5 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-          <Download className="h-4 w-4" />
-          Save as Draft
-        </button>
-        <button className="bg-primary text-white px-6 py-2.5 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
-          <Send className="h-4 w-4" />
-          Send Quotation
-        </button>
-      </div>
+          {items.length > 0 && (
+            <div className="border-t border-border pt-4 space-y-1 text-right">
+              <p className="text-sm text-muted-foreground">
+                Subtotal: <span className="font-semibold text-foreground">${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Tax: <span className="font-semibold text-foreground">${totalTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </p>
+              <p className="text-lg font-bold">
+                Total: <span className="text-primary">${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3 mt-6">
+          <Link
+            href="/sales/quotations"
+            className="px-4 py-2 border border-border bg-muted text-foreground rounded-lg font-medium hover:bg-muted/80 transition-all"
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-4 py-2 bg-primary text-white rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-2"
+          >
+            {saving ? "Creating..." : "Create Quotation"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

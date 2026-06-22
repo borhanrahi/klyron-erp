@@ -1,341 +1,390 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
+  Users,
   ArrowLeft,
-  Phone,
-  Mail,
-  MapPin,
-  Building2,
+  Save,
+  Trash2,
   User,
-  Calendar,
-  Tag,
-  TrendingUp,
-  Clock,
-  MessageSquare,
+  Mail,
+  Phone,
+  Star,
   FileText,
-  ExternalLink,
-  Send,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter, useParams } from "next/navigation";
+import { apiGet, apiPut, apiDelete } from "@/lib/api";
 
-const lead = {
-  name: "Sarah Johnson",
-  title: "CTO",
-  company: "TechStart Inc",
-  email: "sarah.johnson@techstart.io",
-  phone: "+1 (555) 234-5678",
-  address: "789 Innovation Dr, Austin, TX 78701",
-  source: "Webinar 2023 Campaign",
-  status: "Qualified",
-  statusVariant: "success" as const,
-  score: 85,
-  value: "$45,000",
-  createdDate: "Mar 15, 2024",
-  lastActivity: "2 hours ago",
-  owner: "Mike Johnson",
-};
+interface Lead {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  source: string;
+  status: string;
+  score: number;
+  notes: string;
+  created_at: string;
+}
 
-const activities = [
-  {
-    id: 1,
-    type: "call",
-    title: "Discovery call completed",
-    description: "Discussed requirements and budget",
-    time: "2 hours ago",
-    icon: Phone,
-    color: "text-success",
-  },
-  {
-    id: 2,
-    type: "email",
-    title: "Follow-up email sent",
-    description: "Sent product demo scheduling link",
-    time: "1 day ago",
-    icon: Mail,
-    color: "text-info",
-  },
-  {
-    id: 3,
-    type: "meeting",
-    title: "Product demo scheduled",
-    description: "Demo booked for Mar 28, 2024 at 2:00 PM",
-    time: "2 days ago",
-    icon: Calendar,
-    color: "text-primary",
-  },
-  {
-    id: 4,
-    type: "note",
-    title: "Internal note added",
-    description: "Budget approved, decision by end of Q1",
-    time: "3 days ago",
-    icon: FileText,
-    color: "text-warning",
-  },
-];
+function mapStatusVariant(status: string) {
+  const s = (status || "").toLowerCase();
+  if (s === "qualified" || s === "won") return "success" as const;
+  if (s === "contacted" || s === "proposal") return "warning" as const;
+  if (s === "lost") return "danger" as const;
+  if (s === "new") return "info" as const;
+  return "primary" as const;
+}
 
-const dealPipeline = [
-  { stage: "Prospecting", active: false },
-  { stage: "Qualification", active: true },
-  { stage: "Proposal", active: false },
-  { stage: "Negotiation", active: false },
-  { stage: "Closed Won", active: false },
-];
+export default function LeadDetailPage() {
+  const router = useRouter();
+  const params = useParams();
+  const id = params.id as string;
 
-export default function LeadDetailsPage() {
-  const [newNote, setNewNote] = useState("");
+  const [lead, setLead] = useState<Lead | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    source: "",
+    status: "",
+    score: 0,
+    notes: "",
+  });
+
+  useEffect(() => {
+    async function fetchLead() {
+      try {
+        const data = await apiGet<Lead>(`/sales/leads/${id}`);
+        setLead(data);
+        setFormData({
+          name: data.name ?? "",
+          email: data.email ?? "",
+          phone: data.phone ?? "",
+          source: data.source ?? "",
+          status: data.status ?? "",
+          score: data.score ?? 0,
+          notes: data.notes ?? "",
+        });
+      } catch (err) {
+        console.error("Failed to fetch lead:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchLead();
+  }, [id]);
+
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "score" ? Number(value) : value,
+    }));
+  };
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await apiPut(`/sales/leads/${id}`, formData);
+      setLead({ ...lead!, ...formData });
+      setEditing(false);
+    } catch (err) {
+      console.error("Failed to update lead:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm("Are you sure you want to delete this lead?")) return;
+    try {
+      await apiDelete(`/sales/leads/${id}`);
+      router.push("/sales/leads");
+    } catch (err) {
+      console.error("Failed to delete lead:", err);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <span className="ml-2 text-sm text-muted-foreground">Loading lead...</span>
+      </div>
+    );
+  }
+
+  if (!lead) {
+    return (
+      <div className="text-center py-20 text-muted-foreground">Lead not found.</div>
+    );
+  }
 
   return (
-    <div className="space-y-6 animate-in fade-in-0 duration-200 max-w-6xl mx-auto">
-      {/* Back Link */}
-      <Link
-        href="/sales"
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to CRM
-      </Link>
+    <div className="space-y-6 animate-in fade-in-0 duration-200 max-w-4xl mx-auto">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+        <Link href="/sales" className="hover:text-foreground transition-colors">
+          Sales
+        </Link>
+        <span>/</span>
+        <Link href="/sales/leads" className="hover:text-foreground transition-colors">
+          Leads
+        </Link>
+        <span className="text-primary font-bold border-b-2 border-primary pb-0.5">
+          Lead Details
+        </span>
+      </div>
 
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-start gap-6">
-        {/* Lead Info */}
-        <div className="flex-1">
-          <div className="flex items-start gap-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
-              SJ
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold">{lead.name}</h1>
-                <StatusBadge
-                  status={lead.status}
-                  variant={lead.statusVariant}
+      <PageHeader
+        title="Lead Details"
+        description="View and manage lead information."
+        icon={<Users className="h-6 w-6 text-primary" />}
+        actions={
+          <div className="flex items-center gap-3">
+            <Link
+              href="/sales/leads"
+              className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Leads
+            </Link>
+            {!editing && (
+              <button
+                onClick={() => setEditing(true)}
+                className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80"
+              >
+                Edit
+              </button>
+            )}
+            <button
+              onClick={handleDelete}
+              className="border border-danger/30 bg-danger/10 text-danger px-4 py-2 rounded-lg font-medium transition-all hover:bg-danger/20 flex items-center gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </button>
+          </div>
+        }
+      />
+
+      {editing ? (
+        <form onSubmit={handleSave}>
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <h3 className="text-lg font-semibold flex items-center gap-2 mb-6">
+              <User className="h-5 w-5 text-primary" />
+              Edit Lead
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Name <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  value={formData.name}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
                 />
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                {lead.title} at {lead.company}
-              </p>
-              <div className="flex flex-wrap items-center gap-4 mt-3">
-                <a
-                  href={`mailto:${lead.email}`}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+              <div>
+                <label className="block text-sm font-medium mb-2">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Phone</label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Source</label>
+                <select
+                  name="source"
+                  value={formData.source}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2.5 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
                 >
-                  <Mail className="h-4 w-4" />
-                  {lead.email}
-                </a>
-                <a
-                  href={`tel:${lead.phone}`}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                  <option value="">Select source</option>
+                  <option value="website">Website</option>
+                  <option value="referral">Referral</option>
+                  <option value="cold_call">Cold Call</option>
+                  <option value="social">Social</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2.5 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
                 >
-                  <Phone className="h-4 w-4" />
-                  {lead.phone}
-                </a>
-                <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  {lead.address}
-                </span>
+                  <option value="new">New</option>
+                  <option value="contacted">Contacted</option>
+                  <option value="qualified">Qualified</option>
+                  <option value="proposal">Proposal</option>
+                  <option value="won">Won</option>
+                  <option value="lost">Lost</option>
+                </select>
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="flex items-center gap-3">
-          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-            <Phone className="h-4 w-4" />
-            Call
-          </button>
-          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            Email
-          </button>
-          <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Convert to Deal
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Deal Pipeline */}
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Deal Pipeline</h3>
-            <div className="flex items-center gap-2 overflow-x-auto pb-2">
-              {dealPipeline.map((stage, i) => (
-                <div key={stage.stage} className="flex items-center">
-                  <div
-                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
-                      stage.active
-                        ? "bg-primary text-white"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {stage.stage}
-                  </div>
-                  {i < dealPipeline.length - 1 && (
-                    <div className="w-8 h-px bg-border mx-1" />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Activity Timeline */}
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Activity Timeline</h3>
-
-            {/* Quick Log */}
-            <div className="mb-6">
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <User className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <textarea
-                    value={newNote}
-                    onChange={(e) => setNewNote(e.target.value)}
-                    placeholder="Log an activity or note..."
-                    className="w-full bg-muted border border-border rounded-xl px-4 py-3 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-none"
-                    rows={3}
-                  />
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center gap-2">
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground">
-                        <Phone className="h-4 w-4" />
-                      </button>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground">
-                        <Mail className="h-4 w-4" />
-                      </button>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground">
-                        <Calendar className="h-4 w-4" />
-                      </button>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground">
-                        <FileText className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <button className="bg-primary text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
-                      <Send className="h-3 w-3" />
-                      Log Activity
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Timeline */}
-            <div className="relative">
-              <div className="absolute left-5 top-0 bottom-0 w-px bg-border" />
-              <div className="space-y-4">
-                {activities.map((activity) => {
-                  const Icon = activity.icon;
-                  return (
-                    <div key={activity.id} className="relative pl-12">
-                      <div className="absolute left-3.5 top-1 w-3 h-3 rounded-full bg-card border-2 border-border" />
-                      <div className="p-4 rounded-xl hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="text-sm font-semibold">
-                            {activity.title}
-                          </h4>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {activity.time}
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {activity.description}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Lead Score */}
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Lead Intelligence</h3>
-            <div className="text-center mb-4">
-              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
-                <span className="text-2xl font-bold text-primary">
-                  {lead.score}
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground">Lead Score</p>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
-                <span className="text-sm text-muted-foreground">
-                  Deal Value
-                </span>
-                <span className="text-sm font-semibold">{lead.value}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
-                <span className="text-sm text-muted-foreground">Source</span>
-                <span className="text-sm font-medium">{lead.source}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
-                <span className="text-sm text-muted-foreground">Owner</span>
-                <span className="text-sm font-medium">{lead.owner}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
-                <span className="text-sm text-muted-foreground">Created</span>
-                <span className="text-sm font-medium">{lead.createdDate}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
-                <span className="text-sm text-muted-foreground">
-                  Last Activity
-                </span>
-                <span className="text-sm font-medium">{lead.lastActivity}</span>
+              <div>
+                <label className="block text-sm font-medium mb-2">Score</label>
+                <input
+                  type="number"
+                  name="score"
+                  min="0"
+                  max="100"
+                  value={formData.score}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                />
               </div>
             </div>
           </div>
 
-          {/* Tags */}
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Tag className="h-5 w-5 text-primary" />
-              Tags
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm mt-6">
+            <h3 className="text-lg font-semibold flex items-center gap-2 mb-6">
+              <FileText className="h-5 w-5 text-primary" />
+              Notes
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {["Enterprise", "SaaS", "Q1 Target", "Warm Lead"].map((tag) => (
-                <span
-                  key={tag}
-                  className="px-3 py-1 bg-primary/10 text-primary text-sm rounded-full"
-                >
-                  {tag}
-                </span>
-              ))}
+            <textarea
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              rows={4}
+              className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 mt-6 pb-8">
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(false);
+                setFormData({
+                  name: lead.name,
+                  email: lead.email,
+                  phone: lead.phone,
+                  source: lead.source,
+                  status: lead.status,
+                  score: lead.score,
+                  notes: lead.notes,
+                });
+              }}
+              className="border border-border bg-muted text-foreground px-6 py-2.5 rounded-lg font-medium transition-all hover:bg-muted/80"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="bg-primary text-white px-6 py-2.5 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2 disabled:opacity-50"
+            >
+              {saving ? (
+                <span className="h-4 w-4 animate-spin border-2 border-white/30 border-t-white rounded-full" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Save Changes
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary shrink-0">
+                {lead.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-bold">{lead.name}</h2>
+                  <StatusBadge
+                    status={lead.status}
+                    variant={mapStatusVariant(lead.status)}
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Created: {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : "N/A"}
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-            <div className="space-y-2">
-              <button className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 rounded-lg transition-colors flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Schedule Meeting
-              </button>
-              <button className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 rounded-lg transition-colors flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Create Proposal
-              </button>
-              <button className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 rounded-lg transition-colors flex items-center gap-2">
-                <ExternalLink className="h-4 w-4" />
-                View Company
-              </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+              <h3 className="text-lg font-semibold mb-4">Contact Information</h3>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{lead.email || "No email"}</span>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{lead.phone || "No phone"}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+              <h3 className="text-lg font-semibold mb-4">Lead Details</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
+                  <span className="text-sm text-muted-foreground">Source</span>
+                  <span className="text-sm font-medium capitalize">{lead.source || "N/A"}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
+                  <span className="text-sm text-muted-foreground">Score</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${
+                          lead.score >= 70 ? "bg-success" : lead.score >= 40 ? "bg-warning" : "bg-danger"
+                        }`}
+                        style={{ width: `${Math.min(lead.score, 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium">{lead.score}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+
+          {lead.notes && (
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+              <h3 className="text-lg font-semibold mb-4">Notes</h3>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{lead.notes}</p>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

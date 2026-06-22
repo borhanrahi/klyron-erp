@@ -1,110 +1,128 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, use } from "react";
+import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
   FileText,
   ArrowLeft,
-  Send,
-  Download,
-  Edit,
-  Printer,
-  Building2,
-  Calendar,
-  Clock,
-  ShoppingCart,
-  Check,
-  Copy,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { apiGet, apiPut, apiDelete } from "@/lib/api";
 
-const quotation = {
-  id: "QT-2024-001",
-  customer: "Acme Corp",
-  contact: "Robert Anderson",
-  title: "VP of Engineering",
-  email: "robert.anderson@acme.com",
-  phone: "+1 (555) 123-4567",
-  address: "123 Business Ave, New York, NY 10001",
-  date: "Mar 24, 2024",
-  validUntil: "Apr 23, 2024",
-  paymentTerms: "Net 30",
-  status: "Sent",
-  statusVariant: "info" as const,
-  salesRep: "Mike Johnson",
-  notes:
-    "This quotation includes a 10% discount for annual commitment. Implementation support and training are included in the first 90 days.",
-};
+interface QuotationItem {
+  id: number;
+  item_id: number;
+  qty: number;
+  price: number;
+  tax: number;
+  total: number;
+}
 
-const items = [
-  {
-    id: 1,
-    description: "Enterprise Platform License (Annual)",
-    quantity: 1,
-    unitPrice: 75000,
-    total: 75000,
-  },
-  {
-    id: 2,
-    description: "Data Migration Service",
-    quantity: 1,
-    unitPrice: 25000,
-    total: 25000,
-  },
-  {
-    id: 3,
-    description: "Custom Integration Development",
-    quantity: 40,
-    unitPrice: 150,
-    total: 6000,
-  },
-  {
-    id: 4,
-    description: "Training Sessions (2 hours each)",
-    quantity: 10,
-    unitPrice: 500,
-    total: 5000,
-  },
-  {
-    id: 5,
-    description: "Premium Support Package (12 months)",
-    quantity: 1,
-    unitPrice: 12000,
-    total: 12000,
-  },
-  {
-    id: 6,
-    description: "Additional Storage (500GB)",
-    quantity: 2,
-    unitPrice: 1000,
-    total: 2000,
-  },
-  {
-    id: 7,
-    description: "Security Audit & Compliance Check",
-    quantity: 1,
-    unitPrice: 8000,
-    total: 8000,
-  },
-  {
-    id: 8,
-    description: "Documentation & Knowledge Base Setup",
-    quantity: 1,
-    unitPrice: 3000,
-    total: 3000,
-  },
-];
+interface Quotation {
+  id: number;
+  quote_number: string;
+  customer_id: number;
+  status: string;
+  subtotal: number;
+  tax: number;
+  total: number;
+  date: string;
+  expiry: string | null;
+  created_at: string;
+  items: QuotationItem[];
+}
 
-const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-const discountPercent = 10;
-const discountAmount = subtotal * (discountPercent / 100);
-const total = subtotal - discountAmount;
+function mapStatusVariant(status: string): "success" | "warning" | "danger" | "info" | "primary" | "muted" {
+  const s = (status || "").toLowerCase();
+  if (s === "accepted" || s === "completed") return "success";
+  if (s === "sent" || s === "pending") return "warning";
+  if (s === "rejected" || s === "cancelled") return "danger";
+  if (s === "expired") return "muted";
+  return "info";
+}
 
-export default function QuotationDetailPage() {
-  const [showConvertModal, setShowConvertModal] = useState(false);
+export default function QuotationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const router = useRouter();
+  const [quotation, setQuotation] = useState<Quotation | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    quote_number: "",
+    customer_id: 0,
+    status: "",
+    date: "",
+    expiry: "",
+  });
+
+  useEffect(() => {
+    async function fetchQuotation() {
+      try {
+        const res = await apiGet<Quotation>(`/sales/quotations/${id}`);
+        setQuotation(res);
+        setForm({
+          quote_number: res.quote_number,
+          customer_id: res.customer_id,
+          status: res.status,
+          date: res.date,
+          expiry: res.expiry ?? "",
+        });
+      } catch (err) {
+        console.error("Failed to fetch quotation:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchQuotation();
+  }, [id]);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await apiPut(`/sales/quotations/${id}`, form);
+      setQuotation((prev) => (prev ? { ...prev, ...form } : prev));
+      setEditing(false);
+    } catch (err) {
+      console.error("Failed to update quotation:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm("Are you sure you want to delete this quotation?")) return;
+    try {
+      await apiDelete(`/sales/quotations/${id}`);
+      router.push("/sales/quotations");
+    } catch (err) {
+      console.error("Failed to delete quotation:", err);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <span className="ml-2 text-sm text-muted-foreground">Loading quotation...</span>
+      </div>
+    );
+  }
+
+  if (!quotation) {
+    return (
+      <div className="text-center py-20 text-muted-foreground">
+        Quotation not found.
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 animate-in fade-in-0 duration-200 max-w-5xl mx-auto">
+    <div className="space-y-6 animate-in fade-in-0 duration-200 max-w-4xl mx-auto">
       <Link
         href="/sales/quotations"
         className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -113,252 +131,185 @@ export default function QuotationDetailPage() {
         Back to Quotations
       </Link>
 
-      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
-        <div>
+      <PageHeader
+        title="Quotation Details"
+        icon={<FileText className="h-6 w-6 text-primary" />}
+        actions={
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{quotation.id}</h1>
-            <StatusBadge
-              status={quotation.status}
-              variant={quotation.statusVariant}
-            />
+            {editing ? (
+              <>
+                <button
+                  onClick={() => setEditing(false)}
+                  className="px-4 py-2 border border-border bg-muted text-foreground rounded-lg font-medium hover:bg-muted/80 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-4 py-2 bg-primary text-white rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setEditing(true)}
+                  className="px-4 py-2 border border-border bg-muted text-foreground rounded-lg font-medium hover:bg-muted/80 transition-all"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="px-4 py-2 border border-danger/30 bg-danger/10 text-danger rounded-lg font-medium hover:bg-danger/20 transition-all flex items-center gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </button>
+              </>
+            )}
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Created on {quotation.date} • Valid until {quotation.validUntil}
-          </p>
+        }
+      />
+
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex items-center gap-3 mb-6">
+          <h2 className="text-lg font-semibold">{quotation.quote_number}</h2>
+          <StatusBadge
+            status={quotation.status}
+            variant={mapStatusVariant(quotation.status)}
+          />
         </div>
-        <div className="flex items-center gap-3">
-          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-            <Printer className="h-4 w-4" />
-            Print
-          </button>
-          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Download PDF
-          </button>
-          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-            <Edit className="h-4 w-4" />
-            Edit
-          </button>
-          <button
-            onClick={() => setShowConvertModal(true)}
-            className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2"
-          >
-            <ShoppingCart className="h-4 w-4" />
-            Convert to Order
-          </button>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Quote Number</label>
+            {editing ? (
+              <input
+                type="text"
+                value={form.quote_number}
+                onChange={(e) => setForm((f) => ({ ...f, quote_number: e.target.value }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            ) : (
+              <p className="text-sm font-medium">{quotation.quote_number}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Customer ID</label>
+            {editing ? (
+              <input
+                type="number"
+                value={form.customer_id || ""}
+                onChange={(e) => setForm((f) => ({ ...f, customer_id: Number(e.target.value) }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            ) : (
+              <p className="text-sm font-medium">{quotation.customer_id}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Status</label>
+            {editing ? (
+              <select
+                value={form.status}
+                onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              >
+                <option value="draft">Draft</option>
+                <option value="sent">Sent</option>
+                <option value="accepted">Accepted</option>
+                <option value="rejected">Rejected</option>
+                <option value="expired">Expired</option>
+              </select>
+            ) : (
+              <StatusBadge
+                status={quotation.status}
+                variant={mapStatusVariant(quotation.status)}
+              />
+            )}
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Date</label>
+            {editing ? (
+              <input
+                type="date"
+                value={form.date}
+                onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            ) : (
+              <p className="text-sm font-medium">{quotation.date}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Expiry Date</label>
+            {editing ? (
+              <input
+                type="date"
+                value={form.expiry}
+                onChange={(e) => setForm((f) => ({ ...f, expiry: e.target.value }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            ) : (
+              <p className="text-sm font-medium">{quotation.expiry ?? "N/A"}</p>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card shadow-sm">
-        <div className="p-6 border-b border-border">
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-            <div>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                From
-              </h3>
-              <div className="space-y-1">
-                <p className="font-semibold">Klyron ERP Solutions</p>
-                <p className="text-sm text-muted-foreground">
-                  456 Tech Park, San Francisco, CA 94102
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  billing@klyron-erp.com
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  +1 (555) 999-0000
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                Bill To
-              </h3>
-              <div className="space-y-1">
-                <p className="font-semibold">{quotation.customer}</p>
-                <p className="text-sm text-muted-foreground">
-                  {quotation.contact} • {quotation.title}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {quotation.email}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {quotation.phone}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {quotation.address}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6">
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <h3 className="text-lg font-semibold mb-4">Items</h3>
+        <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Item
+                  Item ID
                 </th>
-                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 w-20">
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Qty
                 </th>
-                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 w-32">
-                  Unit Price
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                  Price
                 </th>
-                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 w-32">
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                  Tax
+                </th>
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Total
                 </th>
               </tr>
             </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id} className="border-b border-border/50">
-                  <td className="py-3 px-4">
-                    <span className="text-sm">{item.description}</span>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <span className="text-sm text-muted-foreground">
-                      {item.quantity}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <span className="text-sm text-muted-foreground">
-                      ${item.unitPrice.toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <span className="text-sm font-medium">
-                      ${item.total.toLocaleString()}
-                    </span>
-                  </td>
+            <tbody className="divide-y divide-border/50">
+              {(quotation.items ?? []).map((item) => (
+                <tr key={item.id} className="hover:bg-muted/5 transition-colors">
+                  <td className="py-3 px-4 text-sm font-medium">{item.item_id}</td>
+                  <td className="py-3 px-4 text-right text-sm">{item.qty}</td>
+                  <td className="py-3 px-4 text-right text-sm">${item.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  <td className="py-3 px-4 text-right text-sm">${item.tax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  <td className="py-3 px-4 text-right text-sm font-semibold">${item.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t border-border">
+                <td colSpan={4} className="py-3 px-4 text-right text-sm text-muted-foreground">Subtotal</td>
+                <td className="py-3 px-4 text-right text-sm font-semibold">${quotation.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+              </tr>
+              <tr>
+                <td colSpan={4} className="py-3 px-4 text-right text-sm text-muted-foreground">Tax</td>
+                <td className="py-3 px-4 text-right text-sm font-semibold">${quotation.tax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+              </tr>
+              <tr className="border-t border-border bg-muted/30">
+                <td colSpan={4} className="py-3 px-4 text-right text-sm font-bold">Total</td>
+                <td className="py-3 px-4 text-right text-lg font-bold text-primary">${quotation.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+              </tr>
+            </tfoot>
           </table>
-
-          <div className="flex justify-end mt-6">
-            <div className="w-72 space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Subtotal</span>
-                <span className="text-sm font-medium">
-                  ${subtotal.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Discount ({discountPercent}%)
-                </span>
-                <span className="text-sm text-danger">
-                  -${discountAmount.toLocaleString()}
-                </span>
-              </div>
-              <div className="border-t border-border pt-3 flex justify-between">
-                <span className="text-base font-semibold">Total</span>
-                <span className="text-xl font-bold text-primary">
-                  ${total.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="rounded-2xl border border-border bg-card shadow-sm p-6">
-          <h3 className="text-lg font-semibold mb-4">Terms & Notes</h3>
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Payment Terms</p>
-                <p className="text-xs text-muted-foreground">
-                  {quotation.paymentTerms}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Valid Until</p>
-                <p className="text-xs text-muted-foreground">
-                  {quotation.validUntil}
-                </p>
-              </div>
-            </div>
-            <div className="p-3 rounded-xl bg-muted/50">
-              <p className="text-sm font-medium mb-1">Notes</p>
-              <p className="text-sm text-muted-foreground">
-                {quotation.notes}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card shadow-sm p-6">
-          <h3 className="text-lg font-semibold mb-4">Activity</h3>
-          <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center shrink-0">
-                <Check className="h-4 w-4 text-success" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Quotation created</p>
-                <p className="text-xs text-muted-foreground">
-                  Mar 24, 2024 at 10:30 AM
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-info/10 flex items-center justify-center shrink-0">
-                <Send className="h-4 w-4 text-info" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Sent to customer</p>
-                <p className="text-xs text-muted-foreground">
-                  Mar 24, 2024 at 11:15 AM
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <Copy className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Customer viewed quote</p>
-                <p className="text-xs text-muted-foreground">
-                  Mar 25, 2024 at 2:45 PM
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {showConvertModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card rounded-2xl border border-border p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-2">
-              Convert to Sales Order?
-            </h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              This will create a new sales order from this quotation. The
-              quotation will be marked as converted.
-            </p>
-            <div className="flex items-center justify-end gap-3">
-              <button
-                onClick={() => setShowConvertModal(false)}
-                className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80"
-              >
-                Cancel
-              </button>
-              <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
-                <ShoppingCart className="h-4 w-4" />
-                Convert to Order
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

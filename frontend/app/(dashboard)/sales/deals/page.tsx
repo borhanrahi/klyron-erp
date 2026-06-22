@@ -9,69 +9,65 @@ import {
   Filter,
   Plus,
   Eye,
-  Edit,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
-  ArrowUpDown,
-  DollarSign,
-  Calendar,
-  Target,
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiDelete } from "@/lib/api";
 
 interface Deal {
-  id: string;
+  id: number;
   title: string;
-  company: string;
-  value: string;
+  value: number;
+  currency: string;
   stage: string;
-  stageVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
   probability: number;
-  expectedClose: string;
-  owner: string;
-  created: string;
+  expected_close: string | null;
+  status: string;
+  created_at: string;
 }
 
-function mapStageVariant(stage: string): Deal["stageVariant"] {
+function mapStageVariant(stage: string) {
   const s = (stage || "").toLowerCase();
-  if (s === "closed won" || s === "won") return "success";
-  if (s === "negotiation" || s === "proposal") return "warning";
-  if (s === "closed lost" || s === "lost") return "danger";
-  if (s === "discovery" || s === "qualification") return "muted";
-  if (s === "proposal sent" || s === "demo" || s === "meeting") return "info";
-  return "primary";
+  if (s === "closed_won" || s === "won") return "success" as const;
+  if (s === "negotiation" || s === "proposal") return "warning" as const;
+  if (s === "closed_lost" || s === "lost") return "danger" as const;
+  if (s === "qualification") return "muted" as const;
+  return "primary" as const;
 }
 
 function mapDeal(raw: any): Deal {
   return {
-    id: raw.id ?? raw.ID ?? "",
-    title: raw.title ?? raw.deal_name ?? raw.name ?? "",
-    company: raw.company ?? raw.company_name ?? raw.account_name ?? "",
-    value: raw.value ?? raw.deal_value ?? raw.amount ?? "$0",
-    stage: raw.stage ?? raw.deal_stage ?? "",
-    stageVariant: mapStageVariant(raw.stage),
-    probability: raw.probability ?? raw.win_probability ?? 0,
-    expectedClose: raw.expectedClose ?? raw.expected_close_date ?? "",
-    owner: raw.owner ?? raw.assigned_to ?? "",
-    created: raw.created ?? raw.created_at ?? raw.date_created ?? "",
+    id: raw.id ?? raw.ID ?? 0,
+    title: raw.title ?? "",
+    value: raw.value ?? 0,
+    currency: raw.currency ?? "USD",
+    stage: raw.stage ?? "",
+    probability: raw.probability ?? 0,
+    expected_close: raw.expected_close ?? null,
+    status: raw.status ?? "",
+    created_at: raw.created_at ?? "",
   };
 }
 
-const dealStats = [
-  { label: "Total Pipeline", value: "$993,000", change: "+$120K this month" },
-  { label: "Won This Month", value: "$73,500", change: "+18% vs last month" },
-  { label: "Avg Deal Size", value: "$111,625", change: "+$8K vs last quarter" },
-  { label: "Win Rate", value: "32.5%", change: "+4.2% vs last quarter" },
-];
+function formatCurrency(value: number, currency: string) {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency || "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `${value}`;
+  }
+}
 
 export default function DealsListPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedStage, setSelectedStage] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState("All");
 
   useEffect(() => {
     async function fetchDeals() {
@@ -89,13 +85,21 @@ export default function DealsListPage() {
   }, []);
 
   const filteredDeals = deals.filter((deal) => {
-    const matchesSearch =
-      deal.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      deal.company.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStage =
-      selectedStage === "All" || deal.stage === selectedStage;
-    return matchesSearch && matchesStage;
+    const matchesSearch = deal.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      selectedStatus === "All" || deal.status.toLowerCase() === selectedStatus.toLowerCase();
+    return matchesSearch && matchesStatus;
   });
+
+  async function handleDelete(id: number) {
+    if (!confirm("Are you sure you want to delete this deal?")) return;
+    try {
+      await apiDelete(`/sales/deals/${id}`);
+      setDeals((prev) => prev.filter((d) => d.id !== id));
+    } catch (err) {
+      console.error("Failed to delete deal:", err);
+    }
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -123,24 +127,11 @@ export default function DealsListPage() {
               className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
-              New Deal
+              Add Deal
             </Link>
           </div>
         }
       />
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {dealStats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-2xl border border-border bg-card p-5 shadow-sm"
-          >
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
-            <p className="text-2xl font-bold mt-1">{stat.value}</p>
-            <p className="text-xs text-success mt-1">{stat.change}</p>
-          </div>
-        ))}
-      </div>
 
       <div className="rounded-2xl border border-border bg-card shadow-sm">
         <div className="p-4 border-b border-border">
@@ -157,16 +148,14 @@ export default function DealsListPage() {
             </div>
             <div className="flex items-center gap-2">
               <select
-                value={selectedStage}
-                onChange={(e) => setSelectedStage(e.target.value)}
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
                 className="px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               >
-                <option value="All">Stage: All</option>
-                <option value="Discovery">Discovery</option>
-                <option value="Proposal">Proposal</option>
-                <option value="Negotiation">Negotiation</option>
-                <option value="Closed Won">Closed Won</option>
-                <option value="Closed Lost">Closed Lost</option>
+                <option value="All">Status: All</option>
+                <option value="open">Open</option>
+                <option value="won">Won</option>
+                <option value="lost">Lost</option>
               </select>
               <button className="flex items-center gap-2 px-3 py-2 bg-muted border border-border rounded-lg text-sm hover:bg-muted/80 transition-colors">
                 <Filter className="h-4 w-4" />
@@ -188,24 +177,21 @@ export default function DealsListPage() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      <button className="flex items-center gap-1 hover:text-foreground transition-colors">
-                        Deal
-                        <ArrowUpDown className="h-3 w-3" />
-                      </button>
-                    </th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
-                      Company
+                      Title
                     </th>
                     <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Value
                     </th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
                       Stage
                     </th>
                     <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
                       Probability
                     </th>
                     <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                      Status
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden xl:table-cell">
                       Expected Close
                     </th>
                     <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
@@ -220,23 +206,17 @@ export default function DealsListPage() {
                       className="hover:bg-muted/5 transition-colors"
                     >
                       <td className="py-3 px-4">
-                        <div>
-                          <p className="text-sm font-medium">{deal.title}</p>
-                          <p className="text-xs text-muted-foreground">{deal.id}</p>
-                        </div>
+                        <span className="text-sm font-medium">{deal.title}</span>
                       </td>
-                      <td className="py-3 px-4 hidden md:table-cell">
-                        <span className="text-sm text-muted-foreground">
-                          {deal.company}
+                      <td className="py-3 px-4">
+                        <span className="text-sm font-semibold">
+                          {formatCurrency(deal.value, deal.currency)}
                         </span>
                       </td>
-                      <td className="py-3 px-4">
-                        <span className="text-sm font-semibold">{deal.value}</span>
-                      </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 hidden md:table-cell">
                         <StatusBadge
-                          status={deal.stage}
-                          variant={deal.stageVariant}
+                          status={deal.stage.replace(/_/g, " ")}
+                          variant={mapStageVariant(deal.stage)}
                         />
                       </td>
                       <td className="py-3 px-4 hidden lg:table-cell">
@@ -247,14 +227,26 @@ export default function DealsListPage() {
                               style={{ width: `${deal.probability}%` }}
                             />
                           </div>
-                          <span className="text-xs text-muted-foreground">
-                            {deal.probability}%
-                          </span>
+                          <span className="text-xs text-muted-foreground">{deal.probability}%</span>
                         </div>
                       </td>
                       <td className="py-3 px-4 hidden lg:table-cell">
+                        <StatusBadge
+                          status={deal.status}
+                          variant={
+                            deal.status === "won"
+                              ? "success"
+                              : deal.status === "lost"
+                                ? "danger"
+                                : "info"
+                          }
+                        />
+                      </td>
+                      <td className="py-3 px-4 hidden xl:table-cell">
                         <span className="text-sm text-muted-foreground">
-                          {deal.expectedClose}
+                          {deal.expected_close
+                            ? new Date(deal.expected_close).toLocaleDateString()
+                            : "N/A"}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
@@ -265,10 +257,10 @@ export default function DealsListPage() {
                           >
                             <Eye className="h-4 w-4" />
                           </Link>
-                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger">
+                          <button
+                            onClick={() => handleDelete(deal.id)}
+                            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger"
+                          >
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
@@ -279,24 +271,10 @@ export default function DealsListPage() {
               </table>
             </div>
 
-            <div className="p-4 border-t border-border flex items-center justify-between">
+            <div className="p-4 border-t border-border">
               <p className="text-sm text-muted-foreground">
                 Showing {filteredDeals.length} of {deals.length} deals
               </p>
-              <div className="flex items-center gap-2">
-                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">
-                  1
-                </button>
-                <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">
-                  2
-                </button>
-                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
             </div>
           </>
         )}

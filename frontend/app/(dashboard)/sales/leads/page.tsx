@@ -9,67 +9,46 @@ import {
   Filter,
   Plus,
   Eye,
-  Edit,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
-  ArrowUpDown,
-  Phone,
-  Mail,
-  Building2,
-  Star,
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiDelete } from "@/lib/api";
 
 interface Lead {
-  id: string;
+  id: number;
   name: string;
-  company: string;
   email: string;
   phone: string;
   source: string;
   status: string;
-  statusVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
   score: number;
-  value: string;
-  owner: string;
-  created: string;
+  notes: string;
+  created_at: string;
 }
 
-function mapStatusVariant(status: string): Lead["statusVariant"] {
+function mapStatusVariant(status: string) {
   const s = (status || "").toLowerCase();
-  if (s === "qualified" || s === "won") return "success";
-  if (s === "contacted" || s === "in progress" || s === "proposal sent") return "warning";
-  if (s === "unqualified" || s === "lost") return "danger";
-  if (s === "new" || s === "open") return "info";
-  return "primary";
+  if (s === "qualified" || s === "won") return "success" as const;
+  if (s === "contacted" || s === "proposal") return "warning" as const;
+  if (s === "lost") return "danger" as const;
+  if (s === "new") return "info" as const;
+  return "primary" as const;
 }
 
 function mapLead(raw: any): Lead {
   return {
-    id: raw.id ?? raw.ID ?? "",
-    name: raw.name ?? raw.lead_name ?? raw.contact_name ?? "",
-    company: raw.company ?? raw.company_name ?? "",
-    email: raw.email ?? raw.contact_email ?? "",
-    phone: raw.phone ?? raw.contact_phone ?? "",
-    source: raw.source ?? raw.lead_source ?? "",
-    status: raw.status ?? "New",
-    statusVariant: mapStatusVariant(raw.status),
-    score: raw.score ?? raw.lead_score ?? 0,
-    value: raw.value ?? raw.deal_value ?? raw.estimated_value ?? "$0",
-    owner: raw.owner ?? raw.assigned_to ?? "",
-    created: raw.created ?? raw.created_at ?? raw.date_created ?? "",
+    id: raw.id ?? raw.ID ?? 0,
+    name: raw.name ?? "",
+    email: raw.email ?? "",
+    phone: raw.phone ?? "",
+    source: raw.source ?? "",
+    status: raw.status ?? "new",
+    score: raw.score ?? 0,
+    notes: raw.notes ?? "",
+    created_at: raw.created_at ?? "",
   };
 }
-
-const leadStats = [
-  { label: "Total Leads", value: "156", change: "+24 this month" },
-  { label: "Qualified", value: "42", change: "+8 this week" },
-  { label: "Conversion Rate", value: "18.5%", change: "+2.3% vs last month" },
-  { label: "Pipeline Value", value: "$2.1M", change: "+$340K this quarter" },
-];
 
 export default function LeadsListPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -95,11 +74,21 @@ export default function LeadsListPage() {
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch =
       lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.company.toLowerCase().includes(searchTerm.toLowerCase());
+      lead.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
-      selectedStatus === "All" || lead.status === selectedStatus;
+      selectedStatus === "All" || lead.status.toLowerCase() === selectedStatus.toLowerCase();
     return matchesSearch && matchesStatus;
   });
+
+  async function handleDelete(id: number) {
+    if (!confirm("Are you sure you want to delete this lead?")) return;
+    try {
+      await apiDelete(`/sales/leads/${id}`);
+      setLeads((prev) => prev.filter((l) => l.id !== id));
+    } catch (err) {
+      console.error("Failed to delete lead:", err);
+    }
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -133,19 +122,6 @@ export default function LeadsListPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {leadStats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-2xl border border-border bg-card p-5 shadow-sm"
-          >
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
-            <p className="text-2xl font-bold mt-1">{stat.value}</p>
-            <p className="text-xs text-success mt-1">{stat.change}</p>
-          </div>
-        ))}
-      </div>
-
       <div className="rounded-2xl border border-border bg-card shadow-sm">
         <div className="p-4 border-b border-border">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -166,11 +142,12 @@ export default function LeadsListPage() {
                 className="px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               >
                 <option value="All">Status: All</option>
-                <option value="New">New</option>
-                <option value="Contacted">Contacted</option>
-                <option value="Qualified">Qualified</option>
-                <option value="Proposal Sent">Proposal Sent</option>
-                <option value="Unqualified">Unqualified</option>
+                <option value="new">New</option>
+                <option value="contacted">Contacted</option>
+                <option value="qualified">Qualified</option>
+                <option value="proposal">Proposal</option>
+                <option value="won">Won</option>
+                <option value="lost">Lost</option>
               </select>
               <button className="flex items-center gap-2 px-3 py-2 bg-muted border border-border rounded-lg text-sm hover:bg-muted/80 transition-colors">
                 <Filter className="h-4 w-4" />
@@ -192,13 +169,13 @@ export default function LeadsListPage() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      <button className="flex items-center gap-1 hover:text-foreground transition-colors">
-                        Lead
-                        <ArrowUpDown className="h-3 w-3" />
-                      </button>
+                      Name
                     </th>
                     <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
-                      Company
+                      Email
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                      Phone
                     </th>
                     <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
                       Source
@@ -208,9 +185,6 @@ export default function LeadsListPage() {
                     </th>
                     <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
                       Score
-                    </th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      Value
                     </th>
                     <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Actions
@@ -229,30 +203,25 @@ export default function LeadsListPage() {
                             {lead.name
                               .split(" ")
                               .map((n) => n[0])
-                              .join("")}
+                              .join("")
+                              .slice(0, 2)}
                           </div>
-                          <div>
-                            <p className="text-sm font-medium">{lead.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {lead.email}
-                            </p>
-                          </div>
+                          <span className="text-sm font-medium">{lead.name}</span>
                         </div>
                       </td>
                       <td className="py-3 px-4 hidden md:table-cell">
-                        <span className="text-sm text-muted-foreground">
-                          {lead.company}
-                        </span>
+                        <span className="text-sm text-muted-foreground">{lead.email}</span>
                       </td>
                       <td className="py-3 px-4 hidden lg:table-cell">
-                        <span className="text-sm text-muted-foreground">
-                          {lead.source}
-                        </span>
+                        <span className="text-sm text-muted-foreground">{lead.phone}</span>
+                      </td>
+                      <td className="py-3 px-4 hidden lg:table-cell">
+                        <span className="text-sm text-muted-foreground capitalize">{lead.source}</span>
                       </td>
                       <td className="py-3 px-4">
                         <StatusBadge
                           status={lead.status}
-                          variant={lead.statusVariant}
+                          variant={mapStatusVariant(lead.status)}
                         />
                       </td>
                       <td className="py-3 px-4 hidden lg:table-cell">
@@ -266,16 +235,11 @@ export default function LeadsListPage() {
                                     ? "bg-warning"
                                     : "bg-danger"
                               }`}
-                              style={{ width: `${lead.score}%` }}
+                              style={{ width: `${Math.min(lead.score, 100)}%` }}
                             />
                           </div>
-                          <span className="text-xs text-muted-foreground">
-                            {lead.score}
-                          </span>
+                          <span className="text-xs text-muted-foreground">{lead.score}</span>
                         </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="text-sm font-semibold">{lead.value}</span>
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -285,10 +249,10 @@ export default function LeadsListPage() {
                           >
                             <Eye className="h-4 w-4" />
                           </Link>
-                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger">
+                          <button
+                            onClick={() => handleDelete(lead.id)}
+                            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger"
+                          >
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
@@ -299,24 +263,10 @@ export default function LeadsListPage() {
               </table>
             </div>
 
-            <div className="p-4 border-t border-border flex items-center justify-between">
+            <div className="p-4 border-t border-border">
               <p className="text-sm text-muted-foreground">
                 Showing {filteredLeads.length} of {leads.length} leads
               </p>
-              <div className="flex items-center gap-2">
-                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">
-                  1
-                </button>
-                <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">
-                  2
-                </button>
-                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
             </div>
           </>
         )}

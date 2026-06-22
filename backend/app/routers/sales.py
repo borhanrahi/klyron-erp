@@ -558,23 +558,36 @@ async def create_quotation(
     current_user: User = Depends(require_company),
 ):
     items_data = data.items
-    quote_data = data.model_dump(exclude={"items"})
+    quote_data = data.model_dump(exclude={"items"}, exclude_unset=True, exclude_none=True)
     quotation = Quotation(**quote_data, company_id=current_user.company_id)
     db.add(quotation)
     await db.flush()
     await db.refresh(quotation)
 
+    created_items = []
     for item_data in items_data:
-        item = QuotationItem(**item_data.model_dump(), quotation_id=quotation.id)
+        item = QuotationItem(**item_data.model_dump(exclude={"id"}, exclude_none=True), quotation_id=quotation.id)
         db.add(item)
-    await db.flush()
+        await db.flush()
+        await db.refresh(item)
+        created_items.append(item)
 
-    items_result = await db.execute(
-        select(QuotationItem).where(QuotationItem.quotation_id == quotation.id)
+    resp = QuotationResponse(
+        id=quotation.id,
+        quote_number=quotation.quote_number,
+        customer_id=quotation.customer_id,
+        date=quotation.date,
+        expiry=quotation.expiry,
+        status=quotation.status,
+        subtotal=float(quotation.subtotal or 0),
+        tax=float(quotation.tax or 0),
+        total=float(quotation.total or 0),
+        converted_to_order_id=quotation.converted_to_order_id,
+        company_id=quotation.company_id,
+        created_at=quotation.created_at,
+        items=[QuotationItemResponse.model_validate(i) for i in created_items],
     )
-    quotation.items = items_result.scalars().all()
-
-    return ResponseModel(data=QuotationResponse.model_validate(quotation))
+    return ResponseModel(data=resp)
 
 
 @router.put("/quotations/{quotation_id}", response_model=ResponseModel)
@@ -599,21 +612,36 @@ async def update_quotation(
     for k, v in update_data.items():
         setattr(quotation, k, v)
 
+    created_items = []
     if data.items is not None:
         from sqlalchemy import delete as sa_delete
         await db.execute(sa_delete(QuotationItem).where(QuotationItem.quotation_id == quotation.id))
         for item_data in data.items:
-            item = QuotationItem(**item_data.model_dump(), quotation_id=quotation.id)
+            item = QuotationItem(**item_data.model_dump(exclude={"id"}, exclude_none=True), quotation_id=quotation.id)
             db.add(item)
+            await db.flush()
+            await db.refresh(item)
+            created_items.append(item)
 
     await db.flush()
+    await db.refresh(quotation)
 
-    items_result = await db.execute(
-        select(QuotationItem).where(QuotationItem.quotation_id == quotation.id)
+    resp = QuotationResponse(
+        id=quotation.id,
+        quote_number=quotation.quote_number,
+        customer_id=quotation.customer_id,
+        date=quotation.date,
+        expiry=quotation.expiry,
+        status=quotation.status,
+        subtotal=float(quotation.subtotal or 0),
+        tax=float(quotation.tax or 0),
+        total=float(quotation.total or 0),
+        converted_to_order_id=quotation.converted_to_order_id,
+        company_id=quotation.company_id,
+        created_at=quotation.created_at,
+        items=[QuotationItemResponse.model_validate(i) for i in created_items],
     )
-    quotation.items = items_result.scalars().all()
-
-    return ResponseModel(data=QuotationResponse.model_validate(quotation))
+    return ResponseModel(data=resp)
 
 
 @router.delete("/quotations/{quotation_id}", response_model=ResponseModel)
@@ -711,23 +739,37 @@ async def create_sales_order(
     current_user: User = Depends(require_company),
 ):
     items_data = data.items
-    order_data = data.model_dump(exclude={"items"})
+    order_data = data.model_dump(exclude={"items"}, exclude_unset=True, exclude_none=True)
     order = SalesOrder(**order_data, company_id=current_user.company_id)
     db.add(order)
     await db.flush()
     await db.refresh(order)
 
+    created_items = []
     for item_data in items_data:
-        item = SalesOrderItem(**item_data.model_dump(), sales_order_id=order.id)
+        item = SalesOrderItem(**item_data.model_dump(exclude={"id"}, exclude_none=True), sales_order_id=order.id)
         db.add(item)
-    await db.flush()
+        await db.flush()
+        await db.refresh(item)
+        created_items.append(item)
 
-    items_result = await db.execute(
-        select(SalesOrderItem).where(SalesOrderItem.sales_order_id == order.id)
+    resp = SalesOrderResponse(
+        id=order.id,
+        order_number=order.order_number,
+        customer_id=order.customer_id,
+        quotation_id=order.quotation_id,
+        date=order.date,
+        status=order.status,
+        subtotal=float(order.subtotal or 0),
+        tax=float(order.tax or 0),
+        total=float(order.total or 0),
+        delivery_date=order.delivery_date,
+        shipping_address=order.shipping_address,
+        company_id=order.company_id,
+        created_at=order.created_at,
+        items=[SalesOrderItemResponse.model_validate(i) for i in created_items],
     )
-    order.items = items_result.scalars().all()
-
-    return ResponseModel(data=SalesOrderResponse.model_validate(order))
+    return ResponseModel(data=resp)
 
 
 @router.put("/orders/{order_id}", response_model=ResponseModel)
@@ -752,21 +794,37 @@ async def update_sales_order(
     for k, v in update_data.items():
         setattr(order, k, v)
 
+    created_items = []
     if data.items is not None:
         from sqlalchemy import delete as sa_delete
         await db.execute(sa_delete(SalesOrderItem).where(SalesOrderItem.sales_order_id == order.id))
         for item_data in data.items:
-            item = SalesOrderItem(**item_data.model_dump(), sales_order_id=order.id)
+            item = SalesOrderItem(**item_data.model_dump(exclude={"id"}, exclude_none=True), sales_order_id=order.id)
             db.add(item)
+            await db.flush()
+            await db.refresh(item)
+            created_items.append(item)
 
     await db.flush()
+    await db.refresh(order)
 
-    items_result = await db.execute(
-        select(SalesOrderItem).where(SalesOrderItem.sales_order_id == order.id)
+    resp = SalesOrderResponse(
+        id=order.id,
+        order_number=order.order_number,
+        customer_id=order.customer_id,
+        quotation_id=order.quotation_id,
+        date=order.date,
+        status=order.status,
+        subtotal=float(order.subtotal or 0),
+        tax=float(order.tax or 0),
+        total=float(order.total or 0),
+        delivery_date=order.delivery_date,
+        shipping_address=order.shipping_address,
+        company_id=order.company_id,
+        created_at=order.created_at,
+        items=[SalesOrderItemResponse.model_validate(i) for i in created_items],
     )
-    order.items = items_result.scalars().all()
-
-    return ResponseModel(data=SalesOrderResponse.model_validate(order))
+    return ResponseModel(data=resp)
 
 
 @router.delete("/orders/{order_id}", response_model=ResponseModel)

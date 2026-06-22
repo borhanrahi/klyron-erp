@@ -1,91 +1,161 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, use } from "react";
+import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
+  ShoppingCart,
   ArrowLeft,
-  Download,
-  Printer,
-  Send,
+  Loader2,
+  Save,
+  Trash2,
   Truck,
-  MapPin,
-  CreditCard,
-  FileText,
-  Clock,
   Package,
   CheckCircle,
+  XCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { apiGet, apiPut, apiDelete } from "@/lib/api";
 
-const order = {
-  id: "SO-2024-001",
-  status: "Confirmed",
-  statusVariant: "success" as const,
-  date: "Mar 24, 2024",
-  customer: {
-    name: "Acme Corp",
-    email: "orders@acme.com",
-    phone: "+1 (555) 987-6543",
-    address: "456 Business Ave, Suite 100, New York, NY 10001",
-  },
-  shipping: {
-    method: "Express Shipping",
-    address: "456 Business Ave, Suite 100, New York, NY 10001",
-    estimatedDelivery: "Mar 27, 2024",
-    trackingNumber: "1Z999AA10123456784",
-  },
-  payment: {
-    method: "Credit Card",
-    last4: "4242",
-    subtotal: "$11,750.00",
-    tax: "$750.00",
-    shipping: "$0.00",
-    total: "$12,500.00",
-  },
-  items: [
-    {
-      id: 1,
-      name: "Enterprise License",
-      sku: "LIC-ENT-001",
-      quantity: 5,
-      price: "$2,000.00",
-      total: "$10,000.00",
-    },
-    {
-      id: 2,
-      name: "Priority Support (12 months)",
-      sku: "SUP-PRI-012",
-      quantity: 5,
-      price: "$350.00",
-      total: "$1,750.00",
-    },
-  ],
-  timeline: [
-    {
-      date: "Mar 24, 2024 10:30 AM",
-      event: "Order confirmed",
-      icon: CheckCircle,
-      color: "text-success",
-    },
-    {
-      date: "Mar 24, 2024 10:15 AM",
-      event: "Payment received",
-      icon: CreditCard,
-      color: "text-primary",
-    },
-    {
-      date: "Mar 24, 2024 10:00 AM",
-      event: "Order created",
-      icon: FileText,
-      color: "text-muted-foreground",
-    },
-  ],
+interface OrderItem {
+  id: number;
+  item_id: number;
+  qty: number;
+  price: number;
+  tax: number;
+  total: number;
+}
+
+interface Order {
+  id: number;
+  order_number: string;
+  customer_id: number;
+  status: string;
+  subtotal: number;
+  tax: number;
+  total: number;
+  delivery_date: string | null;
+  shipping_address: string | null;
+  created_at: string;
+  items: OrderItem[];
+}
+
+function mapStatusVariant(status: string) {
+  const s = (status || "").toLowerCase();
+  if (s === "confirmed" || s === "delivered" || s === "completed") return "success" as const;
+  if (s === "pending" || s === "processing" || s === "draft") return "warning" as const;
+  if (s === "cancelled" || s === "failed") return "danger" as const;
+  if (s === "shipped") return "primary" as const;
+  return "info" as const;
+}
+
+const STATUS_OPTIONS = ["draft", "confirmed", "processing", "shipped", "delivered", "cancelled"];
+
+const STATUS_ACTIONS: Record<string, { label: string; nextStatus: string; icon: typeof Truck; variant: string }> = {
+  draft: { label: "Confirm", nextStatus: "confirmed", icon: CheckCircle, variant: "bg-primary" },
+  confirmed: { label: "Start Processing", nextStatus: "processing", icon: Package, variant: "bg-primary" },
+  processing: { label: "Ship", nextStatus: "shipped", icon: Truck, variant: "bg-primary" },
+  shipped: { label: "Deliver", nextStatus: "delivered", icon: CheckCircle, variant: "bg-success" },
 };
 
-export default function SalesOrderDetailsPage() {
+export default function SalesOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const router = useRouter();
+
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [editStatus, setEditStatus] = useState("");
+  const [editDeliveryDate, setEditDeliveryDate] = useState("");
+  const [editShippingAddress, setEditShippingAddress] = useState("");
+
+  useEffect(() => {
+    fetchOrder();
+  }, [id]);
+
+  async function fetchOrder() {
+    try {
+      setLoading(true);
+      const data = await apiGet<Order>(`/sales/orders/${id}`);
+      setOrder(data);
+      setEditStatus(data.status);
+      setEditDeliveryDate(data.delivery_date ?? "");
+      setEditShippingAddress(data.shipping_address ?? "");
+    } catch (err) {
+      console.error("Failed to fetch order:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSave() {
+    if (!order) return;
+    try {
+      setSaving(true);
+      const updated = await apiPut<Order>(`/sales/orders/${id}`, {
+        status: editStatus,
+        delivery_date: editDeliveryDate || null,
+        shipping_address: editShippingAddress || null,
+      });
+      setOrder(updated);
+      setEditMode(false);
+    } catch (err) {
+      console.error("Failed to update order:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleStatusChange(nextStatus: string) {
+    if (!order) return;
+    try {
+      setSaving(true);
+      const updated = await apiPut<Order>(`/sales/orders/${id}`, {
+        status: nextStatus,
+      });
+      setOrder(updated);
+      setEditStatus(nextStatus);
+    } catch (err) {
+      console.error("Failed to update status:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm("Are you sure you want to delete this order?")) return;
+    try {
+      await apiDelete(`/sales/orders/${id}`);
+      router.push("/sales/orders");
+    } catch (err) {
+      console.error("Failed to delete order:", err);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <span className="ml-2 text-sm text-muted-foreground">Loading order...</span>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="text-center py-20 text-muted-foreground">
+        Order not found.
+      </div>
+    );
+  }
+
+  const statusAction = STATUS_ACTIONS[order.status];
+
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200 max-w-6xl mx-auto">
-      {/* Back Link */}
       <Link
         href="/sales/orders"
         className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -94,40 +164,58 @@ export default function SalesOrderDetailsPage() {
         Back to Sales Orders
       </Link>
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+      <PageHeader
+        title={`Sales Order ${order.order_number}`}
+        description={`Created on ${new Date(order.created_at).toLocaleDateString()}`}
+        icon={<ShoppingCart className="h-6 w-6 text-primary" />}
+        actions={
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{order.id}</h1>
-            <StatusBadge
-              status={order.status}
-              variant={order.statusVariant}
-            />
+            {statusAction && (
+              <button
+                onClick={() => handleStatusChange(statusAction.nextStatus)}
+                disabled={saving}
+                className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2 disabled:opacity-50"
+              >
+                <statusAction.icon className="h-4 w-4" />
+                {statusAction.label}
+              </button>
+            )}
+            {!editMode ? (
+              <button
+                onClick={() => setEditMode(true)}
+                className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80"
+              >
+                Edit
+              </button>
+            ) : (
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2 disabled:opacity-50"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Save Changes
+              </button>
+            )}
+            <button
+              onClick={handleDelete}
+              className="border border-danger/30 bg-danger/10 text-danger px-4 py-2 rounded-lg font-medium transition-all hover:bg-danger/20 flex items-center gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </button>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Created on {order.date}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Export
-          </button>
-          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-            <Printer className="h-4 w-4" />
-            Print
-          </button>
-          <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2">
-            <Truck className="h-4 w-4" />
-            Ship Order
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Order Items */}
+          {/* Order Items Table */}
           <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
             <div className="p-4 border-b border-border">
               <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -140,13 +228,16 @@ export default function SalesOrderDetailsPage() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      Item
+                      Item ID
                     </th>
                     <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Qty
                     </th>
                     <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Price
+                    </th>
+                    <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      Tax
                     </th>
                     <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Total
@@ -156,153 +247,116 @@ export default function SalesOrderDetailsPage() {
                 <tbody className="divide-y divide-border/50">
                   {order.items.map((item) => (
                     <tr key={item.id} className="hover:bg-muted/5 transition-colors">
-                      <td className="py-3 px-4">
-                        <p className="text-sm font-medium">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.sku}</p>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="text-sm">{item.quantity}</span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="text-sm">{item.price}</span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="text-sm font-semibold">{item.total}</span>
+                      <td className="py-3 px-4 text-sm font-medium">{item.item_id}</td>
+                      <td className="py-3 px-4 text-right text-sm">{item.qty}</td>
+                      <td className="py-3 px-4 text-right text-sm">${item.price.toFixed(2)}</td>
+                      <td className="py-3 px-4 text-right text-sm">${item.tax.toFixed(2)}</td>
+                      <td className="py-3 px-4 text-right text-sm font-semibold">
+                        ${item.total.toFixed(2)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-border">
-                    <td colSpan={3} className="py-3 px-4 text-right text-sm text-muted-foreground">
+                    <td colSpan={4} className="py-3 px-4 text-right text-sm text-muted-foreground">
                       Subtotal
                     </td>
                     <td className="py-3 px-4 text-right text-sm font-semibold">
-                      {order.payment.subtotal}
+                      ${order.subtotal.toFixed(2)}
                     </td>
                   </tr>
                   <tr>
-                    <td colSpan={3} className="py-3 px-4 text-right text-sm text-muted-foreground">
+                    <td colSpan={4} className="py-3 px-4 text-right text-sm text-muted-foreground">
                       Tax
                     </td>
                     <td className="py-3 px-4 text-right text-sm font-semibold">
-                      {order.payment.tax}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td colSpan={3} className="py-3 px-4 text-right text-sm text-muted-foreground">
-                      Shipping
-                    </td>
-                    <td className="py-3 px-4 text-right text-sm font-semibold">
-                      {order.payment.shipping}
+                      ${order.tax.toFixed(2)}
                     </td>
                   </tr>
                   <tr className="border-t border-border bg-muted/30">
-                    <td colSpan={3} className="py-3 px-4 text-right text-sm font-bold">
+                    <td colSpan={4} className="py-3 px-4 text-right text-sm font-bold">
                       Total
                     </td>
                     <td className="py-3 px-4 text-right text-lg font-bold text-primary">
-                      {order.payment.total}
+                      ${order.total.toFixed(2)}
                     </td>
                   </tr>
                 </tfoot>
               </table>
             </div>
           </div>
-
-          {/* Timeline */}
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
-              Order Timeline
-            </h3>
-            <div className="relative">
-              <div className="absolute left-5 top-0 bottom-0 w-px bg-border" />
-              <div className="space-y-4">
-                {order.timeline.map((event, i) => {
-                  const Icon = event.icon;
-                  return (
-                    <div key={i} className="relative pl-12">
-                      <div className={`absolute left-3.5 top-1 w-3 h-3 rounded-full bg-card border-2 border-border`} />
-                      <div className="p-3 rounded-xl hover:bg-muted/50 transition-colors">
-                        <p className="text-sm font-medium">{event.event}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {event.date}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Customer Info */}
+          {/* Status */}
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <h3 className="text-lg font-semibold mb-4">Status</h3>
+            {editMode ? (
+              <select
+                value={editStatus}
+                onChange={(e) => setEditStatus(e.target.value)}
+                className="w-full px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              >
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <StatusBadge
+                status={order.status}
+                variant={mapStatusVariant(order.status)}
+              />
+            )}
+          </div>
+
+          {/* Delivery Date */}
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <h3 className="text-lg font-semibold mb-4">Delivery Date</h3>
+            {editMode ? (
+              <input
+                type="date"
+                value={editDeliveryDate}
+                onChange={(e) => setEditDeliveryDate(e.target.value)}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            ) : (
+              <p className="text-sm">
+                {order.delivery_date
+                  ? new Date(order.delivery_date).toLocaleDateString()
+                  : "Not set"}
+              </p>
+            )}
+          </div>
+
+          {/* Shipping Address */}
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <h3 className="text-lg font-semibold mb-4">Shipping Address</h3>
+            {editMode ? (
+              <textarea
+                rows={3}
+                value={editShippingAddress}
+                onChange={(e) => setEditShippingAddress(e.target.value)}
+                placeholder="Full shipping address"
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-none"
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {order.shipping_address || "Not set"}
+              </p>
+            )}
+          </div>
+
+          {/* Customer ID */}
           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
             <h3 className="text-lg font-semibold mb-4">Customer</h3>
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm font-semibold">{order.customer.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {order.customer.email}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <MapPin className="h-4 w-4" />
-                {order.customer.address}
-              </div>
-            </div>
-          </div>
-
-          {/* Shipping Info */}
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Truck className="h-5 w-5 text-primary" />
-              Shipping
-            </h3>
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs text-muted-foreground">Method</p>
-                <p className="text-sm font-medium">{order.shipping.method}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">
-                  Estimated Delivery
-                </p>
-                <p className="text-sm font-medium">
-                  {order.shipping.estimatedDelivery}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Tracking</p>
-                <p className="text-sm font-medium text-primary">
-                  {order.shipping.trackingNumber}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Payment Info */}
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-primary" />
-              Payment
-            </h3>
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs text-muted-foreground">Method</p>
-                <p className="text-sm font-medium">
-                  {order.payment.method} ending in {order.payment.last4}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Status</p>
-                <StatusBadge status="Paid" variant="success" />
-              </div>
-            </div>
+            <p className="text-sm">
+              <span className="text-muted-foreground">ID: </span>
+              <span className="font-medium">{order.customer_id}</span>
+            </p>
           </div>
         </div>
       </div>

@@ -6,98 +6,102 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import {
   Users,
   Search,
-  Filter,
   Plus,
   Eye,
-  Edit,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
   ArrowUpDown,
-  Mail,
-  Phone,
-  DollarSign,
-  Building2,
   Loader2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost, apiDelete } from "@/lib/api";
 
 interface Customer {
-  id: string;
+  id: number;
   name: string;
-  contact: string;
   email: string;
   phone: string;
-  industry: string;
-  totalSpent: string;
-  orders: number;
+  tax_id: string;
+  address: string;
+  credit_limit: number;
+  balance: number;
+  loyalty_points: number;
   status: string;
-  statusVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
-  since: string;
+  created_at: string;
 }
 
-function mapStatusVariant(status: string): Customer["statusVariant"] {
+function mapStatusVariant(status: string): "success" | "warning" | "danger" | "info" | "primary" | "muted" {
   const s = (status || "").toLowerCase();
-  if (s === "active" || s === "completed" || s === "won") return "success";
-  if (s === "pending" || s === "in progress") return "warning";
-  if (s === "inactive" || s === "cancelled" || s === "closed" || s === "lost") return "muted";
-  if (s === "new") return "info";
-  return "primary";
+  if (s === "active" || s === "verified") return "success";
+  if (s === "pending" || s === "inactive") return "warning";
+  if (s === "suspended" || s === "blocked") return "danger";
+  return "info";
 }
-
-function mapCustomer(raw: any): Customer {
-  return {
-    id: raw.id ?? raw.ID ?? "",
-    name: raw.name ?? raw.customer_name ?? raw.company_name ?? "",
-    contact: raw.contact ?? raw.contact_name ?? raw.contact_person ?? "",
-    email: raw.email ?? raw.contact_email ?? "",
-    phone: raw.phone ?? raw.contact_phone ?? "",
-    industry: raw.industry ?? raw.sector ?? "",
-    totalSpent: raw.totalSpent ?? raw.total_spent ?? raw.total_revenue ?? "$0",
-    orders: raw.orders ?? raw.order_count ?? 0,
-    status: raw.status ?? "Active",
-    statusVariant: mapStatusVariant(raw.status),
-    since: raw.since ?? raw.created_at ?? raw.date_created ?? "",
-  };
-}
-
-const customerStats = [
-  { label: "Total Customers", value: "1,248", change: "+32 this month" },
-  { label: "Active", value: "1,186", change: "95% retention rate" },
-  { label: "Avg. Lifetime Value", value: "$24,500", change: "+$1,200 vs last year" },
-  { label: "Total Revenue", value: "$3.2M", change: "+18% YoY growth" },
-];
 
 export default function CustomersListPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("All");
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    tax_id: "",
+    address: "",
+    credit_limit: 0,
+    loyalty_points: 0,
+    status: "active",
+  });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    async function fetchCustomers() {
-      try {
-        const res = await apiGet<any>("/sales/customers");
-        const items = (res.items ?? res.data ?? []).map(mapCustomer);
-        setCustomers(items);
-      } catch (err) {
-        console.error("Failed to fetch customers:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchCustomers();
   }, []);
 
-  const filteredCustomers = customers.filter((customer) => {
-    const matchesSearch =
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.contact.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      selectedStatus === "All" || customer.status === selectedStatus;
-    return matchesSearch && matchesStatus;
+  async function fetchCustomers() {
+    try {
+      const res = await apiGet<any>("/sales/customers");
+      setCustomers(res.items ?? res.data ?? []);
+    } catch (err) {
+      console.error("Failed to fetch customers:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const filteredCustomers = customers.filter((c) => {
+    return (
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.phone.includes(searchTerm)
+    );
   });
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      await apiPost("/sales/customers", form);
+      setShowForm(false);
+      setForm({ name: "", email: "", phone: "", tax_id: "", address: "", credit_limit: 0, loyalty_points: 0, status: "active" });
+      fetchCustomers();
+    } catch (err) {
+      console.error("Failed to create customer:", err);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleDelete(id: number) {
+    if (!confirm("Are you sure you want to delete this customer?")) return;
+    try {
+      await apiDelete(`/sales/customers/${id}`);
+      setCustomers((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      console.error("Failed to delete customer:", err);
+    }
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -112,67 +116,113 @@ export default function CustomersListPage() {
 
       <PageHeader
         title="Customers"
-        description="Manage your customer directory and relationships."
+        description="Manage your customer database."
         icon={<Users className="h-6 w-6 text-primary" />}
         actions={
-          <div className="flex items-center gap-3">
-            <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Filters
-            </button>
-            <Link
-              href="/sales/customers/new"
-              className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Customer
-            </Link>
-          </div>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2"
+          >
+            {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {showForm ? "Cancel" : "Add Customer"}
+          </button>
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {customerStats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-2xl border border-border bg-card p-5 shadow-sm"
-          >
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
-            <p className="text-2xl font-bold mt-1">{stat.value}</p>
-            <p className="text-xs text-success mt-1">{stat.change}</p>
+      {showForm && (
+        <form onSubmit={handleCreate} className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Name <span className="text-danger">*</span></label>
+              <input
+                type="text"
+                required
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Email</label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Phone</label>
+              <input
+                type="text"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Tax ID</label>
+              <input
+                type="text"
+                value={form.tax_id}
+                onChange={(e) => setForm((f) => ({ ...f, tax_id: e.target.value }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Address</label>
+              <input
+                type="text"
+                value={form.address}
+                onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Credit Limit</label>
+              <input
+                type="number"
+                value={form.credit_limit || ""}
+                onChange={(e) => setForm((f) => ({ ...f, credit_limit: Number(e.target.value) }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Status</label>
+              <select
+                value={form.status}
+                onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
           </div>
-        ))}
-      </div>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={creating}
+              className="px-4 py-2 bg-primary text-white rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer disabled:opacity-50"
+            >
+              {creating ? "Creating..." : "Create Customer"}
+            </button>
+          </div>
+        </form>
+      )}
 
       <div className="rounded-2xl border border-border bg-card shadow-sm">
         <div className="p-4 border-b border-border">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search customers..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-              >
-                <option value="All">Status: All</option>
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="Pending">Pending</option>
-              </select>
-              <button className="flex items-center gap-2 px-3 py-2 bg-muted border border-border rounded-lg text-sm hover:bg-muted/80 transition-colors">
-                <Filter className="h-4 w-4" />
-                <span className="hidden sm:inline">More Filters</span>
-              </button>
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search customers..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+            />
           </div>
         </div>
 
@@ -182,133 +232,80 @@ export default function CustomersListPage() {
             <span className="ml-2 text-sm text-muted-foreground">Loading customers...</span>
           </div>
         ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      <button className="flex items-center gap-1 hover:text-foreground transition-colors">
-                        Customer
-                        <ArrowUpDown className="h-3 w-3" />
-                      </button>
-                    </th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
-                      Contact
-                    </th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                      Industry
-                    </th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      Total Spent
-                    </th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                      Orders
-                    </th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      Status
-                    </th>
-                    <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      Actions
-                    </th>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                    <button className="flex items-center gap-1 hover:text-foreground transition-colors">
+                      Name
+                      <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
+                    Email
+                  </th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                    Phone
+                  </th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                    Balance ($)
+                  </th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                    Status
+                  </th>
+                  <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {filteredCustomers.map((customer) => (
+                  <tr key={customer.id} className="hover:bg-muted/5 transition-colors">
+                    <td className="py-3 px-4">
+                      <span className="text-sm font-medium">{customer.name}</span>
+                    </td>
+                    <td className="py-3 px-4 hidden md:table-cell">
+                      <span className="text-sm text-muted-foreground">{customer.email}</span>
+                    </td>
+                    <td className="py-3 px-4 hidden lg:table-cell">
+                      <span className="text-sm text-muted-foreground">{customer.phone}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="text-sm font-semibold">${customer.balance.toLocaleString()}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <StatusBadge
+                        status={customer.status}
+                        variant={mapStatusVariant(customer.status)}
+                      />
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Link
+                          href={`/sales/customers/${customer.id}`}
+                          className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(customer.id)}
+                          className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {filteredCustomers.map((customer) => (
-                    <tr
-                      key={customer.id}
-                      className="hover:bg-muted/5 transition-colors"
-                    >
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                            {customer.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{customer.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {customer.id}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 hidden md:table-cell">
-                        <div>
-                          <p className="text-sm font-medium">{customer.contact}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {customer.email}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 hidden lg:table-cell">
-                        <span className="text-sm text-muted-foreground">
-                          {customer.industry}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="text-sm font-semibold">
-                          {customer.totalSpent}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 hidden lg:table-cell">
-                        <span className="text-sm text-muted-foreground">
-                          {customer.orders} orders
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <StatusBadge
-                          status={customer.status}
-                          variant={customer.statusVariant}
-                        />
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Link
-                            href={`/sales/customers/${customer.id}`}
-                            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Link>
-                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="p-4 border-t border-border flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Showing {filteredCustomers.length} of {customers.length} customers
-              </p>
-              <div className="flex items-center gap-2">
-                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">
-                  1
-                </button>
-                <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">
-                  2
-                </button>
-                <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">
-                  3
-                </button>
-                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                ))}
+              </tbody>
+            </table>
+            {filteredCustomers.length === 0 && (
+              <div className="py-12 text-center text-sm text-muted-foreground">
+                No customers found.
               </div>
-            </div>
-          </>
+            )}
+          </div>
         )}
       </div>
     </div>
