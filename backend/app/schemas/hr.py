@@ -566,7 +566,7 @@ class LeaveBase(BaseModel):
     company_id: Optional[int] = None
     employee_id: int
     leave_type_id: Optional[int] = None
-    type: str
+    type: Optional[str] = None
     start_date: datetime
     end_date: datetime
     days: int
