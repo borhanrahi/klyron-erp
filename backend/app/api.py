@@ -16,6 +16,7 @@ from app.routers.master_data import router as master_data_router
 from app.routers.portal import router as portal_router
 from app.routers.ess import router as ess_router
 from app.routers.reports import router as reports_router
+from app.routers.dashboard import router as dashboard_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -35,3 +36,4 @@ api_router.include_router(master_data_router)
 api_router.include_router(portal_router)
 api_router.include_router(ess_router)
 api_router.include_router(reports_router)
+api_router.include_router(dashboard_router)
