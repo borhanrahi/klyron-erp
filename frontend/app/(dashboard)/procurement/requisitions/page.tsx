@@ -40,10 +40,10 @@ export default function RequisitionsPage() {
       .then((res) => setRequisitions(res.items.map((r: any) => ({
         id: r.requisition_number || `PR-${r.id}`,
         title: r.title || r.description || "",
-        requestedBy: r.requested_by_name || r.requested_by || "",
+        requester: r.requested_by_name || r.requested_by || "",
         department: r.department_name || r.department || "",
         date: r.request_date || r.created_at || "",
-        amount: r.total_amount || r.total || 0,
+        total: r.total_amount || r.total || 0,
         priority: r.priority || "Medium",
         status: r.status || "Draft",
         items: Array.isArray(r.items) ? r.items.length : 0,

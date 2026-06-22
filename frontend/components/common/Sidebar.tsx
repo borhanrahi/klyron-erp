@@ -141,6 +141,7 @@ const navigationGroups: NavGroup[] = [
       { name: "My Profile", href: "/ess/profile", icon: UserCheck },
       { name: "Attendance", href: "/ess/attendance", icon: Clock },
       { name: "Leave", href: "/ess/leave", icon: Calendar },
+      { name: "Apply for Leave", href: "/ess/leave/apply", icon: Calendar },
       { name: "Payroll", href: "/ess/payroll", icon: DollarSign },
       { name: "Benefits", href: "/ess/benefits", icon: Heart },
       { name: "Documents", href: "/ess/documents", icon: FileText },

@@ -90,6 +90,19 @@
 - [x] `/health` returns `{"status":"healthy","version":"1.0.0"}`
 - [x] `/docs` returns Swagger UI HTML
 
+### Phase 10: ESS Apply for Leave Page
+- [x] Created `/ess/leave/apply` dedicated page with full form UX
+- [x] Balance summary cards (clickable to select leave type, progress bars, remaining days)
+- [x] Leave type selector grid with icons (Annual, Sick, Casual, Maternity, Paternity, Bereavement, Study)
+- [x] Date range picker with auto business-day calculation
+- [x] Balance validation (warns when requesting more than available)
+- [x] Success confirmation screen with "Apply Another" / "View My Leaves" actions
+- [x] Added "Apply for Leave" link to ESS sidebar navigation
+- [x] Updated `/ess/leave` page "Apply Leave" button to link to new page
+- [x] Fixed `/ess/leave` page crash (undefined array handling in data loading)
+- [x] Fixed TypeScript build error in procurement/requisitions (field name mismatch)
+- [x] Build compiles cleanly
+
 ---
 
 ## In Progress / Remaining

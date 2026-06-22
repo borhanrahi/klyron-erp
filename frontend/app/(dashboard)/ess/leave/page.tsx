@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { apiGet, apiPost } from "@/lib/api";
 import { Calendar, Plus, CheckCircle, XCircle, Clock } from "lucide-react";
+import Link from "next/link";
 
 interface LeaveBalance {
   id: number;
@@ -49,14 +50,14 @@ export default function ESSLeavePage() {
     setLoading(true);
     try {
       const [balRes, histRes, typesRes] = await Promise.all([
-        apiGet<{ data: LeaveBalance[] }>("/ess/leave/balance"),
-        apiGet<{ data: LeaveRecord[]; total: number }>(`/ess/leave/history?page=${page}&per_page=10`),
-        apiGet<{ data: LeaveType[] }>("/ess/leave/types"),
+        apiGet<any>("/ess/leave/balance"),
+        apiGet<any>(`/ess/leave/history?page=${page}&per_page=10`),
+        apiGet<any>("/ess/leave/types"),
       ]);
-      setBalances(balRes.data);
-      setHistory(histRes.data);
-      setTotal(histRes.total);
-      setLeaveTypes(typesRes.data);
+      setBalances(balRes.data || balRes.items || []);
+      setHistory(histRes.data || histRes.items || []);
+      setTotal(histRes.total || 0);
+      setLeaveTypes(typesRes.data || typesRes.items || []);
     } catch { /* empty */ }
     setLoading(false);
   };
@@ -87,7 +88,7 @@ export default function ESSLeavePage() {
         title="My Leave"
         description="Manage your leave balance and requests."
         icon={<Calendar className="h-6 w-6 text-primary" />}
-        actions={<button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors active:scale-95"><Plus className="h-4 w-4" /> Apply Leave</button>}
+        actions={<Link href="/ess/leave/apply" className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors active:scale-95"><Plus className="h-4 w-4" /> Apply Leave</Link>}
       />
 
       {/* Leave Balance */}
