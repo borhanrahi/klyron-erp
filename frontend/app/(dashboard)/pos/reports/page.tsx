@@ -1,76 +1,157 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { apiGet } from "@/lib/api";
 import {
   BarChart3,
   TrendingUp,
-  TrendingDown,
   DollarSign,
   ShoppingCart,
-  Users,
-  Download,
-  Calendar,
   Package,
-  Award,
   Clock,
+  CreditCard,
+  Wallet,
+  Smartphone,
+  Loader2,
 } from "lucide-react";
 
-const dailySalesData = [
-  { day: "Mon", sales: 1245, transactions: 28 },
-  { day: "Tue", sales: 987, transactions: 22 },
-  { day: "Wed", sales: 1456, transactions: 32 },
-  { day: "Thu", sales: 1123, transactions: 25 },
-  { day: "Fri", sales: 1678, transactions: 38 },
-  { day: "Sat", sales: 2134, transactions: 48 },
-  { day: "Sun", sales: 1890, transactions: 42 },
-];
+interface Summary {
+  total_sessions: number;
+  total_sales: number;
+  total_revenue: number;
+  avg_sale: number;
+}
 
-const topProducts = [
-  { rank: 1, name: "Mechanical Keyboard", sold: 42, revenue: 3779.58, trend: "up" },
-  { rank: 2, name: "Webcam HD 1080p", sold: 38, revenue: 2659.62, trend: "up" },
-  { rank: 3, name: "USB-C Hub", sold: 35, revenue: 1749.65, trend: "down" },
-  { rank: 4, name: "Wireless Mouse", sold: 31, revenue: 929.69, trend: "up" },
-  { rank: 5, name: "Laptop Sleeve 15\"", sold: 28, revenue: 699.72, trend: "up" },
-];
+interface PaymentMethod {
+  method: string;
+  count: number;
+  total: number;
+}
 
-const cashierPerformance = [
-  { name: "Sarah Chen", transactions: 156, revenue: 8234.50, avgTime: "3:24", rating: 4.9 },
-  { name: "Mike Johnson", transactions: 132, revenue: 6892.30, avgTime: "3:45", rating: 4.7 },
-  { name: "Emily Davis", transactions: 98, revenue: 5123.80, avgTime: "4:12", rating: 4.6 },
-];
+interface RecentSession {
+  id: number;
+  status: string;
+  opening_balance: number;
+  closing_balance: number | null;
+  opened_at: string;
+  closed_at: string | null;
+}
 
-const hourlySales = [
-  { hour: "9AM", sales: 320 },
-  { hour: "10AM", sales: 480 },
-  { hour: "11AM", sales: 650 },
-  { hour: "12PM", sales: 890 },
-  { hour: "1PM", sales: 720 },
-  { hour: "2PM", sales: 540 },
-  { hour: "3PM", sales: 410 },
-  { hour: "4PM", sales: 380 },
-  { hour: "5PM", sales: 290 },
-];
+interface RecentSale {
+  id: number;
+  total_amount: number;
+  payment_method: string;
+  created_at: string;
+}
 
-const categoryBreakdown = [
-  { category: "Electronics", revenue: 9245.00, percentage: 52 },
-  { category: "Furniture", revenue: 4523.00, percentage: 25 },
-  { category: "Stationery", revenue: 2812.00, percentage: 16 },
-  { category: "Accessories", revenue: 1245.00, percentage: 7 },
-];
+interface POSReportData {
+  data: {
+    summary: Summary;
+    payment_methods: PaymentMethod[];
+    recent_sessions: RecentSession[];
+    recent_sales: RecentSale[];
+  };
+}
 
-const kpiCards = [
-  { label: "Today's Revenue", value: "$4,823.00", change: "+15.3%", icon: DollarSign, trend: "up" as const },
-  { label: "Transactions", value: "92", change: "+8.2%", icon: ShoppingCart, trend: "up" as const },
-  { label: "Active Cashiers", value: "3", change: "All online", icon: Users, trend: "up" as const },
-  { label: "Avg. Basket Size", value: "$52.42", change: "+3.7%", icon: Package, trend: "up" as const },
-];
+const paymentMethodIcons: Record<string, typeof DollarSign> = {
+  cash: Wallet,
+  card: CreditCard,
+  mobile: Smartphone,
+};
+
+const paymentMethodLabels: Record<string, string> = {
+  cash: "Cash",
+  card: "Card",
+  mobile: "Mobile",
+};
 
 export default function POSReportsPage() {
   const [dateRange, setDateRange] = useState("today");
+  const [data, setData] = useState<POSReportData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const maxSales = Math.max(...dailySalesData.map((d) => d.sales));
-  const maxHourly = Math.max(...hourlySales.map((h) => h.sales));
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    apiGet<POSReportData>("/reports/pos-summary")
+      .then((res) => {
+        setData(res);
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load report data");
+      })
+      .finally(() => setLoading(false));
+  }, [dateRange]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-in fade-in-0 duration-200">
+        <PageHeader
+          title="POS Reports"
+          description="Analytics and insights for your point of sale."
+          breadcrumbs={[
+            { label: "POS", href: "/pos" },
+            { label: "Reports" },
+          ]}
+          icon={<BarChart3 className="h-6 w-6 text-primary" />}
+        />
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6 animate-in fade-in-0 duration-200">
+        <PageHeader
+          title="POS Reports"
+          description="Analytics and insights for your point of sale."
+          breadcrumbs={[
+            { label: "POS", href: "/pos" },
+            { label: "Reports" },
+          ]}
+          icon={<BarChart3 className="h-6 w-6 text-primary" />}
+        />
+        <div className="rounded-2xl border border-border bg-card p-12 text-center">
+          <p className="text-destructive mb-2 font-medium">Failed to load report data</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const { summary, payment_methods, recent_sessions, recent_sales } = data.data;
+
+  const maxPaymentTotal = Math.max(...payment_methods.map((pm) => pm.total), 1);
+
+  const kpiCards = [
+    {
+      label: "Total Revenue",
+      value: `$${summary.total_revenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+      icon: DollarSign,
+    },
+    {
+      label: "Total Sales",
+      value: summary.total_sales.toLocaleString(),
+      icon: ShoppingCart,
+    },
+    {
+      label: "Avg Sale",
+      value: `$${summary.avg_sale.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+      icon: Package,
+    },
+    {
+      label: "Total Sessions",
+      value: summary.total_sessions.toLocaleString(),
+      icon: Clock,
+    },
+  ];
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -99,10 +180,6 @@ export default function POSReportsPage() {
                 </button>
               ))}
             </div>
-            <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-              <Download className="h-4 w-4" />
-              Export
-            </button>
           </div>
         }
       />
@@ -121,201 +198,150 @@ export default function POSReportsPage() {
               </div>
             </div>
             <p className="text-2xl font-bold">{kpi.value}</p>
-            <div className="flex items-center gap-1 mt-1">
-              {kpi.trend === "up" ? (
-                <TrendingUp className="h-3 w-3 text-success" />
-              ) : (
-                <TrendingDown className="h-3 w-3 text-danger" />
-              )}
-              <span className="text-xs text-success">{kpi.change}</span>
-            </div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Daily Sales Chart */}
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold">Daily Sales</h3>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Calendar className="h-3 w-3" /> This Week
-            </span>
-          </div>
-          <div className="space-y-3">
-            {dailySalesData.map((item) => (
-              <div key={item.day} className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground w-8">
-                  {item.day}
-                </span>
-                <div className="flex-1 h-8 bg-muted rounded-lg overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-lg flex items-center px-3"
-                    style={{ width: `${(item.sales / maxSales) * 100}%` }}
-                  >
-                    <span className="text-xs font-semibold text-white whitespace-nowrap">
-                      ${item.sales.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-                <span className="text-xs text-muted-foreground w-16 text-right">
-                  {item.transactions} txns
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Hourly Sales Pattern */}
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold">Hourly Pattern</h3>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="h-3 w-3" /> Today
-            </span>
-          </div>
-          <div className="flex items-end gap-2 h-48">
-            {hourlySales.map((item) => (
-              <div
-                key={item.hour}
-                className="flex-1 flex flex-col items-center gap-1"
-              >
-                <span className="text-[10px] text-muted-foreground">
-                  ${item.sales}
-                </span>
-                <div
-                  className="w-full bg-primary/80 rounded-t-md transition-all hover:bg-primary"
-                  style={{
-                    height: `${(item.sales / maxHourly) * 100}%`,
-                    minHeight: "8px",
-                  }}
-                />
-                <span className="text-[10px] text-muted-foreground">
-                  {item.hour}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Top Products */}
-        <div className="lg:col-span-1 rounded-2xl border border-border bg-card shadow-sm">
-          <div className="p-4 border-b border-border">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Award className="h-5 w-5 text-warning" />
-              Top Products
-            </h3>
-          </div>
-          <div className="divide-y divide-border/50">
-            {topProducts.map((product) => (
-              <div
-                key={product.rank}
-                className="p-4 flex items-center gap-3 hover:bg-muted/5 transition-colors"
-              >
-                <span
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                    product.rank <= 3
-                      ? "bg-warning/10 text-warning"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {product.rank}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{product.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {product.sold} units sold
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold">
-                    ${product.revenue.toLocaleString()}
-                  </p>
-                  <div className="flex items-center gap-0.5 justify-end">
-                    {product.trend === "up" ? (
-                      <TrendingUp className="h-3 w-3 text-success" />
-                    ) : (
-                      <TrendingDown className="h-3 w-3 text-danger" />
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Category Breakdown */}
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <h3 className="text-lg font-semibold mb-6">Revenue by Category</h3>
-          <div className="space-y-4">
-            {categoryBreakdown.map((cat) => (
-              <div key={cat.category}>
-                <div className="flex justify-between text-sm mb-1.5">
-                  <span className="text-muted-foreground">{cat.category}</span>
-                  <span className="font-semibold">
-                    ${cat.revenue.toLocaleString()}
+      {/* Payment Methods */}
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <h3 className="text-lg font-semibold mb-6">Payment Methods</h3>
+        <div className="space-y-4">
+          {payment_methods.map((pm) => {
+            const Icon = paymentMethodIcons[pm.method] || DollarSign;
+            const label = paymentMethodLabels[pm.method] || pm.method;
+            const percentage = maxPaymentTotal > 0 ? (pm.total / maxPaymentTotal) * 100 : 0;
+            return (
+              <div key={pm.method}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Icon className="h-4 w-4" />
+                    {label}
+                    <span className="text-xs text-muted-foreground">({pm.count} txns)</span>
+                  </span>
+                  <span className="text-sm font-semibold">
+                    ${pm.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="h-2.5 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full bg-primary rounded-full"
-                    style={{ width: `${cat.percentage}%` }}
+                    style={{ width: `${percentage}%` }}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {cat.percentage}% of total
-                </p>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
+      </div>
 
-        {/* Cashier Performance */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Sessions */}
         <div className="rounded-2xl border border-border bg-card shadow-sm">
           <div className="p-4 border-b border-border">
             <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              Cashier Performance
+              <Clock className="h-5 w-5 text-primary" />
+              Recent Sessions
             </h3>
           </div>
-          <div className="divide-y divide-border/50">
-            {cashierPerformance.map((cashier) => (
-              <div key={cashier.name} className="p-4 hover:bg-muted/5 transition-colors">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
-                    {cashier.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{cashier.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {cashier.transactions} transactions
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold">
-                      ${cashier.revenue.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="text-center p-2 bg-muted rounded-lg">
-                    <p className="text-xs text-muted-foreground">Avg Time</p>
-                    <p className="text-sm font-semibold">{cashier.avgTime}</p>
-                  </div>
-                  <div className="text-center p-2 bg-muted rounded-lg">
-                    <p className="text-xs text-muted-foreground">Rating</p>
-                    <p className="text-sm font-semibold text-warning">
-                      ★ {cashier.rating}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/50">
+                  <th className="text-left p-3 text-xs font-medium text-muted-foreground">ID</th>
+                  <th className="text-left p-3 text-xs font-medium text-muted-foreground">Status</th>
+                  <th className="text-right p-3 text-xs font-medium text-muted-foreground">Opening</th>
+                  <th className="text-right p-3 text-xs font-medium text-muted-foreground">Closing</th>
+                  <th className="text-left p-3 text-xs font-medium text-muted-foreground">Opened</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {recent_sessions.map((session) => (
+                  <tr key={session.id} className="hover:bg-muted/5 transition-colors">
+                    <td className="p-3 font-medium">#{session.id}</td>
+                    <td className="p-3">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          session.status === "closed"
+                            ? "bg-muted text-muted-foreground"
+                            : "bg-success/10 text-success"
+                        }`}
+                      >
+                        {session.status}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right">
+                      ${session.opening_balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="p-3 text-right">
+                      {session.closing_balance != null
+                        ? `$${session.closing_balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                        : "—"}
+                    </td>
+                    <td className="p-3 text-muted-foreground">
+                      {new Date(session.opened_at).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+                {recent_sessions.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="p-6 text-center text-muted-foreground">
+                      No recent sessions
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Recent Sales */}
+        <div className="rounded-2xl border border-border bg-card shadow-sm">
+          <div className="p-4 border-b border-border">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5 text-primary" />
+              Recent Sales
+            </h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/50">
+                  <th className="text-left p-3 text-xs font-medium text-muted-foreground">ID</th>
+                  <th className="text-left p-3 text-xs font-medium text-muted-foreground">Method</th>
+                  <th className="text-right p-3 text-xs font-medium text-muted-foreground">Amount</th>
+                  <th className="text-left p-3 text-xs font-medium text-muted-foreground">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {recent_sales.map((sale) => (
+                  <tr key={sale.id} className="hover:bg-muted/5 transition-colors">
+                    <td className="p-3 font-medium">#{sale.id}</td>
+                    <td className="p-3">
+                      <span className="inline-flex items-center gap-1 text-xs capitalize">
+                        {(() => {
+                          const Icon = paymentMethodIcons[sale.payment_method] || DollarSign;
+                          return <Icon className="h-3 w-3" />;
+                        })()}
+                        {paymentMethodLabels[sale.payment_method] || sale.payment_method}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right font-semibold">
+                      ${sale.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="p-3 text-muted-foreground">
+                      {new Date(sale.created_at).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+                {recent_sales.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="p-6 text-center text-muted-foreground">
+                      No recent sales
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

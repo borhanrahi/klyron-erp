@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { apiGet } from "@/lib/api";
 import {
   ShoppingCart,
   Search,
@@ -14,34 +15,66 @@ import {
   X,
   ScanBarcode,
   Receipt,
+  Loader2,
 } from "lucide-react";
 
-const products = [
-  { id: "P001", name: "Wireless Mouse", price: 29.99, category: "Electronics", stock: 45, sku: "WM-001" },
-  { id: "P002", name: "USB-C Hub", price: 49.99, category: "Electronics", stock: 23, sku: "UCH-002" },
-  { id: "P003", name: "Notebook A5", price: 12.50, category: "Stationery", stock: 120, sku: "NB-003" },
-  { id: "P004", name: "Mechanical Keyboard", price: 89.99, category: "Electronics", stock: 15, sku: "MK-004" },
-  { id: "P005", name: "Desk Lamp LED", price: 34.99, category: "Furniture", stock: 8, sku: "DL-005" },
-  { id: "P006", name: "Monitor Stand", price: 59.99, category: "Furniture", stock: 12, sku: "MS-006" },
-  { id: "P007", name: "Webcam HD 1080p", price: 69.99, category: "Electronics", stock: 30, sku: "WC-007" },
-  { id: "P008", name: "Whiteboard Markers", price: 8.99, category: "Stationery", stock: 200, sku: "WBM-008" },
-  { id: "P009", name: "Ergonomic Chair Mat", price: 44.99, category: "Furniture", stock: 5, sku: "ECM-009" },
-  { id: "P010", name: "Ethernet Cable 3m", price: 9.99, category: "Accessories", stock: 75, sku: "EC-010" },
-  { id: "P011", name: "Laptop Sleeve 15\"", price: 24.99, category: "Accessories", stock: 40, sku: "LS-011" },
-  { id: "P012", name: "Sticky Notes Pack", price: 5.99, category: "Stationery", stock: 300, sku: "SN-012" },
-];
+interface ApiProduct {
+  id: number;
+  name: string;
+  sku: string;
+  selling_price: number;
+  category_name: string;
+  stock_quantity: number;
+  unit: string;
+}
+
+interface ProductsResponse {
+  items: ApiProduct[];
+  total: number;
+}
+
+type Product = {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  stock: number;
+  sku: string;
+};
 
 type CartItem = {
-  product: typeof products[0];
+  product: Product;
   quantity: number;
 };
 
 export default function POSTerminalPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
 
-  const categories = ["All", ...new Set(products.map((p) => p.category))];
+  useEffect(() => {
+    apiGet<ProductsResponse>("/inventory/items")
+      .then((res) => {
+        const mapped: Product[] = res.items.map((item) => ({
+          id: String(item.id),
+          name: item.name,
+          price: item.selling_price,
+          category: item.category_name,
+          stock: item.stock_quantity,
+          sku: item.sku,
+        }));
+        setProducts(mapped);
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load products");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const categories = ["All", ...Array.from(new Set(products.map((p) => p.category)))];
 
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
@@ -52,7 +85,7 @@ export default function POSTerminalPage() {
     return matchesSearch && matchesCategory;
   });
 
-  const addToCart = (product: typeof products[0]) => {
+  const addToCart = (product: Product) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
@@ -133,34 +166,56 @@ export default function POSTerminalPage() {
             </div>
           </div>
 
+          {/* Loading State */}
+          {loading && (
+            <div className="flex items-center justify-center py-20 text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              <span className="text-sm">Loading products...</span>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && !loading && (
+            <div className="text-center py-20 text-danger">
+              <p className="text-sm font-medium">{error}</p>
+            </div>
+          )}
+
           {/* Product Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {filteredProducts.map((product) => (
-              <button
-                key={product.id}
-                onClick={() => addToCart(product)}
-                className="rounded-2xl border border-border bg-card p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all text-left group active:scale-95"
-              >
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
-                  <ScanBarcode className="h-6 w-6 text-primary" />
+          {!loading && !error && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {filteredProducts.map((product) => (
+                <button
+                  key={product.id}
+                  onClick={() => addToCart(product)}
+                  className="rounded-2xl border border-border bg-card p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all text-left group active:scale-95"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
+                    <ScanBarcode className="h-6 w-6 text-primary" />
+                  </div>
+                  <h4 className="text-sm font-semibold mb-1 group-hover:text-primary transition-colors">
+                    {product.name}
+                  </h4>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {product.sku}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-bold text-primary">
+                      ${product.price.toFixed(2)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Stock: {product.stock}
+                    </span>
+                  </div>
+                </button>
+              ))}
+              {filteredProducts.length === 0 && (
+                <div className="col-span-full text-center py-12 text-muted-foreground">
+                  <p className="text-sm">No products found</p>
                 </div>
-                <h4 className="text-sm font-semibold mb-1 group-hover:text-primary transition-colors">
-                  {product.name}
-                </h4>
-                <p className="text-xs text-muted-foreground mb-2">
-                  {product.sku}
-                </p>
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold text-primary">
-                    ${product.price.toFixed(2)}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    Stock: {product.stock}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Cart Sidebar */}

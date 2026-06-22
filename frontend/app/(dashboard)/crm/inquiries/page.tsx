@@ -1,119 +1,93 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   MessageSquare,
   Search,
-  Filter,
   Download,
   Eye,
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
   Mail,
-  Phone,
-  Clock,
 } from "lucide-react";
 
-const inquiries = [
-  {
-    id: "INQ-001",
-    name: "James Wilson",
-    email: "james.wilson@techcorp.com",
-    phone: "+1 (555) 123-4567",
-    subject: "Enterprise Plan Pricing",
-    source: "Web Form",
-    date: "Apr 2, 2024",
-    status: "New",
-    statusVariant: "info" as const,
-    priority: "High",
-  },
-  {
-    id: "INQ-002",
-    name: "Maria Garcia",
-    email: "maria.garcia@startupinc.com",
-    phone: "+1 (555) 234-5678",
-    subject: "Product Demo Request",
-    source: "Contact Form",
-    date: "Apr 1, 2024",
-    status: "In Progress",
-    statusVariant: "warning" as const,
-    priority: "Medium",
-  },
-  {
-    id: "INQ-003",
-    name: "David Kim",
-    email: "david.kim@globalco.com",
-    phone: "+1 (555) 345-6789",
-    subject: "Integration Inquiry",
-    source: "Email",
-    date: "Mar 31, 2024",
-    status: "Replied",
-    statusVariant: "success" as const,
-    priority: "Low",
-  },
-  {
-    id: "INQ-004",
-    name: "Sarah Brown",
-    email: "sarah.brown@retailmax.com",
-    phone: "+1 (555) 456-7890",
-    subject: "Custom Development Request",
-    source: "Web Form",
-    date: "Mar 30, 2024",
-    status: "New",
-    statusVariant: "info" as const,
-    priority: "High",
-  },
-  {
-    id: "INQ-005",
-    name: "Robert Taylor",
-    email: "robert.taylor@logistics.com",
-    phone: "+1 (555) 567-8901",
-    subject: "Partnership Opportunity",
-    source: "Referral",
-    date: "Mar 29, 2024",
-    status: "Closed",
-    statusVariant: "muted" as const,
-    priority: "Medium",
-  },
-  {
-    id: "INQ-006",
-    name: "Emily Chen",
-    email: "emily.chen@designstudio.com",
-    phone: "+1 (555) 678-9012",
-    subject: "API Documentation Access",
-    source: "Web Form",
-    date: "Mar 28, 2024",
-    status: "In Progress",
-    statusVariant: "warning" as const,
-    priority: "Low",
-  },
-  {
-    id: "INQ-007",
-    name: "Michael Lee",
-    email: "michael.lee@financegroup.com",
-    phone: "+1 (555) 789-0123",
-    subject: "Bulk Order Inquiry",
-    source: "Contact Form",
-    date: "Mar 27, 2024",
-    status: "New",
-    statusVariant: "info" as const,
-    priority: "High",
-  },
-];
+interface InquiryItem {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  subject: string;
+  source: string;
+  status: string;
+  priority: string;
+  created_at: string;
+  statusVariant: "info" | "warning" | "success" | "muted" | "danger";
+  priorityVariant: "danger" | "warning" | "info" | "muted";
+}
 
-const inquiryStats = [
-  { label: "Total Inquiries", value: "156", change: "+12 this week" },
-  { label: "New", value: "23", change: "Needs attention" },
-  { label: "In Progress", value: "18", change: "Assigned to team" },
-  { label: "Closed This Month", value: "47", change: "+18% vs last month" },
-];
+const statusVariantMap: Record<string, InquiryItem["statusVariant"]> = {
+  new: "info",
+  "in_progress": "warning",
+  replied: "success",
+  closed: "muted",
+  open: "danger",
+};
+
+const priorityVariantMap: Record<string, InquiryItem["priorityVariant"]> = {
+  high: "danger",
+  medium: "warning",
+  low: "muted",
+};
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function capitalize(s: string): string {
+  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 export default function InquiriesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [inquiries, setInquiries] = useState<InquiryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ items: InquiryItem[] }>("/sales/inquiries")
+      .then((res) =>
+        setInquiries(
+          res.items.map((item) => ({
+            ...item,
+            statusVariant: statusVariantMap[item.status] || "info",
+            priorityVariant: priorityVariantMap[item.priority] || "info",
+          }))
+        )
+      )
+      .catch(() => setInquiries([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const inquiryStats = [
+    { label: "Total Inquiries", value: String(inquiries.length), change: "All time" },
+    { label: "New", value: String(inquiries.filter((i) => i.status === "new").length), change: "Needs attention" },
+    { label: "In Progress", value: String(inquiries.filter((i) => i.status === "in_progress").length), change: "Assigned to team" },
+    { label: "Closed", value: String(inquiries.filter((i) => i.status === "closed").length), change: "Resolved" },
+  ];
 
   const filteredInquiries = inquiries.filter((inquiry) => {
     const matchesSearch =
@@ -121,9 +95,17 @@ export default function InquiriesPage() {
       inquiry.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inquiry.subject.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
-      selectedStatus === "All" || inquiry.status === selectedStatus;
+      selectedStatus === "All" || capitalize(inquiry.status) === selectedStatus;
     return matchesSearch && matchesStatus;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -216,7 +198,7 @@ export default function InquiriesPage() {
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                        {inquiry.name.split(" ").map((n) => n[0]).join("")}
+                        {getInitials(inquiry.name)}
                       </div>
                       <div>
                         <p className="text-sm font-medium">{inquiry.name}</p>
@@ -231,10 +213,10 @@ export default function InquiriesPage() {
                     <StatusBadge status={inquiry.source} variant="muted" />
                   </td>
                   <td className="py-3 px-4 hidden xl:table-cell">
-                    <span className="text-sm text-muted-foreground">{inquiry.date}</span>
+                    <span className="text-sm text-muted-foreground">{formatDate(inquiry.created_at)}</span>
                   </td>
                   <td className="py-3 px-4">
-                    <StatusBadge status={inquiry.status} variant={inquiry.statusVariant} />
+                    <StatusBadge status={capitalize(inquiry.status)} variant={inquiry.statusVariant} />
                   </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -263,7 +245,6 @@ export default function InquiriesPage() {
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">1</button>
-            <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">2</button>
             <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
               <ChevronRight className="h-4 w-4" />
             </button>
