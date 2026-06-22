@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet, apiDelete } from "@/lib/api";
 import {
   Users,
   Search,
@@ -16,153 +17,80 @@ import {
   ChevronRight,
   ArrowUpDown,
 } from "lucide-react";
+import Link from "next/link";
 
-const employees = [
-  {
-    id: "EMP-001",
-    name: "Sarah Chen",
-    avatar: "SC",
-    email: "sarah.chen@klyron.com",
-    department: "Engineering",
-    designation: "Senior Developer",
-    status: "Active",
-    statusVariant: "success" as const,
-    joinDate: "Jan 15, 2022",
-    phone: "+1 (555) 234-5678",
-  },
-  {
-    id: "EMP-002",
-    name: "Mike Johnson",
-    avatar: "MJ",
-    email: "mike.j@klyron.com",
-    department: "Marketing",
-    designation: "Marketing Manager",
-    status: "Active",
-    statusVariant: "success" as const,
-    joinDate: "Mar 8, 2021",
-    phone: "+1 (555) 345-6789",
-  },
-  {
-    id: "EMP-003",
-    name: "Emily Davis",
-    avatar: "ED",
-    email: "emily.d@klyron.com",
-    department: "Product",
-    designation: "Product Manager",
-    status: "Active",
-    statusVariant: "success" as const,
-    joinDate: "Jun 22, 2020",
-    phone: "+1 (555) 456-7890",
-  },
-  {
-    id: "EMP-004",
-    name: "David Park",
-    avatar: "DP",
-    email: "david.p@klyron.com",
-    department: "Engineering",
-    designation: "Full Stack Developer",
-    status: "Active",
-    statusVariant: "success" as const,
-    joinDate: "Sep 5, 2023",
-    phone: "+1 (555) 567-8901",
-  },
-  {
-    id: "EMP-005",
-    name: "Alex Kim",
-    avatar: "AK",
-    email: "alex.k@klyron.com",
-    department: "DevOps",
-    designation: "DevOps Engineer",
-    status: "On Leave",
-    statusVariant: "warning" as const,
-    joinDate: "Feb 14, 2022",
-    phone: "+1 (555) 678-9012",
-  },
-  {
-    id: "EMP-006",
-    name: "Rachel Martinez",
-    avatar: "RM",
-    email: "rachel.m@klyron.com",
-    department: "HR",
-    designation: "HR Specialist",
-    status: "Active",
-    statusVariant: "success" as const,
-    joinDate: "Nov 3, 2021",
-    phone: "+1 (555) 789-0123",
-  },
-  {
-    id: "EMP-007",
-    name: "James Wilson",
-    avatar: "JW",
-    email: "james.w@klyron.com",
-    department: "Finance",
-    designation: "Financial Analyst",
-    status: "Active",
-    statusVariant: "success" as const,
-    joinDate: "Aug 19, 2023",
-    phone: "+1 (555) 890-1234",
-  },
-  {
-    id: "EMP-008",
-    name: "Lisa Thompson",
-    avatar: "LT",
-    email: "lisa.t@klyron.com",
-    department: "Design",
-    designation: "UI/UX Designer",
-    status: "Inactive",
-    statusVariant: "muted" as const,
-    joinDate: "Apr 11, 2020",
-    phone: "+1 (555) 901-2345",
-  },
-  {
-    id: "EMP-009",
-    name: "Omar Hassan",
-    avatar: "OH",
-    email: "omar.h@klyron.com",
-    department: "Engineering",
-    designation: "Backend Developer",
-    status: "Active",
-    statusVariant: "success" as const,
-    joinDate: "Jul 7, 2022",
-    phone: "+1 (555) 012-3456",
-  },
-  {
-    id: "EMP-010",
-    name: "Priya Patel",
-    avatar: "PP",
-    email: "priya.p@klyron.com",
-    department: "Sales",
-    designation: "Sales Executive",
-    status: "Active",
-    statusVariant: "success" as const,
-    joinDate: "Oct 28, 2023",
-    phone: "+1 (555) 123-4567",
-  },
-];
+interface Employee {
+  id: number;
+  company_id: number;
+  employee_code: string;
+  designation: string;
+  salary: number;
+  status: string;
+  gender: string | null;
+  phone: string | null;
+  joining_date: string | null;
+  created_at: string;
+}
 
-const employeeStats = [
-  { label: "Total Employees", value: "148", change: "+6 this month" },
-  { label: "Active", value: "132", change: "89.2%" },
-  { label: "On Leave", value: "8", change: "5.4%" },
-  { label: "New Hires", value: "12", change: "Q1 2024" },
-];
+interface EmployeeListResponse {
+  items: Employee[];
+  total: number;
+  page: number;
+  per_page: number;
+  pages: number;
+}
+
+const statusVariant = (s: string): "success" | "warning" | "muted" | "danger" => {
+  if (s === "active") return "success";
+  if (s === "on_leave") return "warning";
+  if (s === "resigned" || s === "terminated") return "danger";
+  return "muted";
+};
 
 export default function EmployeeDirectoryPage() {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedDepartment, setSelectedDepartment] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [loading, setLoading] = useState(true);
 
-  const filteredEmployees = employees.filter((emp) => {
-    const matchesSearch =
-      emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDept =
-      selectedDepartment === "All" || emp.department === selectedDepartment;
-    const matchesStatus =
-      selectedStatus === "All" || emp.status === selectedStatus;
-    return matchesSearch && matchesDept && matchesStatus;
-  });
+  const fetchEmployees = (p: number, search?: string) => {
+    setLoading(true);
+    const params: Record<string, string> = { page: String(p), per_page: "10" };
+    if (search) params.search = search;
+    apiGet<{ items: Employee[]; total: number; page: number; per_page: number; pages: number }>("/hr/employees", params)
+      .then((res) => {
+        setEmployees(res.items);
+        setTotal(res.total);
+        setPage(res.page);
+        setPages(res.pages);
+      })
+      .catch(() => {
+        setEmployees([]);
+        setTotal(0);
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchEmployees(1);
+  }, []);
+
+  const handleSearch = () => {
+    fetchEmployees(1, searchTerm || undefined);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Delete this employee?")) return;
+    await apiDelete(`/hr/employees/${id}`);
+    fetchEmployees(page, searchTerm || undefined);
+  };
+
+  const filteredEmployees = selectedStatus === "All"
+    ? employees
+    : employees.filter((e) => e.status === selectedStatus.toLowerCase());
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -180,32 +108,17 @@ export default function EmployeeDirectoryPage() {
               <Download className="h-4 w-4" />
               Export
             </button>
-            <a
+            <Link
               href="/hr/employees/new"
               className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
               Add Employee
-            </a>
+            </Link>
           </div>
         }
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {employeeStats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-2xl border border-border bg-card p-5 shadow-sm"
-          >
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
-            <p className="text-2xl font-bold mt-1">{stat.value}</p>
-            <p className="text-xs text-success mt-1">{stat.change}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Filters & Search */}
       <div className="rounded-2xl border border-border bg-card shadow-sm">
         <div className="p-4 border-b border-border">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -216,25 +129,11 @@ export default function EmployeeDirectoryPage() {
                 placeholder="Search employees..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>
             <div className="flex items-center gap-2">
-              <select
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value)}
-                className="px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-              >
-                <option value="All">Department: All</option>
-                <option value="Engineering">Engineering</option>
-                <option value="Marketing">Marketing</option>
-                <option value="Product">Product</option>
-                <option value="Design">Design</option>
-                <option value="HR">HR</option>
-                <option value="Finance">Finance</option>
-                <option value="Sales">Sales</option>
-                <option value="DevOps">DevOps</option>
-              </select>
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
@@ -245,15 +144,17 @@ export default function EmployeeDirectoryPage() {
                 <option value="On Leave">On Leave</option>
                 <option value="Inactive">Inactive</option>
               </select>
-              <button className="flex items-center gap-2 px-3 py-2 bg-muted border border-border rounded-lg text-sm hover:bg-muted/80 transition-colors">
+              <button
+                onClick={handleSearch}
+                className="flex items-center gap-2 px-3 py-2 bg-muted border border-border rounded-lg text-sm hover:bg-muted/80 transition-colors"
+              >
                 <Filter className="h-4 w-4" />
-                <span className="hidden sm:inline">More Filters</span>
+                <span className="hidden sm:inline">Search</span>
               </button>
             </div>
           </div>
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -265,16 +166,19 @@ export default function EmployeeDirectoryPage() {
                   </button>
                 </th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
-                  Department
+                  Code
                 </th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
                   Designation
+                </th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                  Salary
                 </th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Status
                 </th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden xl:table-cell">
-                  Join Date
+                  Joined
                 </th>
                 <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Actions
@@ -282,83 +186,99 @@ export default function EmployeeDirectoryPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {filteredEmployees.map((emp) => (
-                <tr
-                  key={emp.id}
-                  className="hover:bg-muted/5 transition-colors"
-                >
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
-                        {emp.avatar}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{emp.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {emp.email}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 hidden md:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {emp.department}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 hidden lg:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {emp.designation}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <StatusBadge
-                      status={emp.status}
-                      variant={emp.statusVariant}
-                    />
-                  </td>
-                  <td className="py-3 px-4 hidden xl:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {emp.joinDate}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <a
-                        href={`/hr/employees/${emp.id}`}
-                        className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </a>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground text-sm">
+                    Loading employees...
                   </td>
                 </tr>
-              ))}
+              ) : filteredEmployees.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground text-sm">
+                    No employees found.
+                  </td>
+                </tr>
+              ) : (
+                filteredEmployees.map((emp) => (
+                  <tr key={emp.id} className="hover:bg-muted/5 transition-colors">
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
+                          {emp.employee_code?.slice(-2) || "??"}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{emp.employee_code}</p>
+                          <p className="text-xs text-muted-foreground">{emp.phone || "No phone"}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 hidden md:table-cell">
+                      <span className="text-sm text-muted-foreground">{emp.employee_code}</span>
+                    </td>
+                    <td className="py-3 px-4 hidden lg:table-cell">
+                      <span className="text-sm text-muted-foreground">{emp.designation || "—"}</span>
+                    </td>
+                    <td className="py-3 px-4 hidden lg:table-cell">
+                      <span className="text-sm text-muted-foreground">{emp.salary?.toLocaleString() || "—"}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <StatusBadge
+                        status={emp.status}
+                        variant={statusVariant(emp.status)}
+                      />
+                    </td>
+                    <td className="py-3 px-4 hidden xl:table-cell">
+                      <span className="text-sm text-muted-foreground">
+                        {emp.joining_date || emp.created_at?.split("T")[0] || "—"}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Link
+                          href={`/hr/employees/${emp.id}`}
+                          className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                        <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(emp.id)}
+                          className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination */}
         <div className="p-4 border-t border-border flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Showing {filteredEmployees.length} of {employees.length} employees
+            Showing {employees.length} of {total} employees
           </p>
           <div className="flex items-center gap-2">
-            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+            <button
+              onClick={() => fetchEmployees(page - 1, searchTerm || undefined)}
+              disabled={page <= 1}
+              className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+            >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <button className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">
-              1
-            </button>
-            <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">
-              2
-            </button>
-            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+            <span className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">
+              {page}
+            </span>
+            <span className="text-sm text-muted-foreground">of {pages}</span>
+            <button
+              onClick={() => fetchEmployees(page + 1, searchTerm || undefined)}
+              disabled={page >= pages}
+              className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+            >
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
