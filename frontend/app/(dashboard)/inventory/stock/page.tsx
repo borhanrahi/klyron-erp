@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { KPICard } from "@/components/common/KPICard";
+import { apiGet } from "@/lib/api";
 import {
   BarChart3,
   Search,
@@ -19,149 +20,70 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-const stockOverview = [
-  {
-    id: "ITM-001",
-    sku: "ELC-LPT-001",
-    name: "MacBook Pro 16-inch M3 Max",
-    category: "Electronics",
-    warehouses: { "WH-SH-01": 12, "WH-SH-02": 6, "WH-BJ-01": 4, "WH-GZ-01": 2 },
-    totalStock: 24,
-    reorderLevel: 10,
-    status: "OK",
-    statusVariant: "success" as const,
-    trend: "up",
-    value: 67200,
-  },
-  {
-    id: "ITM-002",
-    sku: "ELC-MON-002",
-    name: 'Dell UltraSharp 27" 4K Monitor',
-    category: "Electronics",
-    warehouses: { "WH-SH-01": 32, "WH-SH-02": 14, "WH-BJ-01": 6, "WH-GZ-01": 4 },
-    totalStock: 56,
-    reorderLevel: 20,
-    status: "OK",
-    statusVariant: "success" as const,
-    trend: "up",
-    value: 23520,
-  },
-  {
-    id: "ITM-003",
-    sku: "ELC-KB-003",
-    name: "Logitech MX Keys Keyboard",
-    category: "Electronics",
-    warehouses: { "WH-SH-01": 3, "WH-SH-02": 2, "WH-BJ-01": 2, "WH-GZ-01": 1 },
-    totalStock: 8,
-    reorderLevel: 15,
-    status: "Low Stock",
-    statusVariant: "warning" as const,
-    trend: "down",
-    value: 576,
-  },
-  {
-    id: "ITM-004",
-    sku: "ELC-MS-004",
-    name: "Logitech MX Master 3S Mouse",
-    category: "Electronics",
-    warehouses: { "WH-SH-01": 20, "WH-SH-02": 12, "WH-BJ-01": 6, "WH-GZ-01": 4 },
-    totalStock: 42,
-    reorderLevel: 15,
-    status: "OK",
-    statusVariant: "success" as const,
-    trend: "up",
-    value: 2436,
-  },
-  {
-    id: "ITM-005",
-    sku: "OFS-CHR-005",
-    name: "Herman Miller Aeron Chair",
-    category: "Office Furniture",
-    warehouses: { "WH-SH-01": 0, "WH-SH-02": 0, "WH-BJ-01": 2, "WH-GZ-01": 1 },
-    totalStock: 3,
-    reorderLevel: 5,
-    status: "Low Stock",
-    statusVariant: "warning" as const,
-    trend: "down",
-    value: 2670,
-  },
-  {
-    id: "ITM-007",
-    sku: "ELC-USB-007",
-    name: "USB-C Hub 7-in-1 Adapter",
-    category: "Electronics",
-    warehouses: { "WH-SH-01": 0, "WH-SH-02": 0, "WH-BJ-01": 0, "WH-GZ-01": 0 },
-    totalStock: 0,
-    reorderLevel: 20,
-    status: "Out of Stock",
-    statusVariant: "danger" as const,
-    trend: "down",
-    value: 0,
-  },
-  {
-    id: "ITM-008",
-    sku: "SPL-PAP-008",
-    name: "A4 Copy Paper 80gsm (5 reams)",
-    category: "Office Supplies",
-    warehouses: { "WH-SH-01": 180, "WH-SH-02": 80, "WH-BJ-01": 40, "WH-GZ-01": 20 },
-    totalStock: 320,
-    reorderLevel: 100,
-    status: "OK",
-    statusVariant: "success" as const,
-    trend: "up",
-    value: 8000,
-  },
-  {
-    id: "ITM-009",
-    sku: "SPL-PEN-009",
-    name: "Ballpoint Pen Box (50 pcs)",
-    category: "Office Supplies",
-    warehouses: { "WH-SH-01": 35, "WH-SH-02": 25, "WH-BJ-01": 15, "WH-GZ-01": 10 },
-    totalStock: 85,
-    reorderLevel: 30,
-    status: "OK",
-    statusVariant: "success" as const,
-    trend: "up",
-    value: 1572,
-  },
-  {
-    id: "ITM-010",
-    sku: "ELC-HDM-010",
-    name: "HDMI Cable 2.1 2m Premium",
-    category: "Electronics",
-    warehouses: { "WH-SH-01": 50, "WH-SH-02": 30, "WH-BJ-01": 25, "WH-GZ-01": 15 },
-    totalStock: 120,
-    reorderLevel: 50,
-    status: "OK",
-    statusVariant: "success" as const,
-    trend: "up",
-    value: 3600,
-  },
-  {
-    id: "ITM-012",
-    sku: "SPL-FOL-012",
-    name: "Lever Arch File (12 pack)",
-    category: "Office Supplies",
-    warehouses: { "WH-SH-01": 0, "WH-SH-02": 0, "WH-BJ-01": 0, "WH-GZ-01": 0 },
-    totalStock: 0,
-    reorderLevel: 25,
-    status: "Out of Stock",
-    statusVariant: "danger" as const,
-    trend: "down",
-    value: 0,
-  },
-];
+interface StockItem {
+  id: string;
+  sku: string;
+  name: string;
+  category: string;
+  warehouses: Record<string, number>;
+  totalStock: number;
+  reorderLevel: number;
+  status: string;
+  statusVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
+  trend: string;
+  value: number;
+}
 
-const alerts = [
-  { id: "ITM-007", name: "USB-C Hub 7-in-1 Adapter", status: "Out of Stock", severity: "danger" as const, daysEmpty: 14 },
-  { id: "ITM-012", name: "Lever Arch File (12 pack)", status: "Out of Stock", severity: "danger" as const, daysEmpty: 7 },
-  { id: "ITM-003", name: "Logitech MX Keys Keyboard", status: "Low Stock", severity: "warning" as const, daysEmpty: 0 },
-  { id: "ITM-005", name: "Herman Miller Aeron Chair", status: "Low Stock", severity: "warning" as const, daysEmpty: 0 },
-];
+interface AlertItem {
+  id: string;
+  name: string;
+  status: string;
+  severity: "success" | "warning" | "danger" | "info" | "primary" | "muted";
+  daysEmpty: number;
+}
+
+const statusVariantMap: Record<string, StockItem["statusVariant"]> = {
+  OK: "success",
+  "Low Stock": "warning",
+  "Out of Stock": "danger",
+};
+
+const alertSeverityMap: Record<string, AlertItem["severity"]> = {
+  "Out of Stock": "danger",
+  "Low Stock": "warning",
+};
 
 export default function StockOverviewPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [stockOverview, setStockOverview] = useState<StockItem[]>([]);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ items: StockItem[] }>("/inventory/stock")
+      .then((res) => {
+        const items = (res.items || []).map((item) => ({
+          ...item,
+          statusVariant: statusVariantMap[item.status] || "info",
+          warehouses: item.warehouses || {},
+        }));
+        setStockOverview(items);
+        setAlerts(
+          items
+            .filter((item) => item.status === "Low Stock" || item.status === "Out of Stock")
+            .map((item) => ({
+              id: item.id,
+              name: item.name,
+              status: item.status,
+              severity: alertSeverityMap[item.status] || "warning",
+              daysEmpty: item.status === "Out of Stock" ? 14 : 0,
+            }))
+        );
+      })
+      .catch(() => { setStockOverview([]); setAlerts([]); })
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredStock = stockOverview.filter((item) => {
     const matchesSearch =
@@ -171,6 +93,14 @@ export default function StockOverviewPage() {
       selectedStatus === "All" || item.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -194,7 +124,7 @@ export default function StockOverviewPage() {
       <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         <KPICard
           label="Total Stock Value"
-          value="$109,574"
+          value={`$${stockOverview.reduce((a, i) => a + (i.value || 0), 0).toLocaleString()}`}
           change="+8.2% from last month"
           changeType="up"
           icon={<Package className="h-5 w-5" />}
@@ -202,7 +132,7 @@ export default function StockOverviewPage() {
         />
         <KPICard
           label="Total Items"
-          value="1,248"
+          value={stockOverview.reduce((a, i) => a + (i.totalStock || 0), 0).toLocaleString()}
           change="+24 this month"
           changeType="up"
           icon={<Package className="h-5 w-5" />}
@@ -210,8 +140,8 @@ export default function StockOverviewPage() {
         />
         <KPICard
           label="Low Stock Alerts"
-          value="4"
-          change="+2 new alerts"
+          value={String(alerts.length)}
+          change={`+${alerts.length} new alerts`}
           changeType="down"
           icon={<AlertTriangle className="h-5 w-5" />}
           color="warning"
@@ -227,31 +157,33 @@ export default function StockOverviewPage() {
       </div>
 
       {/* Low Stock Alerts */}
-      <div className="rounded-2xl border border-warning/30 bg-warning/5 p-6 shadow-sm">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-warning">
-          <AlertTriangle className="h-5 w-5" />
-          Stock Alerts
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {alerts.map((alert) => (
-            <div
-              key={alert.id}
-              className="p-3 bg-card rounded-xl border border-border"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-mono text-muted-foreground">{alert.id}</span>
-                <StatusBadge status={alert.status} variant={alert.severity} />
+      {alerts.length > 0 && (
+        <div className="rounded-2xl border border-warning/30 bg-warning/5 p-6 shadow-sm">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-warning">
+            <AlertTriangle className="h-5 w-5" />
+            Stock Alerts
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {alerts.map((alert) => (
+              <div
+                key={alert.id}
+                className="p-3 bg-card rounded-xl border border-border"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-mono text-muted-foreground">{alert.id}</span>
+                  <StatusBadge status={alert.status} variant={alert.severity} />
+                </div>
+                <p className="text-sm font-medium truncate">{alert.name}</p>
+                {alert.daysEmpty > 0 && (
+                  <p className="text-xs text-danger mt-1">
+                    Empty for {alert.daysEmpty} days
+                  </p>
+                )}
               </div>
-              <p className="text-sm font-medium truncate">{alert.name}</p>
-              {alert.daysEmpty > 0 && (
-                <p className="text-xs text-danger mt-1">
-                  Empty for {alert.daysEmpty} days
-                </p>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Stock Table */}
       <div className="rounded-2xl border border-border bg-card shadow-sm">
@@ -335,23 +267,23 @@ export default function StockOverviewPage() {
                     <span className="text-sm text-muted-foreground">{item.category}</span>
                   </td>
                   <td className="py-3 px-4 hidden lg:table-cell text-right">
-                    <span className={`text-sm font-medium ${item.warehouses["WH-SH-01"] === 0 ? 'text-danger' : ''}`}>
-                      {item.warehouses["WH-SH-01"]}
+                    <span className={`text-sm font-medium ${(item.warehouses["WH-SH-01"] || 0) === 0 ? 'text-danger' : ''}`}>
+                      {item.warehouses["WH-SH-01"] || 0}
                     </span>
                   </td>
                   <td className="py-3 px-4 hidden lg:table-cell text-right">
-                    <span className={`text-sm font-medium ${item.warehouses["WH-SH-02"] === 0 ? 'text-danger' : ''}`}>
-                      {item.warehouses["WH-SH-02"]}
+                    <span className={`text-sm font-medium ${(item.warehouses["WH-SH-02"] || 0) === 0 ? 'text-danger' : ''}`}>
+                      {item.warehouses["WH-SH-02"] || 0}
                     </span>
                   </td>
                   <td className="py-3 px-4 hidden xl:table-cell text-right">
-                    <span className={`text-sm font-medium ${item.warehouses["WH-BJ-01"] === 0 ? 'text-danger' : ''}`}>
-                      {item.warehouses["WH-BJ-01"]}
+                    <span className={`text-sm font-medium ${(item.warehouses["WH-BJ-01"] || 0) === 0 ? 'text-danger' : ''}`}>
+                      {item.warehouses["WH-BJ-01"] || 0}
                     </span>
                   </td>
                   <td className="py-3 px-4 hidden xl:table-cell text-right">
-                    <span className={`text-sm font-medium ${item.warehouses["WH-GZ-01"] === 0 ? 'text-danger' : ''}`}>
-                      {item.warehouses["WH-GZ-01"]}
+                    <span className={`text-sm font-medium ${(item.warehouses["WH-GZ-01"] || 0) === 0 ? 'text-danger' : ''}`}>
+                      {item.warehouses["WH-GZ-01"] || 0}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-right">

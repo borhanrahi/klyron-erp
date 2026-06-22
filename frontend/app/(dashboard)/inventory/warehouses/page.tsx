@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   Warehouse,
   Search,
@@ -20,74 +21,39 @@ import {
   Package,
 } from "lucide-react";
 
-const warehouses = [
-  {
-    id: "WH-SH-01",
-    code: "SH-01",
-    name: "Shanghai Main Warehouse",
-    address: "No. 88 Zhangyang Road, Pudong, Shanghai",
-    manager: "Zhang Wei",
-    phone: "+86 21 5888 9999",
-    totalItems: 456,
-    totalStock: 2340,
-    bins: 120,
-    utilization: 78,
-    status: "Active",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "WH-SH-02",
-    code: "SH-02",
-    name: "Shanghai Warehouse 2",
-    address: "No. 156 Huqingping Road, Qingpu, Shanghai",
-    manager: "Wang Fang",
-    phone: "+86 21 6777 8888",
-    totalItems: 312,
-    totalStock: 1580,
-    bins: 80,
-    utilization: 65,
-    status: "Active",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "WH-BJ-01",
-    code: "BJ-01",
-    name: "Beijing Warehouse",
-    address: "No. 200 Jinggang'ao Road, Daxing, Beijing",
-    manager: "Chen Jie",
-    phone: "+86 10 8999 7777",
-    totalItems: 284,
-    totalStock: 1220,
-    bins: 60,
-    utilization: 52,
-    status: "Active",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "WH-GZ-01",
-    code: "GZ-01",
-    name: "Guangzhou Warehouse",
-    address: "No. 88 Huangpu Avenue, Tianhe, Guangzhou",
-    manager: "Liu Yang",
-    phone: "+86 20 3666 5555",
-    totalItems: 198,
-    totalStock: 860,
-    bins: 40,
-    utilization: 42,
-    status: "Active",
-    statusVariant: "success" as const,
-  },
-];
-
-const warehouseStats = [
-  { label: "Total Warehouses", value: "4", change: "All operational" },
-  { label: "Total Stock Items", value: "1,250", change: "+124 this month" },
-  { label: "Total Stock Value", value: "$2.4M", change: "+8.5% from last month" },
-  { label: "Avg Utilization", value: "59%", change: "Healthy" },
-];
+interface WarehouseItem {
+  id: string;
+  code: string;
+  name: string;
+  address: string;
+  manager: string;
+  phone: string;
+  totalItems: number;
+  totalStock: number;
+  bins: number;
+  utilization: number;
+  status: string;
+  statusVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
+}
 
 export default function WarehousesPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [warehouses, setWarehouses] = useState<WarehouseItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ items: WarehouseItem[] }>("/inventory/warehouses")
+      .then((res) => setWarehouses(res.items))
+      .catch(() => setWarehouses([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const warehouseStats = [
+    { label: "Total Warehouses", value: String(warehouses.length), change: "All operational" },
+    { label: "Total Stock Items", value: warehouses.reduce((a, w) => a + (w.totalStock || 0), 0).toLocaleString(), change: "+124 this month" },
+    { label: "Total Stock Value", value: "$2.4M", change: "+8.5% from last month" },
+    { label: "Avg Utilization", value: `${warehouses.length > 0 ? Math.round(warehouses.reduce((a, w) => a + (w.utilization || 0), 0) / warehouses.length) : 0}%`, change: "Healthy" },
+  ];
 
   const filteredWarehouses = warehouses.filter((wh) => {
     return (
@@ -96,6 +62,14 @@ export default function WarehousesPage() {
       wh.manager.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">

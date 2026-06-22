@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
@@ -18,123 +18,51 @@ import {
   Mail,
   Building2,
   Star,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { apiGet } from "@/lib/api";
 
-const leads = [
-  {
-    id: "L-001",
-    name: "Sarah Johnson",
-    company: "TechStart Inc",
-    email: "sarah.johnson@techstart.io",
-    phone: "+1 (555) 234-5678",
-    source: "Webinar",
-    status: "Qualified",
-    statusVariant: "success" as const,
-    score: 85,
-    value: "$45,000",
-    owner: "Mike Johnson",
-    created: "Mar 15, 2024",
-  },
-  {
-    id: "L-002",
-    name: "James Chen",
-    company: "Global Industries",
-    email: "james.chen@globalind.com",
-    phone: "+1 (555) 345-6789",
-    source: "Referral",
-    status: "New",
-    statusVariant: "info" as const,
-    score: 42,
-    value: "$12,000",
-    owner: "Emily Davis",
-    created: "Mar 18, 2024",
-  },
-  {
-    id: "L-003",
-    name: "Maria Garcia",
-    company: "Creative Solutions",
-    email: "maria.garcia@creative.com",
-    phone: "+1 (555) 456-7890",
-    source: "Website",
-    status: "Contacted",
-    statusVariant: "warning" as const,
-    score: 58,
-    value: "$28,500",
-    owner: "Mike Johnson",
-    created: "Mar 12, 2024",
-  },
-  {
-    id: "L-004",
-    name: "David Kim",
-    company: "DataFlow Systems",
-    email: "david.kim@dataflow.io",
-    phone: "+1 (555) 567-8901",
-    source: "LinkedIn",
-    status: "Proposal Sent",
-    statusVariant: "primary" as const,
-    score: 72,
-    value: "$67,000",
-    owner: "Emily Davis",
-    created: "Mar 10, 2024",
-  },
-  {
-    id: "L-005",
-    name: "Rachel Thompson",
-    company: "Innovate Labs",
-    email: "rachel.t@innovate.com",
-    phone: "+1 (555) 678-9012",
-    source: "Trade Show",
-    status: "Unqualified",
-    statusVariant: "danger" as const,
-    score: 15,
-    value: "$8,000",
-    owner: "Mike Johnson",
-    created: "Mar 20, 2024",
-  },
-  {
-    id: "L-006",
-    name: "Alex Rivera",
-    company: "Quantum Enterprises",
-    email: "alex.r@quantum.com",
-    phone: "+1 (555) 789-0123",
-    source: "Cold Call",
-    status: "New",
-    statusVariant: "info" as const,
-    score: 35,
-    value: "$19,200",
-    owner: "Emily Davis",
-    created: "Mar 21, 2024",
-  },
-  {
-    id: "L-007",
-    name: "Sophie Laurent",
-    company: "Nexus Digital",
-    email: "sophie.l@nexus.com",
-    phone: "+1 (555) 890-1234",
-    source: "Webinar",
-    status: "Qualified",
-    statusVariant: "success" as const,
-    score: 91,
-    value: "$120,000",
-    owner: "Mike Johnson",
-    created: "Mar 8, 2024",
-  },
-  {
-    id: "L-008",
-    name: "Tom Bradley",
-    company: "Apex Solutions",
-    email: "tom.b@apex.com",
-    phone: "+1 (555) 901-2345",
-    source: "Website",
-    status: "Contacted",
-    statusVariant: "warning" as const,
-    score: 48,
-    value: "$33,000",
-    owner: "Emily Davis",
-    created: "Mar 16, 2024",
-  },
-];
+interface Lead {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  source: string;
+  status: string;
+  statusVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
+  score: number;
+  value: string;
+  owner: string;
+  created: string;
+}
+
+function mapStatusVariant(status: string): Lead["statusVariant"] {
+  const s = (status || "").toLowerCase();
+  if (s === "qualified" || s === "won") return "success";
+  if (s === "contacted" || s === "in progress" || s === "proposal sent") return "warning";
+  if (s === "unqualified" || s === "lost") return "danger";
+  if (s === "new" || s === "open") return "info";
+  return "primary";
+}
+
+function mapLead(raw: any): Lead {
+  return {
+    id: raw.id ?? raw.ID ?? "",
+    name: raw.name ?? raw.lead_name ?? raw.contact_name ?? "",
+    company: raw.company ?? raw.company_name ?? "",
+    email: raw.email ?? raw.contact_email ?? "",
+    phone: raw.phone ?? raw.contact_phone ?? "",
+    source: raw.source ?? raw.lead_source ?? "",
+    status: raw.status ?? "New",
+    statusVariant: mapStatusVariant(raw.status),
+    score: raw.score ?? raw.lead_score ?? 0,
+    value: raw.value ?? raw.deal_value ?? raw.estimated_value ?? "$0",
+    owner: raw.owner ?? raw.assigned_to ?? "",
+    created: raw.created ?? raw.created_at ?? raw.date_created ?? "",
+  };
+}
 
 const leadStats = [
   { label: "Total Leads", value: "156", change: "+24 this month" },
@@ -144,8 +72,25 @@ const leadStats = [
 ];
 
 export default function LeadsListPage() {
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+
+  useEffect(() => {
+    async function fetchLeads() {
+      try {
+        const res = await apiGet<any>("/sales/leads");
+        const items = (res.items ?? res.data ?? []).map(mapLead);
+        setLeads(items);
+      } catch (err) {
+        console.error("Failed to fetch leads:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchLeads();
+  }, []);
 
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch =
@@ -235,137 +180,146 @@ export default function LeadsListPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  <button className="flex items-center gap-1 hover:text-foreground transition-colors">
-                    Lead
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
-                  Company
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                  Source
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Status
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                  Score
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Value
-                </th>
-                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/50">
-              {filteredLeads.map((lead) => (
-                <tr
-                  key={lead.id}
-                  className="hover:bg-muted/5 transition-colors"
-                >
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                        {lead.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{lead.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {lead.email}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 hidden md:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {lead.company}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 hidden lg:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {lead.source}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <StatusBadge
-                      status={lead.status}
-                      variant={lead.statusVariant}
-                    />
-                  </td>
-                  <td className="py-3 px-4 hidden lg:table-cell">
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${
-                            lead.score >= 70
-                              ? "bg-success"
-                              : lead.score >= 40
-                                ? "bg-warning"
-                                : "bg-danger"
-                          }`}
-                          style={{ width: `${lead.score}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {lead.score}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="text-sm font-semibold">{lead.value}</span>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Link
-                        href={`/sales/leads/${lead.id}`}
-                        className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="p-4 border-t border-border flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredLeads.length} of {leads.length} leads
-          </p>
-          <div className="flex items-center gap-2">
-            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">
-              1
-            </button>
-            <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">
-              2
-            </button>
-            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-              <ChevronRight className="h-4 w-4" />
-            </button>
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <span className="ml-2 text-sm text-muted-foreground">Loading leads...</span>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      <button className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        Lead
+                        <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
+                      Company
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                      Source
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      Status
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                      Score
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      Value
+                    </th>
+                    <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {filteredLeads.map((lead) => (
+                    <tr
+                      key={lead.id}
+                      className="hover:bg-muted/5 transition-colors"
+                    >
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+                            {lead.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{lead.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {lead.email}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 hidden md:table-cell">
+                        <span className="text-sm text-muted-foreground">
+                          {lead.company}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 hidden lg:table-cell">
+                        <span className="text-sm text-muted-foreground">
+                          {lead.source}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <StatusBadge
+                          status={lead.status}
+                          variant={lead.statusVariant}
+                        />
+                      </td>
+                      <td className="py-3 px-4 hidden lg:table-cell">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${
+                                lead.score >= 70
+                                  ? "bg-success"
+                                  : lead.score >= 40
+                                    ? "bg-warning"
+                                    : "bg-danger"
+                              }`}
+                              style={{ width: `${lead.score}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {lead.score}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm font-semibold">{lead.value}</span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            href={`/sales/leads/${lead.id}`}
+                            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="p-4 border-t border-border flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing {filteredLeads.length} of {leads.length} leads
+              </p>
+              <div className="flex items-center gap-2">
+                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">
+                  1
+                </button>
+                <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">
+                  2
+                </button>
+                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

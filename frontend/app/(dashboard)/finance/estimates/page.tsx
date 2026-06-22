@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   FileSpreadsheet,
   Search,
@@ -15,80 +16,45 @@ import {
   ChevronRight,
   ArrowUpDown,
   Copy,
+  Loader2,
 } from "lucide-react";
 
-const estimates = [
-  {
-    id: "EST-2024-018",
-    customer: "Acme Corp",
-    date: "Mar 24, 2024",
-    validUntil: "Apr 23, 2024",
-    amount: "$18,500.00",
-    items: 8,
-    status: "Accepted",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "EST-2024-019",
-    customer: "TechStart Inc",
-    date: "Mar 22, 2024",
-    validUntil: "Apr 21, 2024",
-    amount: "$12,750.00",
-    items: 5,
-    status: "Sent",
-    statusVariant: "info" as const,
-  },
-  {
-    id: "EST-2024-020",
-    customer: "Global Industries",
-    date: "Mar 20, 2024",
-    validUntil: "Apr 19, 2024",
-    amount: "$45,200.00",
-    items: 18,
-    status: "Draft",
-    statusVariant: "muted" as const,
-  },
-  {
-    id: "EST-2024-021",
-    customer: "Creative Solutions",
-    date: "Mar 18, 2024",
-    validUntil: "Apr 17, 2024",
-    amount: "$6,300.00",
-    items: 3,
-    status: "Expired",
-    statusVariant: "danger" as const,
-  },
-  {
-    id: "EST-2024-022",
-    customer: "DataFlow Systems",
-    date: "Mar 15, 2024",
-    validUntil: "Apr 14, 2024",
-    amount: "$28,900.00",
-    items: 12,
-    status: "Accepted",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "EST-2024-023",
-    customer: "Innovate Labs",
-    date: "Mar 12, 2024",
-    validUntil: "Apr 11, 2024",
-    amount: "$9,450.00",
-    items: 6,
-    status: "Declined",
-    statusVariant: "danger" as const,
-  },
-  {
-    id: "EST-2024-024",
-    customer: "Quantum Enterprises",
-    date: "Mar 10, 2024",
-    validUntil: "Apr 09, 2024",
-    amount: "$52,800.00",
-    items: 22,
-    status: "Sent",
-    statusVariant: "info" as const,
-  },
-];
+const STATUS_VARIANT_MAP: Record<string, "success" | "warning" | "danger" | "info" | "primary" | "muted"> = {
+  accepted: "success",
+  sent: "info",
+  draft: "muted",
+  expired: "danger",
+  declined: "danger",
+  pending: "warning",
+};
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+}
+
+function formatDate(dateStr?: string | null): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+interface EstimateItem {
+  id: string | number;
+  estimate_number?: string;
+  customer_name?: string;
+  customer?: string;
+  estimate_date?: string;
+  date?: string;
+  valid_until?: string;
+  validUntil?: string;
+  total?: number;
+  amount?: number;
+  line_items?: unknown[];
+  items?: number;
+  item_count?: number;
+  status?: string;
+  [key: string]: unknown;
+}
 
 const estimateStats = [
   { label: "Total Estimates", value: "42", change: "Q1 2024" },
@@ -100,13 +66,26 @@ const estimateStats = [
 export default function EstimatesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [estimates, setEstimates] = useState<EstimateItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiGet<{ items: EstimateItem[] }>("/finance/estimates")
+      .then((res) => setEstimates(res.items || []))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredEstimates = estimates.filter((estimate) => {
+    const id = (estimate.estimate_number || estimate.id || "").toString();
+    const customer = (estimate.customer_name || estimate.customer || "").toLowerCase();
+    const status = (estimate.status || "").toLowerCase();
     const matchesSearch =
-      estimate.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      estimate.id.toLowerCase().includes(searchTerm.toLowerCase());
+      customer.includes(searchTerm.toLowerCase()) ||
+      id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
-      selectedStatus === "All" || estimate.status === selectedStatus;
+      selectedStatus === "All" || status === selectedStatus.toLowerCase();
     return matchesSearch && matchesStatus;
   });
 
@@ -185,6 +164,16 @@ export default function EstimatesPage() {
         </div>
 
         <div className="overflow-x-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              Loading estimates...
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-12 text-danger">
+              {error}
+            </div>
+          ) : (
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
@@ -218,45 +207,50 @@ export default function EstimatesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {filteredEstimates.map((estimate) => (
+              {filteredEstimates.map((estimate) => {
+                const estId = (estimate.estimate_number || estimate.id || "").toString();
+                const status = (estimate.status || "").toLowerCase();
+                const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+                const itemCount = estimate.item_count ?? estimate.items ?? (estimate.line_items?.length || 0);
+                return (
                 <tr
                   key={estimate.id}
                   className="hover:bg-muted/5 transition-colors"
                 >
                   <td className="py-3 px-4">
                     <span className="text-sm font-medium text-primary">
-                      {estimate.id}
+                      {estId}
                     </span>
                   </td>
                   <td className="py-3 px-4">
                     <span className="text-sm font-medium">
-                      {estimate.customer}
+                      {estimate.customer_name || estimate.customer || "—"}
                     </span>
                   </td>
                   <td className="py-3 px-4 hidden md:table-cell">
                     <span className="text-sm text-muted-foreground">
-                      {estimate.date}
+                      {formatDate(estimate.estimate_date || estimate.date)}
                     </span>
                   </td>
                   <td className="py-3 px-4 hidden lg:table-cell">
                     <span className="text-sm text-muted-foreground">
-                      {estimate.validUntil}
+                      {formatDate(estimate.valid_until || estimate.validUntil)}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-right">
                     <span className="text-sm font-semibold">
-                      {estimate.amount}
+                      {formatCurrency(estimate.total || estimate.amount || 0)}
                     </span>
                   </td>
                   <td className="py-3 px-4 hidden lg:table-cell">
                     <span className="text-sm text-muted-foreground">
-                      {estimate.items} items
+                      {itemCount} items
                     </span>
                   </td>
                   <td className="py-3 px-4">
                     <StatusBadge
-                      status={estimate.status}
-                      variant={estimate.statusVariant}
+                      status={statusLabel}
+                      variant={STATUS_VARIANT_MAP[status] || "muted"}
                     />
                   </td>
                   <td className="py-3 px-4 text-right">
@@ -264,12 +258,12 @@ export default function EstimatesPage() {
                       <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
                         <Eye className="h-4 w-4" />
                       </button>
-                      {estimate.status === "Accepted" && (
+                      {status === "accepted" && (
                         <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-primary">
                           <Copy className="h-4 w-4" />
                         </button>
                       )}
-                      {estimate.status === "Draft" && (
+                      {status === "draft" && (
                         <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-primary">
                           <Send className="h-4 w-4" />
                         </button>
@@ -277,9 +271,11 @@ export default function EstimatesPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
+          )}
         </div>
 
         <div className="p-4 border-t border-border flex items-center justify-between">

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   Ticket,
   Search,
@@ -17,28 +18,72 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 
-const tickets = [
-  { id: "TKT-001", subject: "Cannot access dashboard after password reset", priority: "High", priorityVariant: "warning" as const, status: "Open", statusVariant: "danger" as const, assignee: "Sarah Chen", assigneeAvatar: "SC", customer: "Acme Corp", created: "Jun 21, 2024 10:30 AM", updated: "Jun 21, 2024 02:15 PM" },
-  { id: "TKT-002", subject: "Invoice PDF generation shows blank page", priority: "Critical", priorityVariant: "danger" as const, status: "In Progress", statusVariant: "info" as const, assignee: "Mike Johnson", assigneeAvatar: "MJ", customer: "TechStart Inc", created: "Jun 20, 2024 04:20 PM", updated: "Jun 21, 2024 11:00 AM" },
-  { id: "TKT-003", subject: "How to export inventory data to CSV?", priority: "Low", priorityVariant: "muted" as const, status: "Resolved", statusVariant: "success" as const, assignee: "Emily Davis", assigneeAvatar: "ED", customer: "Global Retail", created: "Jun 19, 2024 09:15 AM", updated: "Jun 19, 2024 03:45 PM" },
-  { id: "TKT-004", subject: "Integration with QuickBooks failing", priority: "High", priorityVariant: "warning" as const, status: "Open", statusVariant: "danger" as const, assignee: "David Park", assigneeAvatar: "DP", customer: "SmallBiz LLC", created: "Jun 18, 2024 01:30 PM", updated: "Jun 20, 2024 10:20 AM" },
-  { id: "TKT-005", subject: "User roles not saving correctly", priority: "Medium", priorityVariant: "info" as const, status: "In Progress", statusVariant: "info" as const, assignee: "Omar Hassan", assigneeAvatar: "OH", customer: "DataFlow Systems", created: "Jun 17, 2024 11:45 AM", updated: "Jun 19, 2024 04:30 PM" },
-  { id: "TKT-006", subject: "Feature request: Bulk import customers", priority: "Low", priorityVariant: "muted" as const, status: "Closed", statusVariant: "muted" as const, assignee: "Emily Davis", assigneeAvatar: "ED", customer: "Wholesale Direct", created: "Jun 15, 2024 08:00 AM", updated: "Jun 18, 2024 02:15 PM" },
-  { id: "TKT-007", subject: "Mobile app crashes on Android 14", priority: "Critical", priorityVariant: "danger" as const, status: "Open", statusVariant: "danger" as const, assignee: "Unassigned", assigneeAvatar: "UA", customer: "FieldWorks", created: "Jun 14, 2024 03:45 PM", updated: "Jun 16, 2024 09:00 AM" },
-  { id: "TKT-008", subject: "Payment gateway timeout errors", priority: "High", priorityVariant: "warning" as const, status: "Resolved", statusVariant: "success" as const, assignee: "Mike Johnson", assigneeAvatar: "MJ", customer: "ShopEasy", created: "Jun 12, 2024 02:10 PM", updated: "Jun 15, 2024 11:30 AM" },
-];
+interface TicketItem {
+  id: string;
+  subject: string;
+  priority: string;
+  priorityVariant: "danger" | "warning" | "info" | "muted";
+  status: string;
+  statusVariant: "danger" | "warning" | "info" | "success" | "muted";
+  assignee: string;
+  assigneeAvatar: string;
+  customer: string;
+  created: string;
+  updated: string;
+}
 
-const ticketStats = [
-  { label: "Open Tickets", value: "18", change: "4 Critical", color: "text-danger" },
-  { label: "In Progress", value: "12", change: "Avg 2.1h response", color: "text-info" },
-  { label: "Resolved Today", value: "8", change: "92% satisfaction", color: "text-success" },
-  { label: "Avg Response Time", value: "1.8h", change: "-0.3h vs last week", color: "text-primary" },
-];
+const priorityVariantMap: Record<string, TicketItem["priorityVariant"]> = {
+  Critical: "danger",
+  High: "warning",
+  Medium: "info",
+  Low: "muted",
+};
+
+const statusVariantMap: Record<string, TicketItem["statusVariant"]> = {
+  Open: "danger",
+  "In Progress": "info",
+  Resolved: "success",
+  Closed: "muted",
+};
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 export default function SupportTicketsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPriority, setSelectedPriority] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [tickets, setTickets] = useState<TicketItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ items: TicketItem[] }>("/support/tickets")
+      .then((res) =>
+        setTickets(
+          res.items.map((t) => ({
+            ...t,
+            priorityVariant: priorityVariantMap[t.priority] || "info",
+            statusVariant: statusVariantMap[t.status] || "info",
+            assigneeAvatar: t.assigneeAvatar || getInitials(t.assignee || "NA"),
+          }))
+        )
+      )
+      .catch(() => setTickets([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const ticketStats = [
+    { label: "Open Tickets", value: String(tickets.filter((t) => t.status === "Open").length), change: `${tickets.filter((t) => t.priority === "Critical" && t.status === "Open").length} Critical`, color: "text-danger" },
+    { label: "In Progress", value: String(tickets.filter((t) => t.status === "In Progress").length), change: "Avg 2.1h response", color: "text-info" },
+    { label: "Resolved Today", value: String(tickets.filter((t) => t.status === "Resolved").length), change: "92% satisfaction", color: "text-success" },
+    { label: "Avg Response Time", value: "1.8h", change: "-0.3h vs last week", color: "text-primary" },
+  ];
 
   const filteredTickets = tickets.filter((t) => {
     const matchesSearch =
@@ -51,6 +96,14 @@ export default function SupportTicketsPage() {
       selectedStatus === "All" || t.status === selectedStatus;
     return matchesSearch && matchesPriority && matchesStatus;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">

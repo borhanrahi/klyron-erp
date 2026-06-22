@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   Search,
   Plus,
@@ -16,72 +17,38 @@ import {
   Truck,
 } from "lucide-react";
 
-const purchaseOrders = [
-  {
-    id: "PO-2024-001",
-    supplier: "TechParts International",
-    date: "2024-01-15",
-    deliveryDate: "2024-01-25",
-    amount: 24500.0,
-    status: "Confirmed",
-    items: 12,
-    prReference: "PR-2024-001",
-  },
-  {
-    id: "PO-2024-002",
-    supplier: "Global Materials Co",
-    date: "2024-01-14",
-    deliveryDate: "2024-01-28",
-    amount: 18750.0,
-    status: "Pending",
-    items: 8,
-    prReference: "PR-2024-002",
-  },
-  {
-    id: "PO-2024-003",
-    supplier: "Packaging Solutions Ltd",
-    date: "2024-01-13",
-    deliveryDate: "2024-01-20",
-    amount: 12300.0,
-    status: "Shipped",
-    items: 5,
-    prReference: "PR-2024-003",
-  },
-  {
-    id: "PO-2024-004",
-    supplier: "Office Supplies Direct",
-    date: "2024-01-12",
-    deliveryDate: "2024-01-18",
-    amount: 5200.0,
-    status: "Delivered",
-    items: 15,
-    prReference: "PR-2024-004",
-  },
-  {
-    id: "PO-2024-005",
-    supplier: "GreenTech Solutions",
-    date: "2024-01-11",
-    deliveryDate: "2024-01-30",
-    amount: 31200.0,
-    status: "Draft",
-    items: 6,
-    prReference: "PR-2024-005",
-  },
-  {
-    id: "PO-2024-006",
-    supplier: "Industrial Equipment Inc",
-    date: "2024-01-10",
-    deliveryDate: "2024-01-22",
-    amount: 8900.0,
-    status: "Cancelled",
-    items: 3,
-    prReference: "PR-2024-006",
-  },
-];
+interface PurchaseOrder {
+  id: string;
+  supplier: string;
+  date: string;
+  deliveryDate: string;
+  amount: number;
+  status: string;
+  items: number;
+  prReference: string;
+}
 
 export default function PurchaseOrdersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ items: any[] }>("/procurement/orders")
+      .then((res) => setPurchaseOrders(res.items.map((po: any) => ({
+        id: po.order_number || `PO-${po.id}`,
+        supplier: po.supplier_name || po.supplier || "",
+        date: po.order_date || po.created_at || "",
+        deliveryDate: po.expected_delivery || po.delivery_date || "",
+        amount: po.total_amount || po.total || 0,
+        status: po.status || "Draft",
+        items: Array.isArray(po.items) ? po.items.length : 0,
+        prReference: po.pr_reference || po.requisition_number || "",
+      }))))
+      .catch(() => setPurchaseOrders([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const statuses = [
     "All",
@@ -101,6 +68,14 @@ export default function PurchaseOrdersPage() {
       filterStatus === "All" || po.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

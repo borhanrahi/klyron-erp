@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import engine
@@ -25,6 +26,16 @@ app.add_middleware(
 app.add_middleware(LoggingMiddleware)
 
 app.include_router(api_router)
+
+@app.get("/", tags=["Root"])
+async def root():
+    return JSONResponse(content={
+        "message": "Welcome to Klyron ERP API",
+        "version": app.version,
+        "docs": "/docs",
+        "health": "/health",
+        "api_base": "/api/v1",
+    })
 
 @app.get("/health")
 async def health_check():

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   FolderKanban,
   Search,
@@ -19,131 +20,64 @@ import {
   Filter,
 } from "lucide-react";
 
-const projects = [
-  {
-    id: "PRJ-001",
-    name: "E-Commerce Platform Redesign",
-    manager: "Sarah Chen",
-    managerAvatar: "SC",
-    budget: 125000,
-    spent: 87500,
-    progress: 70,
-    status: "In Progress",
-    statusVariant: "info" as const,
-    startDate: "Jan 15, 2024",
-    endDate: "Jul 30, 2024",
-    team: 8,
-  },
-  {
-    id: "PRJ-002",
-    name: "Mobile App v2.0",
-    manager: "Mike Johnson",
-    managerAvatar: "MJ",
-    budget: 200000,
-    spent: 142000,
-    progress: 55,
-    status: "In Progress",
-    statusVariant: "info" as const,
-    startDate: "Feb 1, 2024",
-    endDate: "Sep 15, 2024",
-    team: 12,
-  },
-  {
-    id: "PRJ-003",
-    name: "ERP Integration Module",
-    manager: "Emily Davis",
-    managerAvatar: "ED",
-    budget: 85000,
-    spent: 85000,
-    progress: 100,
-    status: "Completed",
-    statusVariant: "success" as const,
-    startDate: "Nov 1, 2023",
-    endDate: "Apr 30, 2024",
-    team: 6,
-  },
-  {
-    id: "PRJ-004",
-    name: "Data Analytics Dashboard",
-    manager: "David Park",
-    managerAvatar: "DP",
-    budget: 95000,
-    spent: 32000,
-    progress: 35,
-    status: "In Progress",
-    statusVariant: "info" as const,
-    startDate: "Mar 10, 2024",
-    endDate: "Oct 15, 2024",
-    team: 5,
-  },
-  {
-    id: "PRJ-005",
-    name: "Customer Portal Upgrade",
-    manager: "Rachel Martinez",
-    managerAvatar: "RM",
-    budget: 60000,
-    spent: 15000,
-    progress: 10,
-    status: "Planning",
-    statusVariant: "warning" as const,
-    startDate: "May 1, 2024",
-    endDate: "Dec 31, 2024",
-    team: 4,
-  },
-  {
-    id: "PRJ-006",
-    name: "Legacy System Migration",
-    manager: "Sarah Chen",
-    managerAvatar: "SC",
-    budget: 350000,
-    spent: 280000,
-    progress: 82,
-    status: "In Progress",
-    statusVariant: "info" as const,
-    startDate: "Jun 15, 2023",
-    endDate: "Aug 30, 2024",
-    team: 15,
-  },
-  {
-    id: "PRJ-007",
-    name: "CI/CD Pipeline Setup",
-    manager: "Alex Kim",
-    managerAvatar: "AK",
-    budget: 25000,
-    spent: 25000,
-    progress: 100,
-    status: "Completed",
-    statusVariant: "success" as const,
-    startDate: "Jan 5, 2024",
-    endDate: "Mar 15, 2024",
-    team: 3,
-  },
-  {
-    id: "PRJ-008",
-    name: "AI Chatbot Implementation",
-    manager: "Mike Johnson",
-    managerAvatar: "MJ",
-    budget: 150000,
-    spent: 0,
-    progress: 0,
-    status: "On Hold",
-    statusVariant: "muted" as const,
-    startDate: "TBD",
-    endDate: "TBD",
-    team: 0,
-  },
-];
+interface Project {
+  id: string;
+  name: string;
+  manager: string;
+  managerAvatar: string;
+  budget: number;
+  spent: number;
+  progress: number;
+  status: string;
+  statusVariant: "info" | "success" | "warning" | "danger" | "primary" | "muted";
+  startDate: string;
+  endDate: string;
+  team: number;
+}
 
-const projectStats = [
-  { label: "Total Projects", value: "8", change: "+2 this quarter" },
-  { label: "In Progress", value: "4", change: "50% active" },
-  { label: "Completed", value: "2", change: "25% completion" },
-  { label: "Total Budget", value: "$1.09M", change: "$886.5K spent" },
-];
+const statusVariantMap: Record<string, Project["statusVariant"]> = {
+  "In Progress": "info",
+  Completed: "success",
+  Planning: "warning",
+  "On Hold": "muted",
+};
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 export default function ProjectsListPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ items: Project[] }>("/projects/")
+      .then((res) =>
+        setProjects(
+          res.items.map((p) => ({
+            ...p,
+            statusVariant: statusVariantMap[p.status] || "info",
+            managerAvatar: p.managerAvatar || getInitials(p.manager || ""),
+          }))
+        )
+      )
+      .catch(() => setProjects([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const projectStats = [
+    { label: "Total Projects", value: String(projects.length), change: `+${projects.filter((p) => p.startDate > "2024-01-01").length} this quarter` },
+    { label: "In Progress", value: String(projects.filter((p) => p.status === "In Progress").length), change: `${projects.length > 0 ? Math.round((projects.filter((p) => p.status === "In Progress").length / projects.length) * 100) : 0}% active` },
+    { label: "Completed", value: String(projects.filter((p) => p.status === "Completed").length), change: `${projects.length > 0 ? Math.round((projects.filter((p) => p.status === "Completed").length / projects.length) * 100) : 0}% completion` },
+    { label: "Total Budget", value: `$${(projects.reduce((a, p) => a + (p.budget || 0), 0) / 1000).toFixed(0)}K`, change: `$${(projects.reduce((a, p) => a + (p.spent || 0), 0) / 1000).toFixed(0)}K spent` },
+  ];
 
   const filteredProjects = projects.filter((p) => {
     const matchesSearch =
@@ -153,6 +87,14 @@ export default function ProjectsListPage() {
       selectedStatus === "All" || p.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">

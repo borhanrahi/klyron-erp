@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sa_func
+from sqlalchemy.orm import selectinload
 from datetime import datetime
 from typing import Optional
 
@@ -494,7 +495,7 @@ async def list_quotations(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_company),
 ):
-    query = select(Quotation).where(
+    query = select(Quotation).options(selectinload(Quotation.items)).where(
         Quotation.company_id == current_user.company_id,
         Quotation.deleted_at.is_(None),
     )
@@ -647,7 +648,7 @@ async def list_sales_orders(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_company),
 ):
-    query = select(SalesOrder).where(
+    query = select(SalesOrder).options(selectinload(SalesOrder.items)).where(
         SalesOrder.company_id == current_user.company_id,
         SalesOrder.deleted_at.is_(None),
     )

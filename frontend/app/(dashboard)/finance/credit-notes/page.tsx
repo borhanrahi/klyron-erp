@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   CreditCard,
   Search,
@@ -13,70 +14,44 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
+  Loader2,
 } from "lucide-react";
 
-const creditNotes = [
-  {
-    id: "CN-2024-012",
-    customer: "Acme Corp",
-    date: "Mar 24, 2024",
-    amount: "$1,250.00",
-    reason: "Returned damaged goods",
-    invoiceRef: "INV-2024-038",
-    status: "Applied",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "CN-2024-013",
-    customer: "TechStart Inc",
-    date: "Mar 22, 2024",
-    amount: "$875.00",
-    reason: "Overcharged on invoice",
-    invoiceRef: "INV-2024-041",
-    status: "Applied",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "CN-2024-014",
-    customer: "Global Industries",
-    date: "Mar 20, 2024",
-    amount: "$3,400.00",
-    reason: "Service credit for downtime",
-    invoiceRef: "INV-2024-035",
-    status: "Pending",
-    statusVariant: "warning" as const,
-  },
-  {
-    id: "CN-2024-015",
-    customer: "Creative Solutions",
-    date: "Mar 18, 2024",
-    amount: "$520.00",
-    reason: "Duplicate charge correction",
-    invoiceRef: "INV-2024-039",
-    status: "Draft",
-    statusVariant: "muted" as const,
-  },
-  {
-    id: "CN-2024-016",
-    customer: "DataFlow Systems",
-    date: "Mar 15, 2024",
-    amount: "$2,100.00",
-    reason: "Cancelled order refund",
-    invoiceRef: "INV-2024-033",
-    status: "Applied",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "CN-2024-017",
-    customer: "Quantum Enterprises",
-    date: "Mar 12, 2024",
-    amount: "$4,800.00",
-    reason: "Contract termination credit",
-    invoiceRef: "INV-2024-029",
-    status: "Void",
-    statusVariant: "danger" as const,
-  },
-];
+const STATUS_VARIANT_MAP: Record<string, "success" | "warning" | "danger" | "info" | "primary" | "muted"> = {
+  applied: "success",
+  pending: "warning",
+  draft: "muted",
+  void: "danger",
+  cancelled: "danger",
+  issued: "info",
+};
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+}
+
+function formatDate(dateStr?: string | null): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+interface CreditNoteItem {
+  id: string | number;
+  credit_note_number?: string;
+  customer_name?: string;
+  customer?: string;
+  credit_note_date?: string;
+  date?: string;
+  total?: number;
+  amount?: number;
+  reason?: string;
+  invoice_reference?: string;
+  invoiceRef?: string;
+  invoice_id?: string;
+  status?: string;
+  [key: string]: unknown;
+}
 
 const cnStats = [
   { label: "Total Credit Notes", value: "24", change: "Q1 2024" },
@@ -88,13 +63,26 @@ const cnStats = [
 export default function CreditNotesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [creditNotes, setCreditNotes] = useState<CreditNoteItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiGet<{ items: CreditNoteItem[] }>("/finance/credit-notes")
+      .then((res) => setCreditNotes(res.items || []))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredNotes = creditNotes.filter((note) => {
+    const id = (note.credit_note_number || note.id || "").toString();
+    const customer = (note.customer_name || note.customer || "").toLowerCase();
+    const status = (note.status || "").toLowerCase();
     const matchesSearch =
-      note.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      note.id.toLowerCase().includes(searchTerm.toLowerCase());
+      customer.includes(searchTerm.toLowerCase()) ||
+      id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
-      selectedStatus === "All" || note.status === selectedStatus;
+      selectedStatus === "All" || status === selectedStatus.toLowerCase();
     return matchesSearch && matchesStatus;
   });
 
@@ -172,6 +160,16 @@ export default function CreditNotesPage() {
         </div>
 
         <div className="overflow-x-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              Loading credit notes...
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-12 text-danger">
+              {error}
+            </div>
+          ) : (
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
@@ -205,41 +203,45 @@ export default function CreditNotesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {filteredNotes.map((note) => (
+              {filteredNotes.map((note) => {
+                const cnId = (note.credit_note_number || note.id || "").toString();
+                const status = (note.status || "").toLowerCase();
+                const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+                return (
                 <tr
                   key={note.id}
                   className="hover:bg-muted/5 transition-colors"
                 >
                   <td className="py-3 px-4">
                     <span className="text-sm font-medium text-primary">
-                      {note.id}
+                      {cnId}
                     </span>
                   </td>
                   <td className="py-3 px-4">
-                    <span className="text-sm font-medium">{note.customer}</span>
+                    <span className="text-sm font-medium">{note.customer_name || note.customer || "—"}</span>
                   </td>
                   <td className="py-3 px-4 hidden md:table-cell">
                     <span className="text-sm text-muted-foreground">
-                      {note.date}
+                      {formatDate(note.credit_note_date || note.date)}
                     </span>
                   </td>
                   <td className="py-3 px-4 hidden lg:table-cell">
-                    <span className="text-sm text-primary">{note.invoiceRef}</span>
+                    <span className="text-sm text-primary">{note.invoice_reference || note.invoiceRef || note.invoice_id || "—"}</span>
                   </td>
                   <td className="py-3 px-4 hidden xl:table-cell">
                     <span className="text-sm text-muted-foreground">
-                      {note.reason}
+                      {note.reason || "—"}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-right">
                     <span className="text-sm font-semibold text-danger">
-                      {note.amount}
+                      {formatCurrency(note.total || note.amount || 0)}
                     </span>
                   </td>
                   <td className="py-3 px-4">
                     <StatusBadge
-                      status={note.status}
-                      variant={note.statusVariant}
+                      status={statusLabel}
+                      variant={STATUS_VARIANT_MAP[status] || "muted"}
                     />
                   </td>
                   <td className="py-3 px-4 text-right">
@@ -250,9 +252,11 @@ export default function CreditNotesPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
+          )}
         </div>
 
         <div className="p-4 border-t border-border flex items-center justify-between">

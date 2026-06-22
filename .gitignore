@@ -26,6 +26,7 @@ build/
 coverage/
 .pytest_cache/
 htmlcov/
+.playwright-mcp
 
 # IDE
 .vscode/

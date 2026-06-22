@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
@@ -17,107 +17,48 @@ import {
   DollarSign,
   Calendar,
   Target,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { apiGet } from "@/lib/api";
 
-const deals = [
-  {
-    id: "D-001",
-    title: "Enterprise Platform Migration",
-    company: "Acme Corp",
-    value: "$125,000",
-    stage: "Negotiation",
-    stageVariant: "warning" as const,
-    probability: 75,
-    expectedClose: "Apr 15, 2024",
-    owner: "Mike Johnson",
-    created: "Feb 20, 2024",
-  },
-  {
-    id: "D-002",
-    title: "Cloud Infrastructure Setup",
-    company: "TechStart Inc",
-    value: "$87,500",
-    stage: "Proposal",
-    stageVariant: "info" as const,
-    probability: 50,
-    expectedClose: "Apr 30, 2024",
-    owner: "Emily Davis",
-    created: "Mar 5, 2024",
-  },
-  {
-    id: "D-003",
-    title: "Data Analytics Suite",
-    company: "Global Industries",
-    value: "$210,000",
-    stage: "Discovery",
-    stageVariant: "muted" as const,
-    probability: 25,
-    expectedClose: "May 20, 2024",
-    owner: "Sarah Wilson",
-    created: "Mar 10, 2024",
-  },
-  {
-    id: "D-004",
-    title: "Security Audit & Compliance",
-    company: "Creative Solutions",
-    value: "$45,000",
-    stage: "Closed Won",
-    stageVariant: "success" as const,
-    probability: 100,
-    expectedClose: "Mar 18, 2024",
-    owner: "Mike Johnson",
-    created: "Jan 15, 2024",
-  },
-  {
-    id: "D-005",
-    title: "ERP Implementation Phase 2",
-    company: "DataFlow Systems",
-    value: "$340,000",
-    stage: "Negotiation",
-    stageVariant: "warning" as const,
-    probability: 80,
-    expectedClose: "Apr 25, 2024",
-    owner: "Emily Davis",
-    created: "Feb 28, 2024",
-  },
-  {
-    id: "D-006",
-    title: "Mobile App Development",
-    company: "Innovate Labs",
-    value: "$95,000",
-    stage: "Proposal",
-    stageVariant: "info" as const,
-    probability: 60,
-    expectedClose: "May 10, 2024",
-    owner: "Sarah Wilson",
-    created: "Mar 12, 2024",
-  },
-  {
-    id: "D-007",
-    title: "Custom CRM Integration",
-    company: "Quantum Enterprises",
-    value: "$62,000",
-    stage: "Discovery",
-    stageVariant: "muted" as const,
-    probability: 30,
-    expectedClose: "Jun 1, 2024",
-    owner: "Mike Johnson",
-    created: "Mar 18, 2024",
-  },
-  {
-    id: "D-008",
-    title: "Digital Marketing Automation",
-    company: "Nexus Digital",
-    value: "$28,500",
-    stage: "Closed Won",
-    stageVariant: "success" as const,
-    probability: 100,
-    expectedClose: "Mar 12, 2024",
-    owner: "Emily Davis",
-    created: "Jan 28, 2024",
-  },
-];
+interface Deal {
+  id: string;
+  title: string;
+  company: string;
+  value: string;
+  stage: string;
+  stageVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
+  probability: number;
+  expectedClose: string;
+  owner: string;
+  created: string;
+}
+
+function mapStageVariant(stage: string): Deal["stageVariant"] {
+  const s = (stage || "").toLowerCase();
+  if (s === "closed won" || s === "won") return "success";
+  if (s === "negotiation" || s === "proposal") return "warning";
+  if (s === "closed lost" || s === "lost") return "danger";
+  if (s === "discovery" || s === "qualification") return "muted";
+  if (s === "proposal sent" || s === "demo" || s === "meeting") return "info";
+  return "primary";
+}
+
+function mapDeal(raw: any): Deal {
+  return {
+    id: raw.id ?? raw.ID ?? "",
+    title: raw.title ?? raw.deal_name ?? raw.name ?? "",
+    company: raw.company ?? raw.company_name ?? raw.account_name ?? "",
+    value: raw.value ?? raw.deal_value ?? raw.amount ?? "$0",
+    stage: raw.stage ?? raw.deal_stage ?? "",
+    stageVariant: mapStageVariant(raw.stage),
+    probability: raw.probability ?? raw.win_probability ?? 0,
+    expectedClose: raw.expectedClose ?? raw.expected_close_date ?? "",
+    owner: raw.owner ?? raw.assigned_to ?? "",
+    created: raw.created ?? raw.created_at ?? raw.date_created ?? "",
+  };
+}
 
 const dealStats = [
   { label: "Total Pipeline", value: "$993,000", change: "+$120K this month" },
@@ -127,8 +68,25 @@ const dealStats = [
 ];
 
 export default function DealsListPage() {
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStage, setSelectedStage] = useState("All");
+
+  useEffect(() => {
+    async function fetchDeals() {
+      try {
+        const res = await apiGet<any>("/sales/deals");
+        const items = (res.items ?? res.data ?? []).map(mapDeal);
+        setDeals(items);
+      } catch (err) {
+        console.error("Failed to fetch deals:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchDeals();
+  }, []);
 
   const filteredDeals = deals.filter((deal) => {
     const matchesSearch =
@@ -218,121 +176,130 @@ export default function DealsListPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  <button className="flex items-center gap-1 hover:text-foreground transition-colors">
-                    Deal
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
-                  Company
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Value
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Stage
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                  Probability
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                  Expected Close
-                </th>
-                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/50">
-              {filteredDeals.map((deal) => (
-                <tr
-                  key={deal.id}
-                  className="hover:bg-muted/5 transition-colors"
-                >
-                  <td className="py-3 px-4">
-                    <div>
-                      <p className="text-sm font-medium">{deal.title}</p>
-                      <p className="text-xs text-muted-foreground">{deal.id}</p>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 hidden md:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {deal.company}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="text-sm font-semibold">{deal.value}</span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <StatusBadge
-                      status={deal.stage}
-                      variant={deal.stageVariant}
-                    />
-                  </td>
-                  <td className="py-3 px-4 hidden lg:table-cell">
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary rounded-full"
-                          style={{ width: `${deal.probability}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {deal.probability}%
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 hidden lg:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {deal.expectedClose}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Link
-                        href={`/sales/deals/${deal.id}`}
-                        className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="p-4 border-t border-border flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredDeals.length} of {deals.length} deals
-          </p>
-          <div className="flex items-center gap-2">
-            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">
-              1
-            </button>
-            <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">
-              2
-            </button>
-            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-              <ChevronRight className="h-4 w-4" />
-            </button>
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <span className="ml-2 text-sm text-muted-foreground">Loading deals...</span>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      <button className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        Deal
+                        <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
+                      Company
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      Value
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      Stage
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                      Probability
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                      Expected Close
+                    </th>
+                    <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {filteredDeals.map((deal) => (
+                    <tr
+                      key={deal.id}
+                      className="hover:bg-muted/5 transition-colors"
+                    >
+                      <td className="py-3 px-4">
+                        <div>
+                          <p className="text-sm font-medium">{deal.title}</p>
+                          <p className="text-xs text-muted-foreground">{deal.id}</p>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 hidden md:table-cell">
+                        <span className="text-sm text-muted-foreground">
+                          {deal.company}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm font-semibold">{deal.value}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <StatusBadge
+                          status={deal.stage}
+                          variant={deal.stageVariant}
+                        />
+                      </td>
+                      <td className="py-3 px-4 hidden lg:table-cell">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-primary rounded-full"
+                              style={{ width: `${deal.probability}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {deal.probability}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 hidden lg:table-cell">
+                        <span className="text-sm text-muted-foreground">
+                          {deal.expectedClose}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            href={`/sales/deals/${deal.id}`}
+                            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="p-4 border-t border-border flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing {filteredDeals.length} of {deals.length} deals
+              </p>
+              <div className="flex items-center gap-2">
+                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">
+                  1
+                </button>
+                <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">
+                  2
+                </button>
+                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

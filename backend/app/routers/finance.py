@@ -414,7 +414,7 @@ async def list_invoices(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_company),
 ):
-    query = select(Invoice).where(
+    query = select(Invoice).options(selectinload(Invoice.items)).where(
         Invoice.company_id == current_user.company_id,
         Invoice.deleted_at.is_(None),
     )
@@ -767,7 +767,7 @@ async def list_estimates(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_company),
 ):
-    query = select(Estimate).where(
+    query = select(Estimate).options(selectinload(Estimate.items)).where(
         Estimate.company_id == current_user.company_id,
         Estimate.deleted_at.is_(None),
     )

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sa_func
+from sqlalchemy.orm import selectinload
 from datetime import datetime
 from typing import Optional
 
@@ -151,7 +152,7 @@ async def list_requisitions(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_company),
 ):
-    query = select(PurchaseRequisition).where(
+    query = select(PurchaseRequisition).options(selectinload(PurchaseRequisition.items)).where(
         PurchaseRequisition.company_id == current_user.company_id,
     )
     count_query = select(sa_func.count()).select_from(PurchaseRequisition).where(
@@ -296,7 +297,7 @@ async def list_purchase_orders(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_company),
 ):
-    query = select(PurchaseOrder).where(
+    query = select(PurchaseOrder).options(selectinload(PurchaseOrder.items)).where(
         PurchaseOrder.company_id == current_user.company_id,
     )
     count_query = select(sa_func.count()).select_from(PurchaseOrder).where(

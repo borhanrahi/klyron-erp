@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   Landmark,
   Search,
@@ -17,141 +18,48 @@ import {
   ArrowDownRight,
   CreditCard,
   Building2,
+  Loader2,
 } from "lucide-react";
 
-const bankAccounts = [
-  {
-    id: "BA-001",
-    name: "Business Checking",
-    bank: "Chase Bank",
-    accountNumber: "****4521",
-    balance: "$245,890.00",
-    availableBalance: "$243,200.00",
-    type: "Checking",
-    status: "Active",
-    statusVariant: "success" as const,
-    currency: "USD",
-  },
-  {
-    id: "BA-002",
-    name: "Business Savings",
-    bank: "Chase Bank",
-    accountNumber: "****7832",
-    balance: "$125,400.00",
-    availableBalance: "$125,400.00",
-    type: "Savings",
-    status: "Active",
-    statusVariant: "success" as const,
-    currency: "USD",
-  },
-  {
-    id: "BA-003",
-    name: "Payroll Account",
-    bank: "Bank of America",
-    accountNumber: "****3398",
-    balance: "$48,250.00",
-    availableBalance: "$48,250.00",
-    type: "Checking",
-    status: "Active",
-    statusVariant: "success" as const,
-    currency: "USD",
-  },
-  {
-    id: "BA-004",
-    name: "Euro Operating",
-    bank: "Deutsche Bank",
-    accountNumber: "****6714",
-    balance: "€82,300.00",
-    availableBalance: "€82,300.00",
-    type: "Checking",
-    status: "Active",
-    statusVariant: "success" as const,
-    currency: "EUR",
-  },
-];
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+}
 
-const recentTransactions = [
-  {
-    id: "TXN-892345",
-    date: "Mar 24, 2024",
-    description: "Invoice Payment - Acme Corp",
-    account: "Business Checking",
-    type: "Credit",
-    typeVariant: "success" as const,
-    amount: "$11,000.00",
-    balance: "$245,890.00",
-  },
-  {
-    id: "TXN-892346",
-    date: "Mar 24, 2024",
-    description: "Office Rent Payment",
-    account: "Business Checking",
-    type: "Debit",
-    typeVariant: "danger" as const,
-    amount: "($4,500.00)",
-    balance: "$234,890.00",
-  },
-  {
-    id: "TXN-892347",
-    date: "Mar 23, 2024",
-    description: "Supplier Payment - Global Materials",
-    account: "Business Checking",
-    type: "Debit",
-    typeVariant: "danger" as const,
-    amount: "($8,750.00)",
-    balance: "$239,390.00",
-  },
-  {
-    id: "TXN-892348",
-    date: "Mar 23, 2024",
-    description: "Transfer to Savings",
-    account: "Business Checking",
-    type: "Debit",
-    typeVariant: "muted" as const,
-    amount: "($10,000.00)",
-    balance: "$248,140.00",
-  },
-  {
-    id: "TXN-892349",
-    date: "Mar 22, 2024",
-    description: "Transfer from Checking",
-    account: "Business Savings",
-    type: "Credit",
-    typeVariant: "success" as const,
-    amount: "$10,000.00",
-    balance: "$125,400.00",
-  },
-  {
-    id: "TXN-892350",
-    date: "Mar 22, 2024",
-    description: "Payroll Processing",
-    account: "Payroll Account",
-    type: "Debit",
-    typeVariant: "danger" as const,
-    amount: "($45,000.00)",
-    balance: "$48,250.00",
-  },
-  {
-    id: "TXN-892351",
-    date: "Mar 21, 2024",
-    description: "Invoice Payment - DataFlow Systems",
-    account: "Business Checking",
-    type: "Credit",
-    typeVariant: "success" as const,
-    amount: "$18,900.00",
-    balance: "$258,140.00",
-  },
-  {
-    id: "TXN-892352",
-    date: "Mar 20, 2024",
-    description: "Software Subscription - Adobe",
-    account: "Business Checking",
-    type: "Debit",
-    typeVariant: "danger" as const,
-    amount: "($599.88)",
-    balance: "$239,240.00",
-  },
-];
+function formatDate(dateStr?: string | null): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+interface BankAccountItem {
+  id: string | number;
+  name?: string;
+  bank_name?: string;
+  bank?: string;
+  account_number?: string;
+  accountNumber?: string;
+  balance?: number;
+  available_balance?: number;
+  availableBalance?: number;
+  type?: string;
+  status?: string;
+  currency?: string;
+  [key: string]: unknown;
+}
+
+interface TransactionItem {
+  id: string | number;
+  transaction_id?: string;
+  date?: string;
+  description?: string;
+  account_name?: string;
+  account?: string;
+  type?: string;
+  amount?: number;
+  balance?: number;
+  running_balance?: number;
+  [key: string]: unknown;
+}
 
 const bankStats = [
   { label: "Total Balance", value: "$419,540", change: "+8.3% this month", icon: Landmark },
@@ -163,13 +71,33 @@ const bankStats = [
 export default function BankingPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAccount, setSelectedAccount] = useState("All");
+  const [bankAccounts, setBankAccounts] = useState<BankAccountItem[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<TransactionItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      apiGet<{ items: BankAccountItem[] }>("/finance/bank-accounts"),
+      apiGet<{ items: TransactionItem[] }>("/finance/transactions"),
+    ])
+      .then(([bankRes, txnRes]) => {
+        setBankAccounts(bankRes.items || []);
+        setRecentTransactions(txnRes.items || []);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredTransactions = recentTransactions.filter((txn) => {
+    const desc = (txn.description || "").toLowerCase();
+    const txnId = (txn.transaction_id || txn.id || "").toString().toLowerCase();
+    const account = (txn.account_name || txn.account || "").toLowerCase();
     const matchesSearch =
-      txn.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      txn.id.toLowerCase().includes(searchTerm.toLowerCase());
+      desc.includes(searchTerm.toLowerCase()) ||
+      txnId.includes(searchTerm.toLowerCase());
     const matchesAccount =
-      selectedAccount === "All" || txn.account === selectedAccount;
+      selectedAccount === "All" || account === selectedAccount.toLowerCase();
     return matchesSearch && matchesAccount;
   });
 
@@ -219,39 +147,51 @@ export default function BankingPage() {
         })}
       </div>
 
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+          Loading banking data...
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center py-12 text-danger">
+          {error}
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {bankAccounts.map((account) => (
+        {bankAccounts.map((account) => {
+          const acctNum = (account.account_number || account.accountNumber || "").toString();
+          return (
           <div
             key={account.id}
             className="rounded-2xl border border-border bg-card p-5 shadow-sm hover:shadow-md transition-shadow"
           >
             <div className="flex items-start justify-between mb-3">
               <div>
-                <p className="text-sm font-medium">{account.name}</p>
-                <p className="text-xs text-muted-foreground">{account.bank}</p>
+                <p className="text-sm font-medium">{account.name || "—"}</p>
+                <p className="text-xs text-muted-foreground">{account.bank_name || account.bank || "—"}</p>
               </div>
               <StatusBadge
-                status={account.status}
-                variant={account.statusVariant}
+                status={account.status || "Active"}
+                variant="success"
               />
             </div>
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-xs text-muted-foreground">Balance</span>
-                <span className="text-lg font-bold">{account.balance}</span>
+                <span className="text-lg font-bold">{formatCurrency(account.balance || 0)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-xs text-muted-foreground">
                   Available
                 </span>
                 <span className="text-sm font-medium text-muted-foreground">
-                  {account.availableBalance}
+                  {formatCurrency(account.available_balance || account.availableBalance || 0)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-xs text-muted-foreground">Type</span>
                 <span className="text-xs text-muted-foreground">
-                  {account.type}
+                  {account.type || "—"}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -259,13 +199,15 @@ export default function BankingPage() {
                   Account
                 </span>
                 <span className="text-xs font-mono text-muted-foreground">
-                  {account.accountNumber}
+                  {acctNum}
                 </span>
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
+      )}
 
       <div className="rounded-2xl border border-border bg-card shadow-sm">
         <div className="p-4 border-b border-border">
@@ -288,8 +230,8 @@ export default function BankingPage() {
               >
                 <option value="All">Account: All</option>
                 {bankAccounts.map((account) => (
-                  <option key={account.id} value={account.name}>
-                    {account.name}
+                  <option key={account.id} value={account.name || ""}>
+                    {account.name || "Account"}
                   </option>
                 ))}
               </select>
@@ -335,49 +277,54 @@ export default function BankingPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {filteredTransactions.map((txn) => (
+              {filteredTransactions.map((txn) => {
+                const txnId = (txn.transaction_id || txn.id || "").toString();
+                const type = (txn.type || "").toLowerCase();
+                const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+                const amt = txn.amount || 0;
+                return (
                 <tr
                   key={txn.id}
                   className="hover:bg-muted/5 transition-colors"
                 >
                   <td className="py-3 px-4">
                     <span className="text-sm font-medium text-primary font-mono">
-                      {txn.id}
+                      {txnId}
                     </span>
                   </td>
                   <td className="py-3 px-4">
                     <span className="text-sm font-medium">
-                      {txn.description}
+                      {txn.description || "—"}
                     </span>
                   </td>
                   <td className="py-3 px-4 hidden md:table-cell">
                     <span className="text-sm text-muted-foreground">
-                      {txn.date}
+                      {formatDate(txn.date)}
                     </span>
                   </td>
                   <td className="py-3 px-4 hidden lg:table-cell">
                     <span className="text-sm text-muted-foreground">
-                      {txn.account}
+                      {txn.account_name || txn.account || "—"}
                     </span>
                   </td>
                   <td className="py-3 px-4">
                     <StatusBadge
-                      status={txn.type}
-                      variant={txn.typeVariant}
+                      status={typeLabel}
+                      variant={type === "credit" ? "success" : type === "debit" ? "danger" : "muted"}
                     />
                   </td>
                   <td className="py-3 px-4 text-right">
                     <span
                       className={`text-sm font-semibold ${
-                        txn.type === "Credit" ? "text-success" : "text-danger"
+                        type === "credit" ? "text-success" : "text-danger"
                       }`}
                     >
-                      {txn.amount}
+                      {type === "debit" ? `(${formatCurrency(Math.abs(amt))})` : formatCurrency(amt)}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-right hidden lg:table-cell">
                     <span className="text-sm text-muted-foreground">
-                      {txn.balance}
+                      {formatCurrency(txn.running_balance || txn.balance || 0)}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-right">
@@ -388,7 +335,8 @@ export default function BankingPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

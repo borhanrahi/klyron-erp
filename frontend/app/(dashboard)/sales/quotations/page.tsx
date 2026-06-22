@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
@@ -16,77 +16,45 @@ import {
   ArrowUpDown,
   Download,
   Send,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { apiGet } from "@/lib/api";
 
-const quotations = [
-  {
-    id: "QT-2024-001",
-    customer: "Acme Corp",
-    contact: "Robert Anderson",
-    date: "Mar 24, 2024",
-    validUntil: "Apr 23, 2024",
-    amount: "$125,000.00",
-    items: 8,
-    status: "Sent",
-    statusVariant: "info" as const,
-  },
-  {
-    id: "QT-2024-002",
-    customer: "TechStart Inc",
-    contact: "Sarah Johnson",
-    date: "Mar 22, 2024",
-    validUntil: "Apr 21, 2024",
-    amount: "$87,500.00",
-    items: 5,
-    status: "Accepted",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "QT-2024-003",
-    customer: "Global Industries",
-    contact: "James Chen",
-    date: "Mar 20, 2024",
-    validUntil: "Apr 19, 2024",
-    amount: "$210,000.00",
-    items: 12,
-    status: "Draft",
-    statusVariant: "muted" as const,
-  },
-  {
-    id: "QT-2024-004",
-    customer: "Creative Solutions",
-    contact: "Maria Garcia",
-    date: "Mar 18, 2024",
-    validUntil: "Apr 17, 2024",
-    amount: "$45,000.00",
-    items: 3,
-    status: "Rejected",
-    statusVariant: "danger" as const,
-  },
-  {
-    id: "QT-2024-005",
-    customer: "DataFlow Systems",
-    contact: "David Kim",
-    date: "Mar 15, 2024",
-    validUntil: "Apr 14, 2024",
-    amount: "$340,000.00",
-    items: 15,
-    status: "Expired",
-    statusVariant: "warning" as const,
-  },
-  {
-    id: "QT-2024-006",
-    customer: "Innovate Labs",
-    contact: "Rachel Thompson",
-    date: "Mar 12, 2024",
-    validUntil: "Apr 11, 2024",
-    amount: "$95,000.00",
-    items: 6,
-    status: "Converted",
-    statusVariant: "primary" as const,
-  },
-];
+interface Quotation {
+  id: string;
+  customer: string;
+  contact: string;
+  date: string;
+  validUntil: string;
+  amount: string;
+  items: number;
+  status: string;
+  statusVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
+}
+
+function mapStatusVariant(status: string): Quotation["statusVariant"] {
+  const s = (status || "").toLowerCase();
+  if (s === "accepted" || s === "converted" || s === "won") return "success";
+  if (s === "expired" || s === "rejected") return "danger";
+  if (s === "sent" || s === "pending") return "info";
+  if (s === "draft") return "muted";
+  return "primary";
+}
+
+function mapQuotation(raw: any): Quotation {
+  return {
+    id: raw.id ?? raw.ID ?? raw.quote_number ?? "",
+    customer: raw.customer ?? raw.customer_name ?? raw.company_name ?? "",
+    contact: raw.contact ?? raw.contact_name ?? raw.contact_person ?? "",
+    date: raw.date ?? raw.created_at ?? raw.quote_date ?? "",
+    validUntil: raw.validUntil ?? raw.valid_until ?? raw.expiry_date ?? "",
+    amount: raw.amount ?? raw.total_amount ?? raw.total ?? "$0",
+    items: Array.isArray(raw.items) ? raw.items.length : (raw.item_count ?? 0),
+    status: raw.status ?? "Draft",
+    statusVariant: mapStatusVariant(raw.status),
+  };
+}
 
 const quoteStats = [
   { label: "Total Quotes", value: "89", change: "+14 this month" },
@@ -96,8 +64,25 @@ const quoteStats = [
 ];
 
 export default function QuotationsListPage() {
+  const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+
+  useEffect(() => {
+    async function fetchQuotations() {
+      try {
+        const res = await apiGet<any>("/sales/quotations");
+        const items = (res.items ?? res.data ?? []).map(mapQuotation);
+        setQuotations(items);
+      } catch (err) {
+        console.error("Failed to fetch quotations:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchQuotations();
+  }, []);
 
   const filteredQuotations = quotations.filter((quote) => {
     const matchesSearch =
@@ -188,126 +173,135 @@ export default function QuotationsListPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  <button className="flex items-center gap-1 hover:text-foreground transition-colors">
-                    Quote #
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Customer
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
-                  Date
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                  Valid Until
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Amount
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                  Items
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Status
-                </th>
-                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/50">
-              {filteredQuotations.map((quote) => (
-                <tr
-                  key={quote.id}
-                  className="hover:bg-muted/5 transition-colors"
-                >
-                  <td className="py-3 px-4">
-                    <span className="text-sm font-medium text-primary">
-                      {quote.id}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div>
-                      <p className="text-sm font-medium">{quote.customer}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {quote.contact}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 hidden md:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {quote.date}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 hidden lg:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {quote.validUntil}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="text-sm font-semibold">{quote.amount}</span>
-                  </td>
-                  <td className="py-3 px-4 hidden lg:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {quote.items} items
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <StatusBadge
-                      status={quote.status}
-                      variant={quote.statusVariant}
-                    />
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Link
-                        href={`/sales/quotations/${quote.id}`}
-                        className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                        <Send className="h-4 w-4" />
-                      </button>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="p-4 border-t border-border flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredQuotations.length} of {quotations.length} quotations
-          </p>
-          <div className="flex items-center gap-2">
-            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">
-              1
-            </button>
-            <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">
-              2
-            </button>
-            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-              <ChevronRight className="h-4 w-4" />
-            </button>
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <span className="ml-2 text-sm text-muted-foreground">Loading quotations...</span>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      <button className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        Quote #
+                        <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      Customer
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
+                      Date
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                      Valid Until
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      Amount
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                      Items
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      Status
+                    </th>
+                    <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {filteredQuotations.map((quote) => (
+                    <tr
+                      key={quote.id}
+                      className="hover:bg-muted/5 transition-colors"
+                    >
+                      <td className="py-3 px-4">
+                        <span className="text-sm font-medium text-primary">
+                          {quote.id}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div>
+                          <p className="text-sm font-medium">{quote.customer}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {quote.contact}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 hidden md:table-cell">
+                        <span className="text-sm text-muted-foreground">
+                          {quote.date}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 hidden lg:table-cell">
+                        <span className="text-sm text-muted-foreground">
+                          {quote.validUntil}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm font-semibold">{quote.amount}</span>
+                      </td>
+                      <td className="py-3 px-4 hidden lg:table-cell">
+                        <span className="text-sm text-muted-foreground">
+                          {Array.isArray(quote.items) ? quote.items.length : quote.items} items
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <StatusBadge
+                          status={quote.status}
+                          variant={quote.statusVariant}
+                        />
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            href={`/sales/quotations/${quote.id}`}
+                            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                            <Send className="h-4 w-4" />
+                          </button>
+                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="p-4 border-t border-border flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing {filteredQuotations.length} of {quotations.length} quotations
+              </p>
+              <div className="flex items-center gap-2">
+                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">
+                  1
+                </button>
+                <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">
+                  2
+                </button>
+                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

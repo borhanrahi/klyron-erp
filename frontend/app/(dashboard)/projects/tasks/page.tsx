@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   ListTodo,
   Plus,
@@ -16,56 +17,26 @@ import {
   GripVertical,
 } from "lucide-react";
 
-const taskColumns = [
-  {
-    id: "todo",
-    title: "To Do",
-    color: "text-muted-foreground",
-    bgColor: "bg-muted",
-    count: 4,
-    tasks: [
-      { id: 1, title: "Design checkout flow wireframes", assignee: "ED", assigneeName: "Emily Davis", priority: "High", project: "E-Commerce Redesign", dueDate: "Jun 25", tags: ["Design"] },
-      { id: 2, title: "Set up staging environment", assignee: "AK", assigneeName: "Alex Kim", priority: "Medium", project: "Mobile App v2.0", dueDate: "Jun 28", tags: ["DevOps"] },
-      { id: 3, title: "Write API documentation", assignee: "OH", assigneeName: "Omar Hassan", priority: "Low", project: "E-Commerce Redesign", dueDate: "Jul 1", tags: ["Docs"] },
-      { id: 4, title: "Create onboarding email templates", assignee: "PP", assigneeName: "Priya Patel", priority: "Medium", project: "Customer Portal", dueDate: "Jul 5", tags: ["Marketing"] },
-    ],
-  },
-  {
-    id: "in-progress",
-    title: "In Progress",
-    color: "text-info",
-    bgColor: "bg-info/10",
-    count: 3,
-    tasks: [
-      { id: 5, title: "Implement user authentication", assignee: "MJ", assigneeName: "Mike Johnson", priority: "High", project: "E-Commerce Redesign", dueDate: "Jun 22", tags: ["Backend"] },
-      { id: 6, title: "Build product catalog API", assignee: "DP", assigneeName: "David Park", priority: "High", project: "E-Commerce Redesign", dueDate: "Jun 24", tags: ["Backend"] },
-      { id: 7, title: "Create component library", assignee: "OH", assigneeName: "Omar Hassan", priority: "Medium", project: "E-Commerce Redesign", dueDate: "Jun 30", tags: ["Frontend"] },
-    ],
-  },
-  {
-    id: "review",
-    title: "Review",
-    color: "text-warning",
-    bgColor: "bg-warning/10",
-    count: 2,
-    tasks: [
-      { id: 8, title: "Payment gateway integration", assignee: "MJ", assigneeName: "Mike Johnson", priority: "Critical", project: "E-Commerce Redesign", dueDate: "Jun 20", tags: ["Backend", "Finance"] },
-      { id: 9, title: "User dashboard mockups", assignee: "ED", assigneeName: "Emily Davis", priority: "High", project: "Data Analytics", dueDate: "Jun 23", tags: ["Design"] },
-    ],
-  },
-  {
-    id: "done",
-    title: "Done",
-    color: "text-success",
-    bgColor: "bg-success/10",
-    count: 3,
-    tasks: [
-      { id: 10, title: "Setup CI/CD pipeline", assignee: "AK", assigneeName: "Alex Kim", priority: "High", project: "CI/CD Pipeline", dueDate: "Jun 15", tags: ["DevOps"] },
-      { id: 11, title: "Database schema design", assignee: "DP", assigneeName: "David Park", priority: "High", project: "E-Commerce Redesign", dueDate: "Jun 10", tags: ["Backend"] },
-      { id: 12, title: "Brand guidelines document", assignee: "ED", assigneeName: "Emily Davis", priority: "Medium", project: "E-Commerce Redesign", dueDate: "Jun 8", tags: ["Design"] },
-    ],
-  },
-];
+interface Task {
+  id: number;
+  title: string;
+  status: string;
+  priority: string;
+  assignee?: string;
+  assigneeName?: string;
+  project?: string;
+  dueDate?: string;
+  tags?: string[];
+}
+
+interface TaskColumn {
+  id: string;
+  title: string;
+  color: string;
+  bgColor: string;
+  count: number;
+  tasks: Task[];
+}
 
 const priorityColors: Record<string, string> = {
   Critical: "text-danger",
@@ -81,8 +52,58 @@ const priorityBg: Record<string, string> = {
   Low: "bg-muted",
 };
 
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
 export default function TasksBoardPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [taskColumns, setTaskColumns] = useState<TaskColumn[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ items: Task[] }>("/projects/tasks/list")
+      .then((res) => {
+        const items = res.items || [];
+        const columns: Record<string, Task[]> = {
+          todo: [],
+          "in-progress": [],
+          review: [],
+          done: [],
+        };
+        const statusMap: Record<string, string> = {
+          "To Do": "todo",
+          "In Progress": "in-progress",
+          Review: "review",
+          Done: "done",
+        };
+        items.forEach((task) => {
+          const col = statusMap[task.status] || "todo";
+          columns[col].push(task);
+        });
+        setTaskColumns([
+          { id: "todo", title: "To Do", color: "text-muted-foreground", bgColor: "bg-muted", count: columns.todo.length, tasks: columns.todo },
+          { id: "in-progress", title: "In Progress", color: "text-info", bgColor: "bg-info/10", count: columns["in-progress"].length, tasks: columns["in-progress"] },
+          { id: "review", title: "Review", color: "text-warning", bgColor: "bg-warning/10", count: columns.review.length, tasks: columns.review },
+          { id: "done", title: "Done", color: "text-success", bgColor: "bg-success/10", count: columns.done.length, tasks: columns.done },
+        ]);
+      })
+      .catch(() => setTaskColumns([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -111,7 +132,7 @@ export default function TasksBoardPage() {
               Filter
             </button>
             <a
-              href="/projects/tasks/new"
+              href="/projects/tasks/list/new"
               className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
@@ -142,12 +163,12 @@ export default function TasksBoardPage() {
               {column.tasks.map((task) => (
                 <a
                   key={task.id}
-                  href={`/projects/tasks/${task.id}`}
+                  href={`/projects/tasks/list/${task.id}`}
                   className="block p-3 bg-muted rounded-xl hover:bg-muted/80 transition-all cursor-pointer group hover:shadow-sm"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex gap-1">
-                      {task.tags.map((tag) => (
+                      {(task.tags || []).map((tag) => (
                         <span
                           key={tag}
                           className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded"
@@ -156,7 +177,7 @@ export default function TasksBoardPage() {
                         </span>
                       ))}
                     </div>
-                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${priorityBg[task.priority]} ${priorityColors[task.priority]}`}>
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${priorityBg[task.priority] || ""} ${priorityColors[task.priority] || ""}`}>
                       {task.priority}
                     </span>
                   </div>
@@ -166,15 +187,15 @@ export default function TasksBoardPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
                       <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-semibold text-primary">
-                        {task.assignee}
+                        {task.assignee || getInitials(task.assigneeName || "NA")}
                       </div>
                       <span className="text-[10px] text-muted-foreground">
-                        {task.assigneeName}
+                        {task.assigneeName || "Unassigned"}
                       </span>
                     </div>
                     <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <Calendar className="h-3 w-3" />
-                      {task.dueDate}
+                      {task.dueDate || "TBD"}
                     </div>
                   </div>
                 </a>

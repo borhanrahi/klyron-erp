@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   FileText,
   Search,
@@ -14,106 +15,42 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
+  Loader2,
 } from "lucide-react";
 
-const invoices = [
-  {
-    id: "INV-2024-045",
-    customer: "Acme Corp",
-    email: "billing@acme.com",
-    date: "Mar 24, 2024",
-    dueDate: "Apr 23, 2024",
-    amount: "$12,500.00",
-    paid: "$12,500.00",
-    status: "Paid",
-    statusVariant: "success" as const,
-    items: 5,
-  },
-  {
-    id: "INV-2024-046",
-    customer: "TechStart Inc",
-    email: "ap@techstart.io",
-    date: "Mar 22, 2024",
-    dueDate: "Apr 21, 2024",
-    amount: "$8,750.00",
-    paid: "$0.00",
-    status: "Pending",
-    statusVariant: "warning" as const,
-    items: 3,
-  },
-  {
-    id: "INV-2024-047",
-    customer: "Global Industries",
-    email: "accounts@globalind.com",
-    date: "Mar 20, 2024",
-    dueDate: "Apr 19, 2024",
-    amount: "$24,300.00",
-    paid: "$12,150.00",
-    status: "Partial",
-    statusVariant: "info" as const,
-    items: 12,
-  },
-  {
-    id: "INV-2024-048",
-    customer: "Creative Solutions",
-    email: "finance@creative.com",
-    date: "Mar 18, 2024",
-    dueDate: "Apr 17, 2024",
-    amount: "$3,200.00",
-    paid: "$0.00",
-    status: "Overdue",
-    statusVariant: "danger" as const,
-    items: 2,
-  },
-  {
-    id: "INV-2024-049",
-    customer: "DataFlow Systems",
-    email: "billing@dataflow.io",
-    date: "Mar 15, 2024",
-    dueDate: "Apr 14, 2024",
-    amount: "$18,900.00",
-    paid: "$18,900.00",
-    status: "Paid",
-    statusVariant: "success" as const,
-    items: 8,
-  },
-  {
-    id: "INV-2024-050",
-    customer: "Innovate Labs",
-    email: "ap@innovate.com",
-    date: "Mar 12, 2024",
-    dueDate: "Apr 11, 2024",
-    amount: "$6,450.00",
-    paid: "$0.00",
-    status: "Draft",
-    statusVariant: "muted" as const,
-    items: 4,
-  },
-  {
-    id: "INV-2024-051",
-    customer: "Quantum Enterprises",
-    email: "payments@quantum.com",
-    date: "Mar 10, 2024",
-    dueDate: "Apr 09, 2024",
-    amount: "$31,200.00",
-    paid: "$31,200.00",
-    status: "Paid",
-    statusVariant: "success" as const,
-    items: 15,
-  },
-  {
-    id: "INV-2024-052",
-    customer: "Nexus Digital",
-    email: "finance@nexusdigital.io",
-    date: "Mar 08, 2024",
-    dueDate: "Apr 07, 2024",
-    amount: "$9,875.00",
-    paid: "$4,937.50",
-    status: "Partial",
-    statusVariant: "info" as const,
-    items: 6,
-  },
-];
+const STATUS_VARIANT_MAP: Record<string, "success" | "warning" | "danger" | "info" | "primary" | "muted"> = {
+  paid: "success",
+  pending: "warning",
+  partial: "info",
+  overdue: "danger",
+  draft: "muted",
+  cancelled: "danger",
+  sent: "info",
+};
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+}
+
+function formatDate(dateStr?: string | null): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+interface InvoiceItem {
+  id: string | number;
+  customer_name?: string;
+  customer_email?: string;
+  invoice_number?: string;
+  invoice_date?: string;
+  due_date?: string;
+  total?: number;
+  amount_paid?: number;
+  status?: string;
+  line_items?: unknown[];
+  [key: string]: unknown;
+}
 
 const invoiceStats = [
   { label: "Total Invoiced", value: "$115,175", change: "Q1 2024" },
@@ -125,13 +62,26 @@ const invoiceStats = [
 export default function InvoicesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiGet<{ items: InvoiceItem[] }>("/finance/invoices")
+      .then((res) => setInvoices(res.items || []))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredInvoices = invoices.filter((invoice) => {
+    const id = (invoice.invoice_number || invoice.id || "").toString();
+    const customer = (invoice.customer_name || "").toLowerCase();
+    const status = (invoice.status || "").toLowerCase();
     const matchesSearch =
-      invoice.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.id.toLowerCase().includes(searchTerm.toLowerCase());
+      customer.includes(searchTerm.toLowerCase()) ||
+      id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
-      selectedStatus === "All" || invoice.status === selectedStatus;
+      selectedStatus === "All" || status === selectedStatus.toLowerCase();
     return matchesSearch && matchesStatus;
   });
 
@@ -210,6 +160,16 @@ export default function InvoicesPage() {
         </div>
 
         <div className="overflow-x-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              Loading invoices...
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-12 text-danger">
+              {error}
+            </div>
+          ) : (
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
@@ -240,41 +200,45 @@ export default function InvoicesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {filteredInvoices.map((invoice) => (
+              {filteredInvoices.map((invoice) => {
+                const invoiceId = (invoice.invoice_number || invoice.id || "").toString();
+                const status = (invoice.status || "").toLowerCase();
+                const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+                return (
                 <tr
                   key={invoice.id}
                   className="hover:bg-muted/5 transition-colors"
                 >
                   <td className="py-3 px-4">
                     <span className="text-sm font-medium text-primary">
-                      {invoice.id}
+                      {invoiceId}
                     </span>
                   </td>
                   <td className="py-3 px-4">
                     <div>
-                      <p className="text-sm font-medium">{invoice.customer}</p>
+                      <p className="text-sm font-medium">{invoice.customer_name || "—"}</p>
                       <p className="text-xs text-muted-foreground">
-                        {invoice.email}
+                        {invoice.customer_email || ""}
                       </p>
                     </div>
                   </td>
                   <td className="py-3 px-4 hidden md:table-cell">
                     <span className="text-sm text-muted-foreground">
-                      {invoice.date}
+                      {formatDate(invoice.invoice_date)}
                     </span>
                   </td>
                   <td className="py-3 px-4 hidden lg:table-cell">
                     <span className="text-sm text-muted-foreground">
-                      {invoice.dueDate}
+                      {formatDate(invoice.due_date)}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-right">
-                    <span className="text-sm font-semibold">{invoice.amount}</span>
+                    <span className="text-sm font-semibold">{formatCurrency(invoice.total || 0)}</span>
                   </td>
                   <td className="py-3 px-4">
                     <StatusBadge
-                      status={invoice.status}
-                      variant={invoice.statusVariant}
+                      status={statusLabel}
+                      variant={STATUS_VARIANT_MAP[status] || "muted"}
                     />
                   </td>
                   <td className="py-3 px-4 text-right">
@@ -282,18 +246,19 @@ export default function InvoicesPage() {
                       <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
                         <Eye className="h-4 w-4" />
                       </button>
-                      {invoice.status !== "Paid" &&
-                        invoice.status !== "Draft" && (
+                      {status !== "paid" && status !== "draft" && (
                           <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-primary">
                             <Send className="h-4 w-4" />
                           </button>
-                        )}
+                      )}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
+          )}
         </div>
 
         <div className="p-4 border-t border-border flex items-center justify-between">

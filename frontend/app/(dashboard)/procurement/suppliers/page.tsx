@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   Search,
   Plus,
@@ -18,90 +19,32 @@ import {
   Trash2,
 } from "lucide-react";
 
-const suppliers = [
-  {
-    id: "SUP-001",
-    name: "TechParts International",
-    contact: "John Mitchell",
-    email: "john@techparts.com",
-    phone: "+1 (555) 123-4567",
-    location: "New York, NY",
-    category: "Electronics",
-    rating: 4.8,
-    balance: 24500.0,
-    status: "Active",
-    since: "2022-03-15",
-  },
-  {
-    id: "SUP-002",
-    name: "Global Materials Co",
-    contact: "Sarah Johnson",
-    email: "sarah@globalmaterials.com",
-    phone: "+1 (555) 234-5678",
-    location: "Los Angeles, CA",
-    category: "Raw Materials",
-    rating: 4.5,
-    balance: 18750.0,
-    status: "Active",
-    since: "2021-07-22",
-  },
-  {
-    id: "SUP-003",
-    name: "Packaging Solutions Ltd",
-    contact: "Michael Chen",
-    email: "michael@packagingsolutions.com",
-    phone: "+1 (555) 345-6789",
-    location: "Chicago, IL",
-    category: "Packaging",
-    rating: 4.2,
-    balance: 12300.0,
-    status: "Active",
-    since: "2023-01-10",
-  },
-  {
-    id: "SUP-004",
-    name: "Industrial Equipment Inc",
-    contact: "Emily Rodriguez",
-    email: "emily@industrialequip.com",
-    phone: "+1 (555) 456-7890",
-    location: "Houston, TX",
-    category: "Equipment",
-    rating: 3.9,
-    balance: 8900.0,
-    status: "Inactive",
-    since: "2020-11-05",
-  },
-  {
-    id: "SUP-005",
-    name: "Office Supplies Direct",
-    contact: "David Kim",
-    email: "david@officesupplies.com",
-    phone: "+1 (555) 567-8901",
-    location: "Seattle, WA",
-    category: "Office Supplies",
-    rating: 4.7,
-    balance: 5200.0,
-    status: "Active",
-    since: "2023-06-18",
-  },
-  {
-    id: "SUP-006",
-    name: "GreenTech Solutions",
-    contact: "Lisa Thompson",
-    email: "lisa@greentech.com",
-    phone: "+1 (555) 678-9012",
-    location: "Portland, OR",
-    category: "Sustainable Materials",
-    rating: 4.6,
-    balance: 31200.0,
-    status: "Active",
-    since: "2022-09-30",
-  },
-];
+interface Supplier {
+  id: string;
+  name: string;
+  contact: string;
+  email: string;
+  phone: string;
+  location: string;
+  category: string;
+  rating: number;
+  balance: number;
+  status: string;
+  since: string;
+}
 
 export default function SuppliersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ items: Supplier[] }>("/procurement/suppliers")
+      .then((res) => setSuppliers(res.items))
+      .catch(() => setSuppliers([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const categories = [
     "All",
@@ -121,6 +64,14 @@ export default function SuppliersPage() {
       filterCategory === "All" || supplier.category === filterCategory;
     return matchesSearch && matchesCategory;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

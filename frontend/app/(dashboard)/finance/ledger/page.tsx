@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   BookOpen,
   Search,
@@ -15,160 +16,35 @@ import {
   ArrowUpDown,
   ArrowUpRight,
   ArrowDownRight,
+  Loader2,
 } from "lucide-react";
 
-const accounts = [
-  {
-    code: "1010",
-    name: "Cash and Cash Equivalents",
-    type: "Asset",
-    typeVariant: "info" as const,
-    balance: "$245,890.00",
-    debit: "$312,450.00",
-    credit: "$66,560.00",
-    subType: "Current Asset",
-  },
-  {
-    code: "1100",
-    name: "Accounts Receivable",
-    type: "Asset",
-    typeVariant: "info" as const,
-    balance: "$87,340.00",
-    debit: "$124,600.00",
-    credit: "$37,260.00",
-    subType: "Current Asset",
-  },
-  {
-    code: "1200",
-    name: "Inventory",
-    type: "Asset",
-    typeVariant: "info" as const,
-    balance: "$156,200.00",
-    debit: "$198,500.00",
-    credit: "$42,300.00",
-    subType: "Current Asset",
-  },
-  {
-    code: "1500",
-    name: "Property, Plant & Equipment",
-    type: "Asset",
-    typeVariant: "info" as const,
-    balance: "$520,000.00",
-    debit: "$520,000.00",
-    credit: "$0.00",
-    subType: "Non-Current Asset",
-  },
-  {
-    code: "1510",
-    name: "Accumulated Depreciation",
-    type: "Asset",
-    typeVariant: "info" as const,
-    balance: "($78,000.00)",
-    debit: "$0.00",
-    credit: "$78,000.00",
-    subType: "Contra Asset",
-  },
-  {
-    code: "2010",
-    name: "Accounts Payable",
-    type: "Liability",
-    typeVariant: "warning" as const,
-    balance: "$43,210.00",
-    debit: "$12,800.00",
-    credit: "$56,010.00",
-    subType: "Current Liability",
-  },
-  {
-    code: "2020",
-    name: "Salaries Payable",
-    type: "Liability",
-    typeVariant: "warning" as const,
-    balance: "$45,000.00",
-    debit: "$0.00",
-    credit: "$45,000.00",
-    subType: "Current Liability",
-  },
-  {
-    code: "2300",
-    name: "Unearned Revenue",
-    type: "Liability",
-    typeVariant: "warning" as const,
-    balance: "$15,000.00",
-    debit: "$5,000.00",
-    credit: "$20,000.00",
-    subType: "Current Liability",
-  },
-  {
-    code: "3010",
-    name: "Common Stock",
-    type: "Equity",
-    typeVariant: "primary" as const,
-    balance: "$500,000.00",
-    debit: "$0.00",
-    credit: "$500,000.00",
-    subType: "Equity",
-  },
-  {
-    code: "3020",
-    name: "Retained Earnings",
-    type: "Equity",
-    typeVariant: "primary" as const,
-    balance: "$289,220.00",
-    debit: "$0.00",
-    credit: "$289,220.00",
-    subType: "Equity",
-  },
-  {
-    code: "4000",
-    name: "Sales Revenue",
-    type: "Revenue",
-    typeVariant: "success" as const,
-    balance: "$485,600.00",
-    debit: "$0.00",
-    credit: "$485,600.00",
-    subType: "Revenue",
-  },
-  {
-    code: "4100",
-    name: "Service Revenue",
-    type: "Revenue",
-    typeVariant: "success" as const,
-    balance: "$72,300.00",
-    debit: "$0.00",
-    credit: "$72,300.00",
-    subType: "Revenue",
-  },
-  {
-    code: "5100",
-    name: "Cost of Goods Sold",
-    type: "Expense",
-    typeVariant: "danger" as const,
-    balance: "$198,400.00",
-    debit: "$198,400.00",
-    credit: "$0.00",
-    subType: "Expense",
-  },
-  {
-    code: "5200",
-    name: "Salaries Expense",
-    type: "Expense",
-    typeVariant: "danger" as const,
-    balance: "$270,000.00",
-    debit: "$270,000.00",
-    credit: "$0.00",
-    subType: "Expense",
-  },
-  {
-    code: "5300",
-    name: "Office Supplies Expense",
-    type: "Expense",
-    typeVariant: "danger" as const,
-    balance: "$4,560.00",
-    debit: "$4,560.00",
-    credit: "$0.00",
-    subType: "Expense",
-  },
-];
+const TYPE_VARIANT_MAP: Record<string, "success" | "warning" | "danger" | "info" | "primary" | "muted"> = {
+  asset: "info",
+  liability: "warning",
+  equity: "primary",
+  revenue: "success",
+  expense: "danger",
+};
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+}
+
+interface LedgerItem {
+  id: string | number;
+  account_code?: string;
+  code?: string;
+  name?: string;
+  account_type?: string;
+  type?: string;
+  sub_type?: string;
+  subType?: string;
+  balance?: number;
+  debit?: number;
+  credit?: number;
+  [key: string]: unknown;
+}
 
 const accountStats = [
   { label: "Total Assets", value: "$931,430", change: "+5.2% this quarter", icon: ArrowUpRight },
@@ -180,13 +56,26 @@ const accountStats = [
 export default function LedgerPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("All");
+  const [accounts, setAccounts] = useState<LedgerItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiGet<{ items: LedgerItem[] }>("/finance/chart-of-accounts")
+      .then((res) => setAccounts(res.items || []))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredAccounts = accounts.filter((account) => {
+    const code = (account.account_code || account.code || "").toString();
+    const name = (account.name || "").toLowerCase();
+    const accountType = (account.account_type || account.type || "").toLowerCase();
     const matchesSearch =
-      account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      account.code.includes(searchTerm);
+      name.includes(searchTerm.toLowerCase()) ||
+      code.includes(searchTerm);
     const matchesType =
-      selectedType === "All" || account.type === selectedType;
+      selectedType === "All" || accountType === selectedType.toLowerCase();
     return matchesSearch && matchesType;
   });
 
@@ -271,6 +160,16 @@ export default function LedgerPage() {
         </div>
 
         <div className="overflow-x-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              Loading accounts...
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-12 text-danger">
+              {error}
+            </div>
+          ) : (
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
@@ -304,42 +203,46 @@ export default function LedgerPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {filteredAccounts.map((account) => (
+              {filteredAccounts.map((account) => {
+                const code = (account.account_code || account.code || "").toString();
+                const accountType = (account.account_type || account.type || "");
+                const typeLabel = accountType.charAt(0).toUpperCase() + accountType.slice(1);
+                return (
                 <tr
-                  key={account.code}
+                  key={account.id || code}
                   className="hover:bg-muted/5 transition-colors"
                 >
                   <td className="py-3 px-4">
                     <span className="text-sm font-mono font-medium text-primary">
-                      {account.code}
+                      {code}
                     </span>
                   </td>
                   <td className="py-3 px-4">
-                    <span className="text-sm font-medium">{account.name}</span>
+                    <span className="text-sm font-medium">{account.name || "—"}</span>
                   </td>
                   <td className="py-3 px-4 hidden md:table-cell">
                     <StatusBadge
-                      status={account.type}
-                      variant={account.typeVariant}
+                      status={typeLabel}
+                      variant={TYPE_VARIANT_MAP[accountType.toLowerCase()] || "muted"}
                     />
                   </td>
                   <td className="py-3 px-4 hidden lg:table-cell">
                     <span className="text-sm text-muted-foreground">
-                      {account.subType}
+                      {account.sub_type || account.subType || "—"}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-right">
                     <span className="text-sm text-muted-foreground">
-                      {account.debit}
+                      {formatCurrency(account.debit || 0)}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-right">
                     <span className="text-sm text-muted-foreground">
-                      {account.credit}
+                      {formatCurrency(account.credit || 0)}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-right">
-                    <span className="text-sm font-semibold">{account.balance}</span>
+                    <span className="text-sm font-semibold">{formatCurrency(account.balance || 0)}</span>
                   </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -349,9 +252,11 @@ export default function LedgerPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
+          )}
         </div>
 
         <div className="p-4 border-t border-border flex items-center justify-between">

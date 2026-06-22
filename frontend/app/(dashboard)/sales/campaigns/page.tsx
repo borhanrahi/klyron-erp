@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
@@ -18,101 +18,53 @@ import {
   Users,
   Mail,
   Calendar,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { apiGet } from "@/lib/api";
 
-const campaigns = [
-  {
-    id: "CMP-001",
-    name: "Q1 Product Launch",
-    type: "Email",
-    status: "Active",
-    statusVariant: "success" as const,
-    startDate: "Jan 15, 2024",
-    endDate: "Mar 31, 2024",
-    sent: 12500,
-    opened: 4375,
-    clicked: 1062,
-    conversions: 85,
-    budget: "$15,000",
-    spent: "$12,400",
-  },
-  {
-    id: "CMP-002",
-    name: "Webinar Series 2024",
-    type: "Event",
-    status: "Active",
-    statusVariant: "success" as const,
-    startDate: "Feb 1, 2024",
-    endDate: "Apr 30, 2024",
-    sent: 8500,
-    opened: 3400,
-    clicked: 850,
-    conversions: 42,
-    budget: "$25,000",
-    spent: "$18,500",
-  },
-  {
-    id: "CMP-003",
-    name: "LinkedIn Outreach",
-    type: "Social",
-    status: "Paused",
-    statusVariant: "warning" as const,
-    startDate: "Mar 1, 2024",
-    endDate: "Jun 30, 2024",
-    sent: 5000,
-    opened: 1750,
-    clicked: 425,
-    conversions: 28,
-    budget: "$10,000",
-    spent: "$6,200",
-  },
-  {
-    id: "CMP-004",
-    name: "Customer Referral Program",
-    type: "Referral",
-    status: "Active",
-    statusVariant: "success" as const,
-    startDate: "Jan 1, 2024",
-    endDate: "Dec 31, 2024",
-    sent: 3200,
-    opened: 1920,
-    clicked: 640,
-    conversions: 56,
-    budget: "$20,000",
-    spent: "$8,800",
-  },
-  {
-    id: "CMP-005",
-    name: "Summer Promo Blast",
-    type: "Email",
-    status: "Completed",
-    statusVariant: "muted" as const,
-    startDate: "Jun 1, 2023",
-    endDate: "Aug 31, 2023",
-    sent: 18000,
-    opened: 6300,
-    clicked: 1440,
-    conversions: 120,
-    budget: "$12,000",
-    spent: "$11,800",
-  },
-  {
-    id: "CMP-006",
-    name: "Trade Show Follow-up",
-    type: "Email",
-    status: "Draft",
-    statusVariant: "info" as const,
-    startDate: "Apr 15, 2024",
-    endDate: "May 15, 2024",
-    sent: 0,
-    opened: 0,
-    clicked: 0,
-    conversions: 0,
-    budget: "$5,000",
-    spent: "$0",
-  },
-];
+interface Campaign {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  statusVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
+  startDate: string;
+  endDate: string;
+  sent: number;
+  opened: number;
+  clicked: number;
+  conversions: number;
+  budget: string;
+  spent: string;
+}
+
+function mapStatusVariant(status: string): Campaign["statusVariant"] {
+  const s = (status || "").toLowerCase();
+  if (s === "active" || s === "running" || s === "completed" || s === "won") return "success";
+  if (s === "paused" || s === "pending" || s === "scheduled") return "warning";
+  if (s === "cancelled" || s === "failed") return "danger";
+  if (s === "draft" || s === "new") return "info";
+  return "primary";
+}
+
+function mapCampaign(raw: any): Campaign {
+  return {
+    id: raw.id ?? raw.ID ?? raw.campaign_code ?? "",
+    name: raw.name ?? raw.campaign_name ?? "",
+    type: raw.type ?? raw.campaign_type ?? "",
+    status: raw.status ?? "Draft",
+    statusVariant: mapStatusVariant(raw.status),
+    startDate: raw.startDate ?? raw.start_date ?? raw.start_date ?? "",
+    endDate: raw.endDate ?? raw.end_date ?? "",
+    sent: raw.sent ?? raw.emails_sent ?? raw.sent_count ?? 0,
+    opened: raw.opened ?? raw.emails_opened ?? raw.opened_count ?? 0,
+    clicked: raw.clicked ?? raw.emails_clicked ?? raw.clicked_count ?? 0,
+    conversions: raw.conversions ?? raw.conversion_count ?? 0,
+    budget: raw.budget ?? raw.total_budget ?? "$0",
+    spent: raw.spent ?? raw.amount_spent ?? "$0",
+  };
+}
 
 const campaignStats = [
   { label: "Active Campaigns", value: "8", change: "+2 this month" },
@@ -122,8 +74,25 @@ const campaignStats = [
 ];
 
 export default function CampaignsListPage() {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+
+  useEffect(() => {
+    async function fetchCampaigns() {
+      try {
+        const res = await apiGet<any>("/sales/campaigns");
+        const items = (res.items ?? res.data ?? []).map(mapCampaign);
+        setCampaigns(items);
+      } catch (err) {
+        console.error("Failed to fetch campaigns:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchCampaigns();
+  }, []);
 
   const filteredCampaigns = campaigns.filter((campaign) => {
     const matchesSearch = campaign.name
@@ -212,127 +181,136 @@ export default function CampaignsListPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  <button className="flex items-center gap-1 hover:text-foreground transition-colors">
-                    Campaign
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
-                  Type
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Status
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                  Sent
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                  Open Rate
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden xl:table-cell">
-                  Conversions
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden xl:table-cell">
-                  Budget
-                </th>
-                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/50">
-              {filteredCampaigns.map((campaign) => (
-                <tr
-                  key={campaign.id}
-                  className="hover:bg-muted/5 transition-colors"
-                >
-                  <td className="py-3 px-4">
-                    <div>
-                      <p className="text-sm font-medium">{campaign.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {campaign.id} • {campaign.startDate} — {campaign.endDate}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 hidden md:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {campaign.type}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <StatusBadge
-                      status={campaign.status}
-                      variant={campaign.statusVariant}
-                    />
-                  </td>
-                  <td className="py-3 px-4 hidden lg:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {campaign.sent.toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 hidden lg:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {campaign.sent > 0
-                        ? `${((campaign.opened / campaign.sent) * 100).toFixed(1)}%`
-                        : "—"}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 hidden xl:table-cell">
-                    <span className="text-sm font-semibold text-success">
-                      {campaign.conversions}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 hidden xl:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {campaign.spent} / {campaign.budget}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Link
-                        href={`/sales/campaigns/${campaign.id}`}
-                        className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="p-4 border-t border-border flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredCampaigns.length} of {campaigns.length} campaigns
-          </p>
-          <div className="flex items-center gap-2">
-            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">
-              1
-            </button>
-            <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">
-              2
-            </button>
-            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-              <ChevronRight className="h-4 w-4" />
-            </button>
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <span className="ml-2 text-sm text-muted-foreground">Loading campaigns...</span>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      <button className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        Campaign
+                        <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
+                      Type
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      Status
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                      Sent
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                      Open Rate
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden xl:table-cell">
+                      Conversions
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden xl:table-cell">
+                      Budget
+                    </th>
+                    <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {filteredCampaigns.map((campaign) => (
+                    <tr
+                      key={campaign.id}
+                      className="hover:bg-muted/5 transition-colors"
+                    >
+                      <td className="py-3 px-4">
+                        <div>
+                          <p className="text-sm font-medium">{campaign.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {campaign.id} • {campaign.startDate} — {campaign.endDate}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 hidden md:table-cell">
+                        <span className="text-sm text-muted-foreground">
+                          {campaign.type}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <StatusBadge
+                          status={campaign.status}
+                          variant={campaign.statusVariant}
+                        />
+                      </td>
+                      <td className="py-3 px-4 hidden lg:table-cell">
+                        <span className="text-sm text-muted-foreground">
+                          {campaign.sent.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 hidden lg:table-cell">
+                        <span className="text-sm text-muted-foreground">
+                          {campaign.sent > 0
+                            ? `${((campaign.opened / campaign.sent) * 100).toFixed(1)}%`
+                            : "—"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 hidden xl:table-cell">
+                        <span className="text-sm font-semibold text-success">
+                          {campaign.conversions}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 hidden xl:table-cell">
+                        <span className="text-sm text-muted-foreground">
+                          {campaign.spent} / {campaign.budget}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            href={`/sales/campaigns/${campaign.id}`}
+                            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="p-4 border-t border-border flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing {filteredCampaigns.length} of {campaigns.length} campaigns
+              </p>
+              <div className="flex items-center gap-2">
+                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">
+                  1
+                </button>
+                <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">
+                  2
+                </button>
+                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -15,11 +16,32 @@ export default function LoginPage() {
 
   const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Demo bypass — accept any email/password
-    // TODO: Replace with real auth once backend is ready
-    router.push("/dashboard");
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email, password: formData.password }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ detail: "Login failed" }));
+        setError(body.detail || "Invalid credentials");
+        setLoading(false);
+        return;
+      }
+
+      const data = await res.json();
+      localStorage.setItem("token", data.access_token);
+      router.push("/dashboard");
+    } catch {
+      setError("Cannot connect to backend. Make sure the API server is running.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -117,12 +139,18 @@ export default function LoginPage() {
 
             {/* Submit Button */}
             <div className="pt-2">
+              {error && (
+                <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-3 text-center">
+                  {error}
+                </p>
+              )}
               <button
                 type="submit"
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary focus:ring-offset-background transition-all duration-200 relative overflow-hidden group active:scale-[0.98]"
+                disabled={loading}
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary focus:ring-offset-background transition-all duration-200 relative overflow-hidden group active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="absolute inset-0 w-full h-full bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
-                Sign In
+                {loading ? "Signing in..." : "Sign In"}
               </button>
             </div>
 

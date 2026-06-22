@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   Bug,
   Search,
@@ -18,28 +19,63 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 
-const bugs = [
-  { id: "BUG-001", title: "Payment checkout crashes on invalid card", severity: "Critical", severityVariant: "danger" as const, status: "Open", statusVariant: "danger" as const, reporter: "Priya Patel", assignee: "Mike Johnson", project: "E-Commerce Redesign", created: "Jun 20, 2024", updated: "Jun 21, 2024" },
-  { id: "BUG-002", title: "Product images not loading on mobile", severity: "High", severityVariant: "warning" as const, status: "In Progress", statusVariant: "info" as const, reporter: "Emily Davis", assignee: "Omar Hassan", project: "E-Commerce Redesign", created: "Jun 19, 2024", updated: "Jun 21, 2024" },
-  { id: "BUG-003", title: "Search results duplicate items", severity: "Medium", severityVariant: "info" as const, status: "Open", statusVariant: "danger" as const, reporter: "David Park", assignee: "Unassigned", project: "E-Commerce Redesign", created: "Jun 18, 2024", updated: "Jun 18, 2024" },
-  { id: "BUG-004", title: "User profile avatar upload fails silently", severity: "Medium", severityVariant: "info" as const, status: "In Review", statusVariant: "warning" as const, reporter: "Sarah Chen", assignee: "David Park", project: "Mobile App v2.0", created: "Jun 17, 2024", updated: "Jun 20, 2024" },
-  { id: "BUG-005", title: "Dashboard charts display wrong data range", severity: "Low", severityVariant: "muted" as const, status: "Resolved", statusVariant: "success" as const, reporter: "James Wilson", assignee: "Mike Johnson", project: "Data Analytics", created: "Jun 15, 2024", updated: "Jun 19, 2024" },
-  { id: "BUG-006", title: "Email notifications sent twice", severity: "High", severityVariant: "warning" as const, status: "Open", statusVariant: "danger" as const, reporter: "Rachel Martinez", assignee: "Alex Kim", project: "Customer Portal", created: "Jun 14, 2024", updated: "Jun 16, 2024" },
-  { id: "BUG-007", title: "Session timeout not working correctly", severity: "High", severityVariant: "warning" as const, status: "In Progress", statusVariant: "info" as const, reporter: "Mike Johnson", assignee: "Sarah Chen", project: "E-Commerce Redesign", created: "Jun 13, 2024", updated: "Jun 20, 2024" },
-  { id: "BUG-008", title: "Currency conversion rounding error", severity: "Medium", severityVariant: "info" as const, status: "Resolved", statusVariant: "success" as const, reporter: "James Wilson", assignee: "David Park", project: "E-Commerce Redesign", created: "Jun 12, 2024", updated: "Jun 18, 2024" },
-];
+interface BugItem {
+  id: string;
+  title: string;
+  severity: string;
+  severityVariant: "danger" | "warning" | "info" | "muted";
+  status: string;
+  statusVariant: "danger" | "warning" | "info" | "success" | "muted";
+  reporter: string;
+  assignee: string;
+  project: string;
+  created: string;
+  updated: string;
+}
 
-const bugStats = [
-  { label: "Open Bugs", value: "12", change: "3 Critical", color: "text-danger" },
-  { label: "In Progress", value: "5", change: "2 High", color: "text-info" },
-  { label: "Resolved", value: "28", change: "This month", color: "text-success" },
-  { label: "Avg. Resolution", value: "2.3d", change: "-0.5d vs last month", color: "text-primary" },
-];
+const severityVariantMap: Record<string, BugItem["severityVariant"]> = {
+  Critical: "danger",
+  High: "warning",
+  Medium: "info",
+  Low: "muted",
+};
+
+const statusVariantMap: Record<string, BugItem["statusVariant"]> = {
+  Open: "danger",
+  "In Progress": "info",
+  "In Review": "warning",
+  Resolved: "success",
+  Closed: "muted",
+};
 
 export default function BugsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSeverity, setSelectedSeverity] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [bugs, setBugs] = useState<BugItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ items: BugItem[] }>("/projects/bugs/list")
+      .then((res) =>
+        setBugs(
+          res.items.map((b) => ({
+            ...b,
+            severityVariant: severityVariantMap[b.severity] || "info",
+            statusVariant: statusVariantMap[b.status] || "info",
+          }))
+        )
+      )
+      .catch(() => setBugs([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const bugStats = [
+    { label: "Open Bugs", value: String(bugs.filter((b) => b.status === "Open").length), change: `${bugs.filter((b) => b.severity === "Critical" && b.status === "Open").length} Critical`, color: "text-danger" },
+    { label: "In Progress", value: String(bugs.filter((b) => b.status === "In Progress").length), change: `${bugs.filter((b) => b.severity === "High" && b.status === "In Progress").length} High`, color: "text-info" },
+    { label: "Resolved", value: String(bugs.filter((b) => b.status === "Resolved").length), change: "This month", color: "text-success" },
+    { label: "Avg. Resolution", value: "2.3d", change: "-0.5d vs last month", color: "text-primary" },
+  ];
 
   const filteredBugs = bugs.filter((b) => {
     const matchesSearch =
@@ -51,6 +87,14 @@ export default function BugsPage() {
       selectedStatus === "All" || b.status === selectedStatus;
     return matchesSearch && matchesSeverity && matchesStatus;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -64,7 +108,7 @@ export default function BugsPage() {
         icon={<Bug className="h-6 w-6 text-danger" />}
         actions={
           <a
-            href="/projects/bugs/new"
+            href="/projects/bugs/list/new"
             className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />
@@ -212,7 +256,7 @@ export default function BugsPage() {
                   </td>
                   <td className="py-3 px-4 text-right">
                     <a
-                      href={`/projects/bugs/${bug.id}`}
+                      href={`/projects/bugs/list/${bug.id}`}
                       className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground inline-flex"
                     >
                       <Eye className="h-4 w-4" />

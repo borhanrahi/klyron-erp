@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   Clock,
   Search,
@@ -16,29 +17,60 @@ import {
   User,
 } from "lucide-react";
 
-const timesheets = [
-  { id: "TS-001", employee: "Sarah Chen", avatar: "SC", project: "E-Commerce Redesign", task: "Project Planning", hours: 8, date: "Jun 21, 2024", status: "Approved", statusVariant: "success" as const },
-  { id: "TS-002", employee: "Mike Johnson", avatar: "MJ", project: "E-Commerce Redesign", task: "User Auth Implementation", hours: 7.5, date: "Jun 21, 2024", status: "Pending", statusVariant: "warning" as const },
-  { id: "TS-003", employee: "Emily Davis", avatar: "ED", project: "Mobile App v2.0", task: "UI Design - Home Screen", hours: 6, date: "Jun 21, 2024", status: "Pending", statusVariant: "warning" as const },
-  { id: "TS-004", employee: "David Park", avatar: "DP", project: "E-Commerce Redesign", task: "Product Catalog API", hours: 8.5, date: "Jun 21, 2024", status: "Approved", statusVariant: "success" as const },
-  { id: "TS-005", employee: "Alex Kim", avatar: "AK", project: "CI/CD Pipeline", task: "Docker Setup", hours: 4, date: "Jun 21, 2024", status: "Approved", statusVariant: "success" as const },
-  { id: "TS-006", employee: "Omar Hassan", avatar: "OH", project: "E-Commerce Redesign", task: "Component Library", hours: 7, date: "Jun 20, 2024", status: "Approved", statusVariant: "success" as const },
-  { id: "TS-007", employee: "Priya Patel", avatar: "PP", project: "Mobile App v2.0", task: "QA Testing - Login Flow", hours: 6.5, date: "Jun 20, 2024", status: "Rejected", statusVariant: "danger" as const },
-  { id: "TS-008", employee: "Rachel Martinez", avatar: "RM", project: "Customer Portal", task: "Requirements Gathering", hours: 8, date: "Jun 20, 2024", status: "Pending", statusVariant: "warning" as const },
-  { id: "TS-009", employee: "James Wilson", avatar: "JW", project: "Data Analytics", task: "Budget Analysis", hours: 5, date: "Jun 19, 2024", status: "Approved", statusVariant: "success" as const },
-  { id: "TS-010", employee: "Sarah Chen", avatar: "SC", project: "Legacy Migration", task: "Data Mapping Review", hours: 3, date: "Jun 19, 2024", status: "Approved", statusVariant: "success" as const },
-];
+interface Timesheet {
+  id: string;
+  employee: string;
+  avatar: string;
+  project: string;
+  task: string;
+  hours: number;
+  date: string;
+  status: string;
+  statusVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
+}
 
-const timesheetStats = [
-  { label: "Total Hours This Week", value: "320h", change: "40 avg/person" },
-  { label: "Pending Approvals", value: "8", change: "3 awaiting review" },
-  { label: "Approved", value: "42", change: "This month" },
-  { label: "Utilization Rate", value: "87%", change: "+2% vs last week" },
-];
+const statusVariantMap: Record<string, Timesheet["statusVariant"]> = {
+  Approved: "success",
+  Pending: "warning",
+  Rejected: "danger",
+};
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 export default function TimesheetsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ items: Timesheet[] }>("/projects/timesheets/list")
+      .then((res) =>
+        setTimesheets(
+          res.items.map((ts) => ({
+            ...ts,
+            statusVariant: statusVariantMap[ts.status] || "info",
+            avatar: ts.avatar || getInitials(ts.employee || ""),
+          }))
+        )
+      )
+      .catch(() => setTimesheets([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const timesheetStats = [
+    { label: "Total Hours This Week", value: `${timesheets.reduce((a, ts) => a + (ts.hours || 0), 0)}h`, change: `${timesheets.length > 0 ? Math.round(timesheets.reduce((a, ts) => a + (ts.hours || 0), 0) / timesheets.length) : 0} avg/person` },
+    { label: "Pending Approvals", value: String(timesheets.filter((ts) => ts.status === "Pending").length), change: `${timesheets.filter((ts) => ts.status === "Pending").length} awaiting review` },
+    { label: "Approved", value: String(timesheets.filter((ts) => ts.status === "Approved").length), change: "This month" },
+    { label: "Utilization Rate", value: "87%", change: "+2% vs last week" },
+  ];
 
   const filteredTimesheets = timesheets.filter((ts) => {
     const matchesSearch =
@@ -48,6 +80,14 @@ export default function TimesheetsPage() {
       selectedStatus === "All" || ts.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -191,7 +231,7 @@ export default function TimesheetsPage() {
                   </td>
                   <td className="py-3 px-4 text-right">
                     <a
-                      href={`/projects/timesheets/${ts.id}`}
+                      href={`/projects/timesheets/list/${ts.id}`}
                       className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground inline-flex"
                     >
                       <Eye className="h-4 w-4" />

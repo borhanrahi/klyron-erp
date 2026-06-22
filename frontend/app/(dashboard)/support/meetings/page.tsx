@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   Calendar,
   Search,
@@ -19,107 +20,67 @@ import {
   Link,
 } from "lucide-react";
 
-const meetings = [
-  {
-    id: "MTG-001",
-    title: "Sprint Planning - Week 26",
-    date: "Jun 24, 2024",
-    time: "10:00 AM - 11:30 AM",
-    type: "Zoom",
-    attendees: ["Sarah Chen", "Mike Johnson", "Emily Davis", "David Park"],
-    attendeeCount: 4,
-    organizer: "Sarah Chen",
-    status: "Scheduled",
-    statusVariant: "info" as const,
-    project: "E-Commerce Redesign",
-    link: "https://zoom.us/j/1234567890",
-  },
-  {
-    id: "MTG-002",
-    title: "Client Demo - Acme Corp",
-    date: "Jun 25, 2024",
-    time: "2:00 PM - 3:00 PM",
-    type: "Zoom",
-    attendees: ["Sarah Chen", "Emily Davis", "External: John Smith"],
-    attendeeCount: 3,
-    organizer: "Sarah Chen",
-    status: "Scheduled",
-    statusVariant: "info" as const,
-    project: "E-Commerce Redesign",
-    link: "https://zoom.us/j/0987654321",
-  },
-  {
-    id: "MTG-003",
-    title: "Daily Standup",
-    date: "Jun 21, 2024",
-    time: "9:00 AM - 9:15 AM",
-    type: "Google Meet",
-    attendees: ["Entire Engineering Team"],
-    attendeeCount: 12,
-    organizer: "Mike Johnson",
-    status: "Completed",
-    statusVariant: "success" as const,
-    project: "All Projects",
-    link: "https://meet.google.com/abc-defg-hij",
-  },
-  {
-    id: "MTG-004",
-    title: "Design Review - Checkout Flow",
-    date: "Jun 26, 2024",
-    time: "11:00 AM - 12:00 PM",
-    type: "In-Person",
-    attendees: ["Emily Davis", "Sarah Chen", "Omar Hassan"],
-    attendeeCount: 3,
-    organizer: "Emily Davis",
-    status: "Scheduled",
-    statusVariant: "info" as const,
-    project: "E-Commerce Redesign",
-    link: "",
-  },
-  {
-    id: "MTG-005",
-    title: "Budget Review Q2",
-    date: "Jun 20, 2024",
-    time: "3:00 PM - 4:00 PM",
-    type: "Zoom",
-    attendees: ["James Wilson", "Sarah Chen", "Rachel Martinez"],
-    attendeeCount: 3,
-    organizer: "James Wilson",
-    status: "Completed",
-    statusVariant: "success" as const,
-    project: "All Projects",
-    link: "https://zoom.us/j/1122334455",
-  },
-  {
-    id: "MTG-006",
-    title: "API Architecture Discussion",
-    date: "Jun 27, 2024",
-    time: "1:00 PM - 2:30 PM",
-    type: "Zoom",
-    attendees: ["Mike Johnson", "David Park", "Omar Hassan", "Alex Kim"],
-    attendeeCount: 4,
-    organizer: "Mike Johnson",
-    status: "Scheduled",
-    statusVariant: "info" as const,
-    project: "E-Commerce Redesign",
-    link: "https://zoom.us/j/5566778899",
-  },
-];
+interface Meeting {
+  id: string;
+  title: string;
+  date: string;
+  time: string;
+  type: string;
+  attendees: string[];
+  attendeeCount: number;
+  organizer: string;
+  status: string;
+  statusVariant: "info" | "success" | "warning" | "danger" | "primary" | "muted";
+  project: string;
+  link: string;
+}
 
-const meetingStats = [
-  { label: "Today's Meetings", value: "2", change: "Next: 10:00 AM" },
-  { label: "This Week", value: "8", change: "3 completed" },
-  { label: "Upcoming", value: "5", change: "Next 7 days" },
-  { label: "Total Hours Booked", value: "14h", change: "This week" },
-];
+const statusVariantMap: Record<string, Meeting["statusVariant"]> = {
+  Scheduled: "info",
+  Completed: "success",
+  Cancelled: "danger",
+};
 
 export default function MeetingsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("list");
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ items: Meeting[] }>("/support/meetings")
+      .then((res) =>
+        setMeetings(
+          res.items.map((m) => ({
+            ...m,
+            statusVariant: statusVariantMap[m.status] || "info",
+            attendees: Array.isArray(m.attendees) ? m.attendees : [],
+            attendeeCount: m.attendeeCount || (Array.isArray(m.attendees) ? m.attendees.length : 0),
+          }))
+        )
+      )
+      .catch(() => setMeetings([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const meetingStats = [
+    { label: "Today's Meetings", value: String(meetings.filter((m) => m.status === "Scheduled").length), change: "Next: 10:00 AM" },
+    { label: "This Week", value: String(meetings.length), change: `${meetings.filter((m) => m.status === "Completed").length} completed` },
+    { label: "Upcoming", value: String(meetings.filter((m) => m.status === "Scheduled").length), change: "Next 7 days" },
+    { label: "Total Hours Booked", value: "14h", change: "This week" },
+  ];
 
   const filteredMeetings = meetings.filter((m) =>
     m.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   Package,
   Search,
@@ -17,188 +18,54 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 
-const items = [
-  {
-    id: "ITM-001",
-    sku: "ELC-LPT-001",
-    name: "MacBook Pro 16-inch M3 Max",
-    category: "Electronics",
-    stock: 24,
-    minStock: 10,
-    price: 3499.00,
-    cost: 2800.00,
-    status: "In Stock",
-    statusVariant: "success" as const,
-    warehouse: "WH-SH-01",
-    barcode: "8901234567890",
-  },
-  {
-    id: "ITM-002",
-    sku: "ELC-MON-002",
-    name: 'Dell UltraSharp 27" 4K Monitor',
-    category: "Electronics",
-    stock: 56,
-    minStock: 20,
-    price: 649.99,
-    cost: 420.00,
-    status: "In Stock",
-    statusVariant: "success" as const,
-    warehouse: "WH-SH-01",
-    barcode: "8901234567891",
-  },
-  {
-    id: "ITM-003",
-    sku: "ELC-KB-003",
-    name: "Logitech MX Keys Keyboard",
-    category: "Electronics",
-    stock: 8,
-    minStock: 15,
-    price: 119.99,
-    cost: 72.00,
-    status: "Low Stock",
-    statusVariant: "warning" as const,
-    warehouse: "WH-SH-02",
-    barcode: "8901234567892",
-  },
-  {
-    id: "ITM-004",
-    sku: "ELC-MS-004",
-    name: "Logitech MX Master 3S Mouse",
-    category: "Electronics",
-    stock: 42,
-    minStock: 15,
-    price: 99.99,
-    cost: 58.00,
-    status: "In Stock",
-    statusVariant: "success" as const,
-    warehouse: "WH-SH-01",
-    barcode: "8901234567893",
-  },
-  {
-    id: "ITM-005",
-    sku: "OFS-CHR-005",
-    name: "Herman Miller Aeron Chair",
-    category: "Office Furniture",
-    stock: 3,
-    minStock: 5,
-    price: 1395.00,
-    cost: 890.00,
-    status: "Low Stock",
-    statusVariant: "warning" as const,
-    warehouse: "WH-BJ-01",
-    barcode: "8901234567894",
-  },
-  {
-    id: "ITM-006",
-    sku: "OFS-DSK-006",
-    name: "Standing Desk Electric Adjustable",
-    category: "Office Furniture",
-    stock: 15,
-    minStock: 8,
-    price: 599.00,
-    cost: 320.00,
-    status: "In Stock",
-    statusVariant: "success" as const,
-    warehouse: "WH-BJ-01",
-    barcode: "8901234567895",
-  },
-  {
-    id: "ITM-007",
-    sku: "ELC-USB-007",
-    name: "USB-C Hub 7-in-1 Adapter",
-    category: "Electronics",
-    stock: 0,
-    minStock: 20,
-    price: 49.99,
-    cost: 22.00,
-    status: "Out of Stock",
-    statusVariant: "danger" as const,
-    warehouse: "WH-SH-02",
-    barcode: "8901234567896",
-  },
-  {
-    id: "ITM-008",
-    sku: "SPL-PAP-008",
-    name: "A4 Copy Paper 80gsm (5 reams)",
-    category: "Office Supplies",
-    stock: 320,
-    minStock: 100,
-    price: 24.99,
-    cost: 15.00,
-    status: "In Stock",
-    statusVariant: "success" as const,
-    warehouse: "WH-SH-01",
-    barcode: "8901234567897",
-  },
-  {
-    id: "ITM-009",
-    sku: "SPL-PEN-009",
-    name: "Ballpoint Pen Box (50 pcs)",
-    category: "Office Supplies",
-    stock: 85,
-    minStock: 30,
-    price: 18.50,
-    cost: 9.50,
-    status: "In Stock",
-    statusVariant: "success" as const,
-    warehouse: "WH-SH-02",
-    barcode: "8901234567898",
-  },
-  {
-    id: "ITM-010",
-    sku: "ELC-HDM-010",
-    name: "HDMI Cable 2.1 2m Premium",
-    category: "Electronics",
-    stock: 120,
-    minStock: 50,
-    price: 29.99,
-    cost: 12.00,
-    status: "In Stock",
-    statusVariant: "success" as const,
-    warehouse: "WH-BJ-01",
-    barcode: "8901234567899",
-  },
-  {
-    id: "ITM-011",
-    sku: "ELC-HED-011",
-    name: "Sony WH-1000XM5 Headphones",
-    category: "Electronics",
-    stock: 18,
-    minStock: 10,
-    price: 349.99,
-    cost: 220.00,
-    status: "In Stock",
-    statusVariant: "success" as const,
-    warehouse: "WH-SH-01",
-    barcode: "8901234567900",
-  },
-  {
-    id: "ITM-012",
-    sku: "SPL-FOL-012",
-    name: "Lever Arch File (12 pack)",
-    category: "Office Supplies",
-    stock: 0,
-    minStock: 25,
-    price: 32.00,
-    cost: 18.00,
-    status: "Out of Stock",
-    statusVariant: "danger" as const,
-    warehouse: "WH-BJ-01",
-    barcode: "8901234567901",
-  },
-];
+interface InventoryItem {
+  id: string;
+  sku: string;
+  name: string;
+  category: string;
+  stock: number;
+  minStock: number;
+  price: number;
+  cost: number;
+  status: string;
+  statusVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
+  warehouse: string;
+  barcode: string;
+}
 
-const itemStats = [
-  { label: "Total Items", value: "1,248", change: "+24 this month" },
-  { label: "In Stock", value: "1,186", change: "95.0%" },
-  { label: "Low Stock", value: "42", change: "3.4%" },
-  { label: "Out of Stock", value: "20", change: "1.6%" },
-];
+const statusVariantMap: Record<string, InventoryItem["statusVariant"]> = {
+  "In Stock": "success",
+  "Low Stock": "warning",
+  "Out of Stock": "danger",
+};
 
 export default function InventoryItemsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ items: InventoryItem[] }>("/inventory/items")
+      .then((res) =>
+        setItems(
+          res.items.map((item) => ({
+            ...item,
+            statusVariant: statusVariantMap[item.status] || "info",
+          }))
+        )
+      )
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const itemStats = [
+    { label: "Total Items", value: String(items.length), change: "+24 this month" },
+    { label: "In Stock", value: String(items.filter((i) => i.status === "In Stock").length), change: `${items.length > 0 ? Math.round((items.filter((i) => i.status === "In Stock").length / items.length) * 100) : 0}%` },
+    { label: "Low Stock", value: String(items.filter((i) => i.status === "Low Stock").length), change: `${items.length > 0 ? Math.round((items.filter((i) => i.status === "Low Stock").length / items.length) * 100) : 0}%` },
+    { label: "Out of Stock", value: String(items.filter((i) => i.status === "Out of Stock").length), change: `${items.length > 0 ? Math.round((items.filter((i) => i.status === "Out of Stock").length / items.length) * 100) : 0}%` },
+  ];
 
   const filteredItems = items.filter((item) => {
     const matchesSearch =
@@ -211,6 +78,14 @@ export default function InventoryItemsPage() {
       selectedStatus === "All" || item.status === selectedStatus;
     return matchesSearch && matchesCategory && matchesStatus;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">

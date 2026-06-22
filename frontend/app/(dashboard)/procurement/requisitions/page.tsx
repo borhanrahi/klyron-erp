@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   Search,
   Plus,
@@ -16,78 +17,40 @@ import {
   Building2,
 } from "lucide-react";
 
-const requisitions = [
-  {
-    id: "PR-2024-001",
-    title: "Office Supplies Restocking",
-    requester: "Alice Johnson",
-    department: "Administration",
-    date: "2024-01-15",
-    priority: "Normal",
-    status: "Approved",
-    total: 2450.0,
-    items: 8,
-  },
-  {
-    id: "PR-2024-002",
-    title: "IT Equipment Upgrade",
-    requester: "Bob Smith",
-    department: "Information Technology",
-    date: "2024-01-14",
-    priority: "High",
-    status: "Pending",
-    total: 15800.0,
-    items: 5,
-  },
-  {
-    id: "PR-2024-003",
-    title: "Manufacturing Parts",
-    requester: "Carol Williams",
-    department: "Production",
-    date: "2024-01-13",
-    priority: "Urgent",
-    status: "Pending Approval",
-    total: 32500.0,
-    items: 12,
-  },
-  {
-    id: "PR-2024-004",
-    title: "Marketing Materials",
-    requester: "David Brown",
-    department: "Marketing",
-    date: "2024-01-12",
-    priority: "Normal",
-    status: "Rejected",
-    total: 4200.0,
-    items: 6,
-  },
-  {
-    id: "PR-2024-005",
-    title: "Warehouse Equipment",
-    requester: "Eva Martinez",
-    department: "Logistics",
-    date: "2024-01-11",
-    priority: "High",
-    status: "Draft",
-    total: 28900.0,
-    items: 9,
-  },
-  {
-    id: "PR-2024-006",
-    title: "Lab Supplies",
-    requester: "Frank Wilson",
-    department: "Research & Development",
-    date: "2024-01-10",
-    priority: "Normal",
-    status: "Approved",
-    total: 8750.0,
-    items: 15,
-  },
-];
+interface Requisition {
+  id: string;
+  title: string;
+  requester: string;
+  department: string;
+  date: string;
+  priority: string;
+  status: string;
+  total: number;
+  items: number;
+}
 
 export default function RequisitionsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
+  const [requisitions, setRequisitions] = useState<Requisition[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ items: any[] }>("/procurement/requisitions")
+      .then((res) => setRequisitions(res.items.map((r: any) => ({
+        id: r.requisition_number || `PR-${r.id}`,
+        title: r.title || r.description || "",
+        requestedBy: r.requested_by_name || r.requested_by || "",
+        department: r.department_name || r.department || "",
+        date: r.request_date || r.created_at || "",
+        amount: r.total_amount || r.total || 0,
+        priority: r.priority || "Medium",
+        status: r.status || "Draft",
+        items: Array.isArray(r.items) ? r.items.length : 0,
+      }))))
+      .catch(() => setRequisitions([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const statuses = [
     "All",
@@ -107,6 +70,14 @@ export default function RequisitionsPage() {
       filterStatus === "All" || req.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

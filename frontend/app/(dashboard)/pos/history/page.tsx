@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   History,
   Search,
@@ -17,150 +18,83 @@ import {
   Smartphone,
 } from "lucide-react";
 
-const transactions = [
-  {
-    id: "SALE-1001",
-    date: "Jun 21, 2024 03:45 PM",
-    cashier: "Sarah Chen",
-    items: 5,
-    subtotal: 149.95,
-    tax: 15.0,
-    total: 164.95,
-    paymentMethod: "Cash",
-    paymentIcon: Banknote,
-    status: "Completed",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "SALE-1002",
-    date: "Jun 21, 2024 02:30 PM",
-    cashier: "Mike Johnson",
-    items: 2,
-    subtotal: 89.98,
-    tax: 9.0,
-    total: 98.98,
-    paymentMethod: "Card",
-    paymentIcon: CreditCard,
-    status: "Completed",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "SALE-1003",
-    date: "Jun 21, 2024 01:15 PM",
-    cashier: "Sarah Chen",
-    items: 8,
-    subtotal: 234.92,
-    tax: 23.49,
-    total: 258.41,
-    paymentMethod: "Digital",
-    paymentIcon: Smartphone,
-    status: "Completed",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "SALE-1004",
-    date: "Jun 21, 2024 12:00 PM",
-    cashier: "Emily Davis",
-    items: 1,
-    subtotal: 59.99,
-    tax: 6.0,
-    total: 65.99,
-    paymentMethod: "Card",
-    paymentIcon: CreditCard,
-    status: "Refunded",
-    statusVariant: "danger" as const,
-  },
-  {
-    id: "SALE-1005",
-    date: "Jun 21, 2024 10:45 AM",
-    cashier: "Mike Johnson",
-    items: 3,
-    subtotal: 67.47,
-    tax: 6.75,
-    total: 74.22,
-    paymentMethod: "Cash",
-    paymentIcon: Banknote,
-    status: "Completed",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "SALE-1006",
-    date: "Jun 20, 2024 05:30 PM",
-    cashier: "Sarah Chen",
-    items: 4,
-    subtotal: 199.96,
-    tax: 20.0,
-    total: 219.96,
-    paymentMethod: "Card",
-    paymentIcon: CreditCard,
-    status: "Completed",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "SALE-1007",
-    date: "Jun 20, 2024 03:15 PM",
-    cashier: "Emily Davis",
-    items: 6,
-    subtotal: 312.44,
-    tax: 31.24,
-    total: 343.68,
-    paymentMethod: "Digital",
-    paymentIcon: Smartphone,
-    status: "Void",
-    statusVariant: "warning" as const,
-  },
-  {
-    id: "SALE-1008",
-    date: "Jun 20, 2024 01:00 PM",
-    cashier: "Mike Johnson",
-    items: 2,
-    subtotal: 42.48,
-    tax: 4.25,
-    total: 46.73,
-    paymentMethod: "Cash",
-    paymentIcon: Banknote,
-    status: "Completed",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "SALE-1009",
-    date: "Jun 20, 2024 11:20 AM",
-    cashier: "Sarah Chen",
-    items: 7,
-    subtotal: 178.43,
-    tax: 17.84,
-    total: 196.27,
-    paymentMethod: "Card",
-    paymentIcon: CreditCard,
-    status: "Completed",
-    statusVariant: "success" as const,
-  },
-  {
-    id: "SALE-1010",
-    date: "Jun 20, 2024 09:45 AM",
-    cashier: "Emily Davis",
-    items: 1,
-    subtotal: 34.99,
-    tax: 3.5,
-    total: 38.49,
-    paymentMethod: "Digital",
-    paymentIcon: Smartphone,
-    status: "Completed",
-    statusVariant: "success" as const,
-  },
-];
+interface POSSession {
+  id: string;
+  opened_at: string;
+  closed_at: string;
+  opening_balance: number;
+  closing_balance: number;
+  status: string;
+  cashier_id: string;
+}
 
-const todayStats = [
-  { label: "Total Sales", value: "$1,247.85", change: "+12% vs yesterday" },
-  { label: "Transactions", value: "28", change: "+5 vs yesterday" },
-  { label: "Avg. Transaction", value: "$44.57", change: "+3.2%" },
-  { label: "Refunds", value: "$65.99", change: "1 refund" },
-];
+interface Transaction {
+  id: string;
+  date: string;
+  cashier: string;
+  items: number;
+  subtotal: number;
+  tax: number;
+  total: number;
+  paymentMethod: string;
+  paymentIcon: typeof Banknote;
+  status: string;
+  statusVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
+}
+
+const paymentIcons: Record<string, typeof Banknote> = {
+  Cash: Banknote,
+  Card: CreditCard,
+  Digital: Smartphone,
+};
+
+function mapSessionToTransaction(session: POSSession): Transaction {
+  const isOpen = session.status === "open" || session.status === "active";
+  const isClosed = session.status === "closed";
+  return {
+    id: session.id,
+    date: session.opened_at
+      ? new Date(session.opened_at).toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        })
+      : "N/A",
+    cashier: session.cashier_id || "Unknown",
+    items: 0,
+    subtotal: session.opening_balance || 0,
+    tax: 0,
+    total: session.closing_balance || session.opening_balance || 0,
+    paymentMethod: "Cash",
+    paymentIcon: Banknote,
+    status: isOpen ? "Active" : isClosed ? "Completed" : session.status,
+    statusVariant: isOpen ? "info" : isClosed ? "success" : "muted",
+  };
+}
 
 export default function POSHistoryPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedDate, setSelectedDate] = useState("today");
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ items: POSSession[] }>("/pos/sessions")
+      .then((res) => setTransactions(res.items.map(mapSessionToTransaction)))
+      .catch(() => setTransactions([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const todayStats = [
+    { label: "Total Sales", value: `$${transactions.reduce((a, t) => a + t.total, 0).toFixed(2)}`, change: "+12% vs yesterday" },
+    { label: "Transactions", value: String(transactions.length), change: "+5 vs yesterday" },
+    { label: "Avg. Transaction", value: `$${transactions.length > 0 ? (transactions.reduce((a, t) => a + t.total, 0) / transactions.length).toFixed(2) : "0.00"}`, change: "+3.2%" },
+    { label: "Refunds", value: `$${transactions.filter((t) => t.status === "Refunded").reduce((a, t) => a + t.total, 0).toFixed(2)}`, change: `${transactions.filter((t) => t.status === "Refunded").length} refund(s)` },
+  ];
 
   const filteredTransactions = transactions.filter((tx) => {
     const matchesSearch =
@@ -170,6 +104,14 @@ export default function POSHistoryPage() {
       selectedStatus === "All" || tx.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -240,6 +182,7 @@ export default function POSHistoryPage() {
               >
                 <option value="All">Status: All</option>
                 <option value="Completed">Completed</option>
+                <option value="Active">Active</option>
                 <option value="Refunded">Refunded</option>
                 <option value="Void">Void</option>
               </select>
