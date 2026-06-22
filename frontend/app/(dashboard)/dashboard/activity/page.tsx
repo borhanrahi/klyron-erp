@@ -98,7 +98,7 @@ export default function ActivityFeedPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiGet<ActivityResponse>("/api/v1/dashboard/activity")
+    apiGet<ActivityResponse>("/dashboard/activity")
       .then((res) => {
         setActivities(res.data.activities);
         setPulse(res.data.pulse);
