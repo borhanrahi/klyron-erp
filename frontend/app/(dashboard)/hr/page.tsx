@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { KPICard } from "@/components/common/KPICard";
-import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   Users,
   UserCheck,
@@ -19,14 +20,15 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-const kpis = [
-  { label: "Total Employees", value: "148", change: "+6 this month", changeType: "up" as const, icon: <Users className="h-5 w-5" />, color: "primary" as const },
-  { label: "Active Employees", value: "132", change: "89.2%", changeType: "up" as const, icon: <UserCheck className="h-5 w-5" />, color: "success" as const },
-  { label: "On Leave", value: "8", change: "5.4%", changeType: "down" as const, icon: <CalendarOff className="h-5 w-5" />, color: "warning" as const },
-  { label: "Today Attendance", value: "86.5%", change: "128 present", changeType: "up" as const, icon: <Clock className="h-5 w-5" />, color: "accent" as const },
-  { label: "New Hires (Q1)", value: "12", change: "+3 vs last Q", changeType: "up" as const, icon: <UserPlus className="h-5 w-5" />, color: "success" as const },
-  { label: "Pending Approvals", value: "8", change: "3 urgent", changeType: "down" as const, icon: <ClipboardCheck className="h-5 w-5" />, color: "warning" as const },
-];
+interface DashboardData {
+  total_employees: number;
+  active_employees: number;
+  on_leave: number;
+  today_attendance: number;
+  pending_approvals: number;
+  new_hires: number;
+  resignations: number;
+}
 
 const recentActivity = [
   { employee: "Sarah Chen", action: "Checked in", time: "09:02 AM", type: "attendance" },
@@ -60,7 +62,7 @@ const departmentDistribution = [
 const quickLinks = [
   { label: "Employee Directory", href: "/hr/employees", icon: <Users className="h-5 w-5" /> },
   { label: "Attendance", href: "/hr/attendance", icon: <Clock className="h-5 w-5" /> },
-  { label: "Leave Requests", href: "/hr/leaves", icon: <CalendarOff className="h-5 w-5" /> },
+  { label: "Leave Requests", href: "/hr/leave", icon: <CalendarOff className="h-5 w-5" /> },
   { label: "Payroll", href: "/hr/payroll", icon: <DollarSign className="h-5 w-5" /> },
   { label: "Recruitment", href: "/hr/recruitment", icon: <Briefcase className="h-5 w-5" /> },
   { label: "Training", href: "/hr/training", icon: <GraduationCap className="h-5 w-5" /> },
@@ -69,6 +71,27 @@ const quickLinks = [
 ];
 
 export default function HRDashboardPage() {
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<{ data: DashboardData }>("/hr/dashboard")
+      .then((res) => setDashboard(res.data))
+      .catch(() => setDashboard({ total_employees: 0, active_employees: 0, on_leave: 0, today_attendance: 0, pending_approvals: 0, new_hires: 0, resignations: 0 }))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const d = dashboard || { total_employees: 0, active_employees: 0, on_leave: 0, today_attendance: 0, pending_approvals: 0, new_hires: 0, resignations: 0 };
+
+  const kpis = [
+    { label: "Total Employees", value: String(d.total_employees), change: "All time", changeType: "up" as const, icon: <Users className="h-5 w-5" />, color: "primary" as const },
+    { label: "Active Employees", value: String(d.active_employees), change: "Currently active", changeType: "up" as const, icon: <UserCheck className="h-5 w-5" />, color: "success" as const },
+    { label: "On Leave", value: String(d.on_leave), change: "Today", changeType: d.on_leave > 0 ? "down" as const : "up" as const, icon: <CalendarOff className="h-5 w-5" />, color: "warning" as const },
+    { label: "Today Attendance", value: `${d.today_attendance}%`, change: "Present today", changeType: "up" as const, icon: <Clock className="h-5 w-5" />, color: "accent" as const },
+    { label: "New Hires", value: String(d.new_hires), change: "This period", changeType: "up" as const, icon: <UserPlus className="h-5 w-5" />, color: "success" as const },
+    { label: "Pending Approvals", value: String(d.pending_approvals), change: "Needs attention", changeType: d.pending_approvals > 0 ? "down" as const : "up" as const, icon: <ClipboardCheck className="h-5 w-5" />, color: "warning" as const },
+  ];
+
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
       <PageHeader
