@@ -25,7 +25,7 @@ interface AttendanceData {
 }
 
 interface Payslip {
-  month: string;
+  month: number;
   year: number;
   net_pay: number;
   status: string;
@@ -46,6 +46,8 @@ interface DashboardData {
   pending_trainings: number;
   unread_announcements: number;
 }
+
+const MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const quickLinks = [
   { label: "My Profile", href: "/ess/profile", icon: <UserCheck className="h-5 w-5" /> },
@@ -138,7 +140,7 @@ export default function ESSDashboardPage() {
                   {d.recent_payslips.map((p, i) => (
                     <div key={i} className="flex items-center justify-between p-3 bg-muted rounded-xl">
                       <div>
-                        <p className="text-sm font-medium">{p.month} {p.year}</p>
+                        <p className="text-sm font-medium">{MONTHS[p.month] || p.month} {p.year}</p>
                         <p className="text-xs text-muted-foreground">{p.status}</p>
                       </div>
                       <span className="text-sm font-semibold text-green-500">৳{p.net_pay?.toLocaleString()}</span>

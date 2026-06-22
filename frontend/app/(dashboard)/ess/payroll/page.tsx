@@ -7,7 +7,7 @@ import { DollarSign, Download, Eye } from "lucide-react";
 
 interface Payslip {
   id: number;
-  month: string;
+  month: number;
   year: number;
   base_salary: number;
   allowances: number;
@@ -63,7 +63,7 @@ export default function ESSPayrollPage() {
                 <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">No payslips found</td></tr>
               ) : payslips.map((p) => (
                 <tr key={p.id} className="hover:bg-muted/5 transition-colors">
-                  <td className="p-3 font-medium">{p.month} {p.year}</td>
+                  <td className="p-3 font-medium">{["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][p.month] || p.month} {p.year}</td>
                   <td className="p-3">৳{p.base_salary?.toLocaleString()}</td>
                   <td className="p-3 text-green-500">+৳{p.allowances?.toLocaleString()}</td>
                   <td className="p-3 text-red-500">-৳{p.deductions?.toLocaleString()}</td>

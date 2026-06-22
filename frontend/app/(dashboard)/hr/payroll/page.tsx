@@ -15,7 +15,7 @@ import {
 interface PayrollRecord {
   id: number;
   employee_id: number;
-  month: string;
+  month: number;
   year: number;
   gross_salary: number;
   total_deductions: number;
@@ -115,7 +115,7 @@ export default function PayrollPage() {
                       </div>
                     </td>
                     <td className="py-3 px-4 hidden md:table-cell">
-                      <span className="text-sm text-muted-foreground">{pay.month} {pay.year}</span>
+                      <span className="text-sm text-muted-foreground">{["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][pay.month] || pay.month} {pay.year}</span>
                     </td>
                     <td className="py-3 px-4 hidden md:table-cell text-right">
                       <span className="text-sm text-muted-foreground">{fmt(pay.gross_salary)}</span>
