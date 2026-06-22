@@ -51,6 +51,10 @@ import {
   Calendar,
   BookOpen,
   HelpCircle,
+  Heart,
+  Award,
+  ClipboardCheck,
+  GraduationCap,
 } from "lucide-react";
 
 interface NavItem {
@@ -128,6 +132,23 @@ const navigationGroups: NavGroup[] = [
       { name: "Recruitment", href: "/hr/recruitment", icon: Briefcase },
       { name: "Training", href: "/hr/training", icon: BookOpen },
       { name: "Performance", href: "/hr/performance", icon: TrendingUp },
+    ],
+  },
+  {
+    label: "Employee",
+    items: [
+      { name: "My Dashboard", href: "/ess", icon: LayoutDashboard },
+      { name: "My Profile", href: "/ess/profile", icon: UserCheck },
+      { name: "Attendance", href: "/ess/attendance", icon: Clock },
+      { name: "Leave", href: "/ess/leave", icon: Calendar },
+      { name: "Payroll", href: "/ess/payroll", icon: DollarSign },
+      { name: "Benefits", href: "/ess/benefits", icon: Heart },
+      { name: "Documents", href: "/ess/documents", icon: FileText },
+      { name: "Assets", href: "/ess/assets", icon: Package },
+      { name: "Training", href: "/ess/training", icon: GraduationCap },
+      { name: "Performance", href: "/ess/performance", icon: TrendingUp },
+      { name: "Requests", href: "/ess/requests", icon: ClipboardList },
+      { name: "Support", href: "/ess/support", icon: HeadphonesIcon },
     ],
   },
   {
