@@ -37,6 +37,9 @@ interface Holiday {
 }
 
 interface DashboardData {
+  employee_name: string;
+  department_name: string;
+  designation: string;
   today_attendance: AttendanceData | null;
   leave_balance_total: number;
   pending_leaves: number;
@@ -72,6 +75,9 @@ export default function ESSDashboardPage() {
   }, []);
 
   const d = data || {
+    employee_name: "",
+    department_name: "",
+    designation: "",
     today_attendance: null,
     leave_balance_total: 0,
     pending_leaves: 0,
@@ -95,8 +101,8 @@ export default function ESSDashboardPage() {
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
       <PageHeader
-        title="Employee Dashboard"
-        description="Your personal HR portal overview."
+        title={d.employee_name ? `Welcome, ${d.employee_name}` : "Employee Dashboard"}
+        description={d.department_name ? `${d.designation} - ${d.department_name}` : "Your personal HR portal overview."}
         icon={<LayoutDashboard className="h-6 w-6 text-primary" />}
       />
 

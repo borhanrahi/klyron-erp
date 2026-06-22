@@ -11,6 +11,10 @@ interface Profile {
   designation: string;
   phone: string;
   email?: string;
+  full_name?: string;
+  first_name?: string;
+  last_name?: string;
+  department_name?: string;
   gender: string | null;
   date_of_birth: string | null;
   marital_status: string | null;
@@ -74,9 +78,11 @@ export default function ESSProfilePage() {
         {/* Profile Card */}
         <div className="rounded-2xl border border-border bg-card shadow-sm p-6 text-center">
           <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-            <User className="h-10 w-10 text-primary" />
+            <span className="text-2xl font-bold text-primary">
+              {(profile.full_name || profile.employee_code).split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
+            </span>
           </div>
-          <h2 className="text-lg font-bold">{profile.employee_code}</h2>
+          <h2 className="text-lg font-bold">{profile.full_name || profile.employee_code}</h2>
           <p className="text-sm text-muted-foreground">{profile.designation}</p>
           <div className="mt-4 space-y-2 text-sm">
             <div className="flex items-center justify-center gap-2 text-muted-foreground">
@@ -105,6 +111,7 @@ export default function ESSProfilePage() {
           <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
               { label: "Employee Code", value: profile.employee_code },
+              { label: "Department", value: profile.department_name || "N/A" },
               { label: "Designation", value: profile.designation },
               { label: "Gender", value: profile.gender || "N/A" },
               { label: "Date of Birth", value: profile.date_of_birth || "N/A" },

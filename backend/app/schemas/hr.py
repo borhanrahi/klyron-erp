@@ -179,6 +179,11 @@ class EmployeeUpdate(BaseModel):
 
 class EmployeeResponse(EmployeeBase):
     id: int
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    department_name: Optional[str] = None
     created_at: Optional[datetime] = None
 
     class Config:
@@ -456,6 +461,8 @@ class AttendanceUpdate(BaseModel):
 
 class AttendanceResponse(AttendanceBase):
     id: int
+    employee_name: Optional[str] = None
+    employee_code: Optional[str] = None
     created_at: Optional[datetime] = None
 
     class Config:
@@ -596,6 +603,8 @@ class LeaveUpdate(BaseModel):
 
 class LeaveResponse(LeaveBase):
     id: int
+    employee_name: Optional[str] = None
+    employee_code: Optional[str] = None
     applied_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
@@ -792,7 +801,7 @@ class PayrollBase(BaseModel):
     deductions: float = 0
     tax: float = 0
     bonus: float = 0
-    loan_deduction: float = 0
+    loan_deduction: Optional[float] = 0
     net_pay: float = 0
     status: str = "draft"
     payslip_url: Optional[str] = None
@@ -822,6 +831,8 @@ class PayrollUpdate(BaseModel):
 
 class PayrollResponse(PayrollBase):
     id: int
+    employee_name: Optional[str] = None
+    employee_code: Optional[str] = None
     created_at: Optional[datetime] = None
     items: List[PayrollItemResponse] = []
 

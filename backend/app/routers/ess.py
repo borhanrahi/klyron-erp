@@ -7,7 +7,7 @@ from typing import Optional
 from app.database import get_db
 from app.routers.auth import get_current_user
 from app.dependencies.auth import require_company
-from app.models.auth import User
+from app.models.auth import User, Department
 from app.models.hr import (
     Employee, Attendance, Leave, LeaveBalance, LeaveType, Holiday,
     Payroll, PayrollItem, SalaryComponent, BenefitPlan, EmployeeBenefit,
@@ -132,7 +132,15 @@ async def ess_dashboard(db: AsyncSession = Depends(get_db), current_user: User =
     )
     pending_trainings = pt_result.scalar() or 0
 
+    dept_name = ""
+    if employee.department_id:
+        dept_result = await db.execute(select(Department.name).where(Department.id == employee.department_id))
+        dept_name = dept_result.scalar_one_or_none() or ""
+
     data = ESSDashboardData(
+        employee_name=current_user.full_name or "",
+        department_name=dept_name,
+        designation=employee.designation or "",
         today_attendance=att_data,
         leave_balance_total=leave_balance_total,
         pending_leaves=pending_leaves,
@@ -153,7 +161,15 @@ async def ess_dashboard(db: AsyncSession = Depends(get_db), current_user: User =
 async def get_profile(db: AsyncSession = Depends(get_db), current_user: User = Depends(require_company)):
     employee = await _get_employee(db, current_user)
     from app.schemas.hr import EmployeeResponse
-    return ResponseModel(data=EmployeeResponse.model_validate(employee))
+    d = EmployeeResponse.model_validate(employee)
+    d.full_name = current_user.full_name
+    d.email = current_user.email
+    d.first_name = (current_user.full_name or "").split(" ")[0] if current_user.full_name else None
+    d.last_name = " ".join((current_user.full_name or "").split(" ")[1:]) if current_user.full_name and len(current_user.full_name.split(" ")) > 1 else None
+    if employee.department_id:
+        dept_result = await db.execute(select(Department.name).where(Department.id == employee.department_id))
+        d.department_name = dept_result.scalar_one_or_none()
+    return ResponseModel(data=d)
 
 
 @router.put("/profile", response_model=ResponseModel)

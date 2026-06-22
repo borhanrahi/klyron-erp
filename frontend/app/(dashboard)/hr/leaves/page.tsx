@@ -18,6 +18,8 @@ import {
 interface LeaveRequest {
   id: number;
   employee_id: number;
+  employee_name: string | null;
+  employee_code: string | null;
   leave_type_id: number | null;
   start_date: string;
   end_date: string;
@@ -161,10 +163,10 @@ export default function LeavesPage() {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
-                          #{leave.employee_id}
+                          {(leave.employee_name || `#${leave.employee_id}`).split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-sm font-medium">Employee #{leave.employee_id}</p>
+                          <p className="text-sm font-medium">{leave.employee_name || `Employee #${leave.employee_id}`}</p>
                           <p className="text-xs text-muted-foreground">{leave.reason || "No reason provided"}</p>
                         </div>
                       </div>

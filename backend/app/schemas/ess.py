@@ -6,6 +6,9 @@ from pydantic import BaseModel
 # ── ESS Dashboard ─────────────────────────────────────────────────────────────
 
 class ESSDashboardData(BaseModel):
+    employee_name: str = ""
+    department_name: str = ""
+    designation: str = ""
     today_attendance: Optional[dict] = None
     leave_balance_total: int = 0
     pending_leaves: int = 0

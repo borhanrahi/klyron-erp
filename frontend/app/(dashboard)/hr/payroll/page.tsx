@@ -15,6 +15,8 @@ import {
 interface PayrollRecord {
   id: number;
   employee_id: number;
+  employee_name: string | null;
+  employee_code: string | null;
   month: number;
   year: number;
   gross_salary: number;
@@ -109,9 +111,12 @@ export default function PayrollPage() {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
-                          #{pay.employee_id}
+                          {(pay.employee_name || `#${pay.employee_id}`).split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
                         </div>
-                        <span className="text-sm font-medium">Employee #{pay.employee_id}</span>
+                        <div>
+                          <p className="text-sm font-medium">{pay.employee_name || `Employee #${pay.employee_id}`}</p>
+                          <p className="text-xs text-muted-foreground">{pay.employee_code || ""}</p>
+                        </div>
                       </div>
                     </td>
                     <td className="py-3 px-4 hidden md:table-cell">

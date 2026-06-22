@@ -15,6 +15,8 @@ import {
 interface AttendanceRecord {
   id: number;
   employee_id: number;
+  employee_name: string | null;
+  employee_code: string | null;
   check_in: string | null;
   check_out: string | null;
   status: string;
@@ -157,9 +159,12 @@ export default function AttendancePage() {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
-                          #{rec.employee_id}
+                          {(rec.employee_name || `#${rec.employee_id}`).split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
                         </div>
-                        <span className="text-sm font-medium">Employee #{rec.employee_id}</span>
+                        <div>
+                          <p className="text-sm font-medium">{rec.employee_name || `Employee #${rec.employee_id}`}</p>
+                          <p className="text-xs text-muted-foreground">{rec.employee_code || ""}</p>
+                        </div>
                       </div>
                     </td>
                     <td className="py-3 px-4">

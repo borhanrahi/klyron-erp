@@ -8,7 +8,7 @@ from typing import Optional
 from app.database import get_db
 from app.routers.auth import get_current_user
 from app.dependencies.auth import require_company
-from app.models.auth import User
+from app.models.auth import User, Department
 from app.models.hr import (
     EmploymentType, WorkLocation, Shift,
     Employee, JobRequisition, Candidate, Interview, OfferLetter,
@@ -272,25 +272,60 @@ async def delete_shift(item_id: int, db: AsyncSession = Depends(get_db), current
 
 @router.get("/employees", response_model=PaginatedResponse)
 async def list_employees(page: int = Query(1, ge=1), per_page: int = Query(25, ge=1, le=100), search: Optional[str] = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_company)):
-    query = select(Employee).where(Employee.company_id == current_user.company_id, Employee.deleted_at.is_(None))
-    count_query = select(sa_func.count()).select_from(Employee).where(Employee.company_id == current_user.company_id, Employee.deleted_at.is_(None))
+    base = (
+        select(Employee, User.full_name, User.email, Department.name.label("dept_name"))
+        .outerjoin(User, Employee.user_id == User.id)
+        .outerjoin(Department, Employee.department_id == Department.id)
+        .where(Employee.company_id == current_user.company_id, Employee.deleted_at.is_(None))
+    )
+    count_q = (
+        select(sa_func.count())
+        .select_from(Employee)
+        .outerjoin(User, Employee.user_id == User.id)
+        .where(Employee.company_id == current_user.company_id, Employee.deleted_at.is_(None))
+    )
     if search:
-        query = query.where(Employee.employee_code.ilike(f"%{search}%"))
-        count_query = count_query.where(Employee.employee_code.ilike(f"%{search}%"))
-    total = (await db.execute(count_query)).scalar() or 0
-    query = query.offset((page - 1) * per_page).limit(per_page)
-    result = await db.execute(query)
-    items = result.scalars().all()
-    return PaginatedResponse(items=[EmployeeResponse.model_validate(i) for i in items], total=total, page=page, per_page=per_page, pages=(total + per_page - 1) // per_page)
+        term = f"%{search}%"
+        name_filter = User.full_name.ilike(term) | User.email.ilike(term) | Employee.employee_code.ilike(term) | Employee.designation.ilike(term)
+        base = base.where(name_filter)
+        count_q = count_q.where(name_filter)
+    total = (await db.execute(count_q)).scalar() or 0
+    base = base.order_by(Employee.id.desc()).offset((page - 1) * per_page).limit(per_page)
+    result = await db.execute(base)
+    rows = result.all()
+    items = []
+    for row in rows:
+        emp, full_name, email, dept_name = row
+        d = EmployeeResponse.model_validate(emp)
+        d.first_name = (full_name or "").split(" ")[0] if full_name else None
+        d.last_name = " ".join((full_name or "").split(" ")[1:]) if full_name and len(full_name.split(" ")) > 1 else None
+        d.full_name = full_name
+        d.email = email
+        d.department_name = dept_name
+        items.append(d)
+    return PaginatedResponse(items=items, total=total, page=page, per_page=per_page, pages=(total + per_page - 1) // per_page)
 
 
 @router.get("/employees/{item_id}", response_model=ResponseModel)
 async def get_employee(item_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_company)):
-    result = await db.execute(select(Employee).where(Employee.id == item_id, Employee.company_id == current_user.company_id, Employee.deleted_at.is_(None)))
-    item = result.scalar_one_or_none()
-    if not item:
+    q = (
+        select(Employee, User.full_name, User.email, Department.name.label("dept_name"))
+        .outerjoin(User, Employee.user_id == User.id)
+        .outerjoin(Department, Employee.department_id == Department.id)
+        .where(Employee.id == item_id, Employee.company_id == current_user.company_id, Employee.deleted_at.is_(None))
+    )
+    result = await db.execute(q)
+    row = result.first()
+    if not row:
         raise HTTPException(status_code=404, detail="Employee not found")
-    return ResponseModel(data=EmployeeResponse.model_validate(item))
+    emp, full_name, email, dept_name = row
+    d = EmployeeResponse.model_validate(emp)
+    d.first_name = (full_name or "").split(" ")[0] if full_name else None
+    d.last_name = " ".join((full_name or "").split(" ")[1:]) if full_name and len(full_name.split(" ")) > 1 else None
+    d.full_name = full_name
+    d.email = email
+    d.department_name = dept_name
+    return ResponseModel(data=d)
 
 
 @router.post("/employees", response_model=ResponseModel, status_code=201)
@@ -667,16 +702,30 @@ async def delete_onboarding_checklist(item_id: int, db: AsyncSession = Depends(g
 
 @router.get("/attendance", response_model=PaginatedResponse)
 async def list_attendance(page: int = Query(1, ge=1), per_page: int = Query(25, ge=1, le=100), search: Optional[str] = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_company)):
-    query = select(Attendance).where(Attendance.company_id == current_user.company_id)
-    count_query = select(sa_func.count()).select_from(Attendance).where(Attendance.company_id == current_user.company_id)
+    base = (
+        select(Attendance, User.full_name, Employee.employee_code)
+        .outerjoin(Employee, Attendance.employee_id == Employee.id)
+        .outerjoin(User, Employee.user_id == User.id)
+        .where(Attendance.company_id == current_user.company_id)
+    )
+    count_q = select(sa_func.count()).select_from(Attendance).where(Attendance.company_id == current_user.company_id)
     if search:
-        query = query.where(Attendance.status.ilike(f"%{search}%"))
-        count_query = count_query.where(Attendance.status.ilike(f"%{search}%"))
-    total = (await db.execute(count_query)).scalar() or 0
-    query = query.order_by(Attendance.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
-    result = await db.execute(query)
-    items = result.scalars().all()
-    return PaginatedResponse(items=[AttendanceResponse.model_validate(i) for i in items], total=total, page=page, per_page=per_page, pages=(total + per_page - 1) // per_page)
+        term = f"%{search}%"
+        name_filter = User.full_name.ilike(term) | Employee.employee_code.ilike(term) | Attendance.status.ilike(term)
+        base = base.where(name_filter)
+        count_q = count_q.where(name_filter)
+    total = (await db.execute(count_q)).scalar() or 0
+    base = base.order_by(Attendance.date.desc()).offset((page - 1) * per_page).limit(per_page)
+    result = await db.execute(base)
+    rows = result.all()
+    items = []
+    for row in rows:
+        att, full_name, emp_code = row
+        d = AttendanceResponse.model_validate(att)
+        d.employee_name = full_name
+        d.employee_code = emp_code
+        items.append(d)
+    return PaginatedResponse(items=items, total=total, page=page, per_page=per_page, pages=(total + per_page - 1) // per_page)
 
 
 @router.get("/attendance/{item_id}", response_model=ResponseModel)
@@ -903,16 +952,30 @@ async def delete_leave_policy(item_id: int, db: AsyncSession = Depends(get_db), 
 
 @router.get("/leaves", response_model=PaginatedResponse)
 async def list_leaves(page: int = Query(1, ge=1), per_page: int = Query(25, ge=1, le=100), search: Optional[str] = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_company)):
-    query = select(Leave).where(Leave.company_id == current_user.company_id)
-    count_query = select(sa_func.count()).select_from(Leave).where(Leave.company_id == current_user.company_id)
+    base = (
+        select(Leave, User.full_name, Employee.employee_code)
+        .outerjoin(Employee, Leave.employee_id == Employee.id)
+        .outerjoin(User, Employee.user_id == User.id)
+        .where(Leave.company_id == current_user.company_id)
+    )
+    count_q = select(sa_func.count()).select_from(Leave).where(Leave.company_id == current_user.company_id)
     if search:
-        query = query.where(Leave.status.ilike(f"%{search}%"))
-        count_query = count_query.where(Leave.status.ilike(f"%{search}%"))
-    total = (await db.execute(count_query)).scalar() or 0
-    query = query.order_by(Leave.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
-    result = await db.execute(query)
-    items = result.scalars().all()
-    return PaginatedResponse(items=[LeaveResponse.model_validate(i) for i in items], total=total, page=page, per_page=per_page, pages=(total + per_page - 1) // per_page)
+        term = f"%{search}%"
+        name_filter = User.full_name.ilike(term) | Employee.employee_code.ilike(term) | Leave.status.ilike(term)
+        base = base.where(name_filter)
+        count_q = count_q.where(name_filter)
+    total = (await db.execute(count_q)).scalar() or 0
+    base = base.order_by(Leave.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
+    result = await db.execute(base)
+    rows = result.all()
+    items = []
+    for row in rows:
+        leave, full_name, emp_code = row
+        d = LeaveResponse.model_validate(leave)
+        d.employee_name = full_name
+        d.employee_code = emp_code
+        items.append(d)
+    return PaginatedResponse(items=items, total=total, page=page, per_page=per_page, pages=(total + per_page - 1) // per_page)
 
 
 @router.get("/leaves/{item_id}", response_model=ResponseModel)
@@ -1210,16 +1273,31 @@ async def delete_salary_structure(item_id: int, db: AsyncSession = Depends(get_d
 
 @router.get("/payroll", response_model=PaginatedResponse)
 async def list_payroll(page: int = Query(1, ge=1), per_page: int = Query(25, ge=1, le=100), search: Optional[str] = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_company)):
-    query = select(Payroll).where(Payroll.company_id == current_user.company_id)
-    count_query = select(sa_func.count()).select_from(Payroll).where(Payroll.company_id == current_user.company_id)
+    base = (
+        select(Payroll, User.full_name, Employee.employee_code)
+        .outerjoin(Employee, Payroll.employee_id == Employee.id)
+        .outerjoin(User, Employee.user_id == User.id)
+        .options(selectinload(Payroll.items))
+        .where(Payroll.company_id == current_user.company_id)
+    )
+    count_q = select(sa_func.count()).select_from(Payroll).where(Payroll.company_id == current_user.company_id)
     if search:
-        query = query.where(Payroll.status.ilike(f"%{search}%"))
-        count_query = count_query.where(Payroll.status.ilike(f"%{search}%"))
-    total = (await db.execute(count_query)).scalar() or 0
-    query = query.order_by(Payroll.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
-    result = await db.execute(query)
-    items = result.scalars().all()
-    return PaginatedResponse(items=[PayrollResponse.model_validate(i) for i in items], total=total, page=page, per_page=per_page, pages=(total + per_page - 1) // per_page)
+        term = f"%{search}%"
+        name_filter = User.full_name.ilike(term) | Payroll.status.ilike(term)
+        base = base.where(name_filter)
+        count_q = count_q.where(name_filter)
+    total = (await db.execute(count_q)).scalar() or 0
+    base = base.order_by(Payroll.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
+    result = await db.execute(base)
+    rows = result.all()
+    items = []
+    for row in rows:
+        p, full_name, emp_code = row
+        d = PayrollResponse.model_validate(p)
+        d.employee_name = full_name
+        d.employee_code = emp_code
+        items.append(d)
+    return PaginatedResponse(items=items, total=total, page=page, per_page=per_page, pages=(total + per_page - 1) // per_page)
 
 
 @router.get("/payroll/{item_id}", response_model=ResponseModel)

@@ -30,6 +30,12 @@ interface Employee {
   phone: string | null;
   joining_date: string | null;
   created_at: string;
+  full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  department_name: string | null;
+  department_id: number | null;
 }
 
 interface EmployeeListResponse {
@@ -169,6 +175,9 @@ export default function EmployeeDirectoryPage() {
                   Code
                 </th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
+                  Department
+                </th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
                   Designation
                 </th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
@@ -188,13 +197,13 @@ export default function EmployeeDirectoryPage() {
             <tbody className="divide-y divide-border/50">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground text-sm">
+                  <td colSpan={8} className="py-8 text-center text-muted-foreground text-sm">
                     Loading employees...
                   </td>
                 </tr>
               ) : filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground text-sm">
+                  <td colSpan={8} className="py-8 text-center text-muted-foreground text-sm">
                     No employees found.
                   </td>
                 </tr>
@@ -204,16 +213,19 @@ export default function EmployeeDirectoryPage() {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
-                          {emp.employee_code?.slice(-2) || "??"}
+                          {(emp.full_name || emp.employee_code || "??").split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-sm font-medium">{emp.employee_code}</p>
-                          <p className="text-xs text-muted-foreground">{emp.phone || "No phone"}</p>
+                          <p className="text-sm font-medium">{emp.full_name || emp.employee_code}</p>
+                          <p className="text-xs text-muted-foreground">{emp.email || emp.phone || "No contact"}</p>
                         </div>
                       </div>
                     </td>
                     <td className="py-3 px-4 hidden md:table-cell">
-                      <span className="text-sm text-muted-foreground">{emp.employee_code}</span>
+                      <span className="text-sm font-mono text-muted-foreground">{emp.employee_code}</span>
+                    </td>
+                    <td className="py-3 px-4 hidden lg:table-cell">
+                      <span className="text-sm text-muted-foreground">{emp.department_name || "—"}</span>
                     </td>
                     <td className="py-3 px-4 hidden lg:table-cell">
                       <span className="text-sm text-muted-foreground">{emp.designation || "—"}</span>
@@ -229,7 +241,7 @@ export default function EmployeeDirectoryPage() {
                     </td>
                     <td className="py-3 px-4 hidden xl:table-cell">
                       <span className="text-sm text-muted-foreground">
-                        {emp.joining_date || emp.created_at?.split("T")[0] || "—"}
+                        {emp.joining_date ? new Date(emp.joining_date).toLocaleDateString() : "—"}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
