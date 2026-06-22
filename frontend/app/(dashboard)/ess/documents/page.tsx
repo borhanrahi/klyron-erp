@@ -21,7 +21,7 @@ export default function ESSDocumentsPage() {
 
   useEffect(() => {
     apiGet<{ data: Document[] }>("/ess/documents")
-      .then((res) => setDocs(res.data))
+      .then((res) => setDocs(res.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

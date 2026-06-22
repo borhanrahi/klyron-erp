@@ -22,7 +22,7 @@ export default function ESSBenefitsPage() {
 
   useEffect(() => {
     apiGet<{ data: Benefit[] }>("/ess/benefits")
-      .then((res) => setBenefits(res.data))
+      .then((res) => setBenefits(res.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

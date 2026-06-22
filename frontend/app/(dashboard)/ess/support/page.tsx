@@ -26,7 +26,7 @@ export default function ESSSupportPage() {
 
   const loadTickets = () => {
     apiGet<{ data: Ticket[] }>("/ess/support/tickets")
-      .then((res) => setTickets(res.data))
+      .then((res) => setTickets(res.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
   };

@@ -23,7 +23,7 @@ export default function ESSAssetsPage() {
 
   useEffect(() => {
     apiGet<{ data: Asset[] }>("/ess/assets")
-      .then((res) => setAssets(res.data))
+      .then((res) => setAssets(res.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

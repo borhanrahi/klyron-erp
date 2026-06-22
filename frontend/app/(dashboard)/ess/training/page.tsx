@@ -23,7 +23,7 @@ export default function ESSTrainingPage() {
 
   useEffect(() => {
     apiGet<{ data: Training[] }>("/ess/trainings")
-      .then((res) => setTrainings(res.data))
+      .then((res) => setTrainings(res.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

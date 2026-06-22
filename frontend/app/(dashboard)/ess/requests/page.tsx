@@ -22,7 +22,7 @@ export default function ESSRequestsPage() {
 
   useEffect(() => {
     apiGet<{ data: Request[] }>("/ess/requests/history")
-      .then((res) => setRequests(res.data))
+      .then((res) => setRequests(res.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -40,7 +40,7 @@ export default function ESSRequestsPage() {
       setMessage("Request submitted successfully");
       setShowForm(false);
       setForm({ type: "general", subject: "", description: "", priority: "medium" });
-      apiGet<{ data: Request[] }>("/ess/requests/history").then((res) => setRequests(res.data));
+      apiGet<{ data: Request[] }>("/ess/requests/history").then((res) => setRequests(res.data || []));
     } catch {
       setMessage("Failed to submit request");
     } finally {

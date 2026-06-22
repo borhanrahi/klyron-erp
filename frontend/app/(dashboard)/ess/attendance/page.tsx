@@ -47,14 +47,14 @@ export default function ESSAttendancePage() {
     setLoading(true);
     try {
       const [todayRes, histRes, sumRes] = await Promise.all([
-        apiGet<{ data: TodayAttendance }>("/ess/attendance/today"),
-        apiGet<{ data: AttendanceRecord[]; total: number }>(`/ess/attendance/history?page=${page}&per_page=10`),
-        apiGet<{ data: AttendanceSummary }>("/ess/attendance/summary?month=" + (new Date().getMonth() + 1) + "&year=" + new Date().getFullYear()),
+        apiGet<any>("/ess/attendance/today"),
+        apiGet<any>(`/ess/attendance/history?page=${page}&per_page=10`),
+        apiGet<any>("/ess/attendance/summary?month=" + (new Date().getMonth() + 1) + "&year=" + new Date().getFullYear()),
       ]);
-      setToday(todayRes.data);
-      setHistory(histRes.data);
-      setTotal(histRes.total);
-      setSummary(sumRes.data);
+      setToday(todayRes.data || null);
+      setHistory(histRes.data || histRes.items || []);
+      setTotal(histRes.total || 0);
+      setSummary(sumRes.data || null);
     } catch { /* empty */ }
     setLoading(false);
   };
