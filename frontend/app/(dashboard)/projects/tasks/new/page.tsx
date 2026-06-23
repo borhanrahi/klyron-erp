@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { apiGet, apiPost } from "@/lib/api";
 import { ListTodo, Save, ArrowLeft, Calendar, Loader2 } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface Project {
   id: number;
@@ -190,10 +191,9 @@ export default function NewTaskPage() {
               </label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="date"
+                <DatePicker
                   value={form.due_date}
-                  onChange={(e) => updateField("due_date", e.target.value)}
+                  onChange={(d) => updateField("due_date", d)}
                   className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
                 />
               </div>

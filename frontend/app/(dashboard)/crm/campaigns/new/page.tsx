@@ -15,6 +15,8 @@ import {
   FileText,
 } from "lucide-react";
 
+import { DatePicker } from "@/components/ui/date-picker";
+
 const campaignTypes = ["Email", "SMS", "Push Notification", "Social Media"];
 const audiences = ["All Customers", "Active Subscribers", "Inactive Users", "New Users (30 days)", "VIP Customers", "Custom Segment"];
 
@@ -219,8 +221,7 @@ export default function NewCampaignPage() {
               <label className="block text-sm font-medium text-muted-foreground mb-1.5">
                 Start Date *
               </label>
-              <input
-                type="date"
+              <DatePicker
                 className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>
@@ -228,8 +229,7 @@ export default function NewCampaignPage() {
               <label className="block text-sm font-medium text-muted-foreground mb-1.5">
                 End Date
               </label>
-              <input
-                type="date"
+              <DatePicker
                 className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>

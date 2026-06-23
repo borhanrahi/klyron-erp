@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { apiGet, apiPost } from "@/lib/api";
 import { Calendar, Plus, CheckCircle, XCircle, Clock } from "lucide-react";
 import Link from "next/link";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface LeaveBalance {
   id: number;
@@ -130,11 +131,11 @@ export default function ESSLeavePage() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Start Date</label>
-              <input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+              <DatePicker value={form.start_date} onChange={(d) => setForm({ ...form, start_date: d })} className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-background text-sm" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">End Date</label>
-              <input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+              <DatePicker value={form.end_date} onChange={(d) => setForm({ ...form, end_date: d })} className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-background text-sm" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Days</label>

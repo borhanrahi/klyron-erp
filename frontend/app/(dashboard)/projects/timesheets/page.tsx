@@ -16,6 +16,7 @@ import {
   Calendar,
   User,
 } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface Timesheet {
   id: string;
@@ -142,8 +143,7 @@ export default function TimesheetsPage() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="date"
+              <DatePicker
                 className="px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
               <select

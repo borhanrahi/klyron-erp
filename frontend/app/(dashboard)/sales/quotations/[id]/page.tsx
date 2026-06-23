@@ -10,6 +10,7 @@ import {
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPut, apiDelete } from "@/lib/api";
 
@@ -233,10 +234,9 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
           <div>
             <label className="block text-xs text-muted-foreground mb-1">Date</label>
             {editing ? (
-              <input
-                type="date"
+              <DatePicker
                 value={form.date}
-                onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+                onChange={(d) => setForm((f) => ({ ...f, date: d }))}
                 className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             ) : (
@@ -246,10 +246,9 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
           <div>
             <label className="block text-xs text-muted-foreground mb-1">Expiry Date</label>
             {editing ? (
-              <input
-                type="date"
+              <DatePicker
                 value={form.expiry}
-                onChange={(e) => setForm((f) => ({ ...f, expiry: e.target.value }))}
+                onChange={(d) => setForm((f) => ({ ...f, expiry: d }))}
                 className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             ) : (

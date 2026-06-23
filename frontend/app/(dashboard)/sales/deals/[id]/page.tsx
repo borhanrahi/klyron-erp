@@ -16,6 +16,7 @@ import {
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useRouter, useParams } from "next/navigation";
 import { apiGet, apiPut, apiDelete } from "@/lib/api";
 
@@ -265,11 +266,9 @@ export default function DealDetailPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Expected Close Date</label>
-                <input
-                  type="date"
-                  name="expected_close"
+                <DatePicker
                   value={formData.expected_close}
-                  onChange={handleChange}
+                  onChange={(d) => setFormData((prev) => ({ ...prev, expected_close: d }))}
                   className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
                 />
               </div>

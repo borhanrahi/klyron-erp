@@ -13,6 +13,7 @@ import {
   Loader2,
   AlertTriangle,
 } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 const STATUSES = ["planning", "in progress", "on hold", "completed", "cancelled"];
 const PRIORITIES = ["low", "medium", "high", "critical"];
@@ -273,11 +274,9 @@ export default function EditProjectPage() {
               <label className="block text-sm font-medium text-muted-foreground mb-2">Start Date *</label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="date"
+                <DatePicker
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  required
+                  onChange={setStartDate}
                   className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
                 />
               </div>
@@ -286,11 +285,9 @@ export default function EditProjectPage() {
               <label className="block text-sm font-medium text-muted-foreground mb-2">End Date *</label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="date"
+                <DatePicker
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  required
+                  onChange={setEndDate}
                   className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
                 />
               </div>

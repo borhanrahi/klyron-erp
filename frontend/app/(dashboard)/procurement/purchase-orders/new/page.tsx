@@ -14,6 +14,7 @@ import {
   Truck,
   CreditCard,
 } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface Supplier {
   id: number;
@@ -215,10 +216,9 @@ export default function NewPurchaseOrderPage() {
               <label className="block text-sm font-medium text-foreground mb-2">
                 Delivery Date
               </label>
-              <input
-                type="date"
+              <DatePicker
                 value={formData.delivery_date}
-                onChange={(e) => setFormData({ ...formData, delivery_date: e.target.value })}
+                onChange={(d) => setFormData({ ...formData, delivery_date: d })}
                 className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>

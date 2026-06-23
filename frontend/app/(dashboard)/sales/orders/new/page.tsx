@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { ShoppingCart, Plus, Trash2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/api";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface OrderItemInput {
   item_id: number;
@@ -148,10 +149,9 @@ export default function CreateSalesOrderPage() {
               <label className="block text-sm font-medium text-muted-foreground mb-1">
                 Delivery Date
               </label>
-              <input
-                type="date"
+              <DatePicker
                 value={deliveryDate}
-                onChange={(e) => setDeliveryDate(e.target.value)}
+                onChange={setDeliveryDate}
                 className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>

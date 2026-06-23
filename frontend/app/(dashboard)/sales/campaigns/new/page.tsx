@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import { DatePicker } from "@/components/ui/date-picker";
 
 export default function NewCampaignPage() {
   const [formData, setFormData] = useState({
@@ -137,11 +138,9 @@ export default function NewCampaignPage() {
             <label className="block text-sm font-medium mb-2">
               Start Date *
             </label>
-            <input
-              type="date"
-              name="startDate"
+            <DatePicker
               value={formData.startDate}
-              onChange={handleChange}
+              onChange={(d) => setFormData((prev) => ({ ...prev, startDate: d }))}
               className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
             />
           </div>
@@ -149,11 +148,9 @@ export default function NewCampaignPage() {
             <label className="block text-sm font-medium mb-2">
               End Date *
             </label>
-            <input
-              type="date"
-              name="endDate"
+            <DatePicker
               value={formData.endDate}
-              onChange={handleChange}
+              onChange={(d) => setFormData((prev) => ({ ...prev, endDate: d }))}
               className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
             />
           </div>

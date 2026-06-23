@@ -15,6 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPut, apiDelete } from "@/lib/api";
 
@@ -317,10 +318,9 @@ export default function SalesOrderDetailPage({ params }: { params: Promise<{ id:
           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
             <h3 className="text-lg font-semibold mb-4">Delivery Date</h3>
             {editMode ? (
-              <input
-                type="date"
+              <DatePicker
                 value={editDeliveryDate}
-                onChange={(e) => setEditDeliveryDate(e.target.value)}
+                onChange={setEditDeliveryDate}
                 className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             ) : (

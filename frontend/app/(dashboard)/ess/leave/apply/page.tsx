@@ -18,6 +18,7 @@ import {
   GraduationCap,
   CalendarDays,
 } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface LeaveType {
   id: number;
@@ -337,11 +338,10 @@ export default function ApplyLeavePage() {
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                 Start Date *
               </label>
-              <input
-                type="date"
+              <DatePicker
                 value={form.start_date}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, start_date: e.target.value }))
+                onChange={(d) =>
+                  setForm((f) => ({ ...f, start_date: d }))
                 }
                 className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
               />
@@ -350,12 +350,10 @@ export default function ApplyLeavePage() {
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                 End Date *
               </label>
-              <input
-                type="date"
+              <DatePicker
                 value={form.end_date}
-                min={form.start_date || undefined}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, end_date: e.target.value }))
+                onChange={(d) =>
+                  setForm((f) => ({ ...f, end_date: d }))
                 }
                 className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
               />

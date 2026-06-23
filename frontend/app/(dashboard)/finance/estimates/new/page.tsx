@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { apiGet, apiPost } from "@/lib/api";
 import { FileText, Plus, Trash2, Save, ArrowLeft, Calculator, Loader2 } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface LineItem { id: number; description: string; qty: number; price: number; total: number; }
 interface Customer { id: number; name?: string; company_name?: string; [key: string]: unknown; }
@@ -102,7 +103,7 @@ export default function NewEstimatePage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">Expiry Date</label>
-                <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+                <DatePicker value={expiryDate} onChange={setExpiryDate} className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
               </div>
             </div>
           </div>

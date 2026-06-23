@@ -16,6 +16,7 @@ import {
   FileSignature,
 } from "lucide-react";
 import Link from "next/link";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useRouter, useParams } from "next/navigation";
 import { apiGet, apiPut, apiDelete } from "@/lib/api";
 
@@ -287,11 +288,9 @@ export default function ContractDetailPage() {
           <p className="text-sm text-muted-foreground">Start Date</p>
           <p className="text-2xl font-bold mt-1">
             {editing ? (
-              <input
-                name="start_date"
-                type="date"
+              <DatePicker
                 value={formData.start_date}
-                onChange={handleChange}
+                onChange={(d) => setFormData((prev) => ({ ...prev, start_date: d }))}
                 className="bg-muted border border-border rounded-lg px-3 py-1 text-2xl font-bold w-full"
               />
             ) : (
@@ -303,11 +302,9 @@ export default function ContractDetailPage() {
           <p className="text-sm text-muted-foreground">End Date</p>
           <p className="text-2xl font-bold mt-1">
             {editing ? (
-              <input
-                name="end_date"
-                type="date"
+              <DatePicker
                 value={formData.end_date}
-                onChange={handleChange}
+                onChange={(d) => setFormData((prev) => ({ ...prev, end_date: d }))}
                 className="bg-muted border border-border rounded-lg px-3 py-1 text-2xl font-bold w-full"
               />
             ) : (

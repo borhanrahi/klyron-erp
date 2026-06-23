@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { apiGet, apiPost } from "@/lib/api";
 import { FileText, Plus, Trash2, Save, Send, ArrowLeft, Calculator, Loader2 } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface LineItem { id: number; description: string; quantity: number; unit_price: number; tax: number; total: number; }
 interface Customer { id: number; name?: string; company_name?: string; [key: string]: unknown; }
@@ -92,11 +93,11 @@ export default function NewInvoicePage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">Invoice Date *</label>
-                <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+                <DatePicker value={invoiceDate} onChange={setInvoiceDate} className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">Due Date</label>
-                <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+                <DatePicker value={dueDate} onChange={setDueDate} className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
               </div>
             </div>
           </div>

@@ -6,6 +6,7 @@ import { FileText, Plus, Trash2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/api";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface QuotationItemDraft {
   item_id: number;
@@ -131,10 +132,9 @@ export default function CreateQuotationPage() {
               <label className="block text-sm font-medium text-muted-foreground mb-1">
                 Date
               </label>
-              <input
-                type="date"
+              <DatePicker
                 value={form.date}
-                onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+                onChange={(d) => setForm((f) => ({ ...f, date: d }))}
                 className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>
@@ -142,10 +142,9 @@ export default function CreateQuotationPage() {
               <label className="block text-sm font-medium text-muted-foreground mb-1">
                 Expiry Date
               </label>
-              <input
-                type="date"
+              <DatePicker
                 value={form.expiry}
-                onChange={(e) => setForm((f) => ({ ...f, expiry: e.target.value }))}
+                onChange={(d) => setForm((f) => ({ ...f, expiry: d }))}
                 className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>
