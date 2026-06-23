@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet } from "@/lib/api";
@@ -16,10 +17,39 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
+  Loader2,
 } from "lucide-react";
 
+interface ApiItem {
+  id: number;
+  sku: string;
+  name: string;
+  category_id: number | null;
+  unit: string;
+  cost_price: number;
+  sell_price: number;
+  tax_rate: number;
+  barcode: string | null;
+  weight: number | null;
+  description: string | null;
+  is_service: boolean;
+  company_id: number;
+  created_at: string;
+  deleted_at: string | null;
+}
+
+interface StockRecord {
+  id: number;
+  item_id: number;
+  warehouse_id: number;
+  quantity: number;
+  reserved_qty: number;
+  reorder_level: number;
+  reorder_qty: number;
+}
+
 interface InventoryItem {
-  id: string;
+  id: number;
   sku: string;
   name: string;
   category: string;
@@ -39,7 +69,14 @@ const statusVariantMap: Record<string, InventoryItem["statusVariant"]> = {
   "Out of Stock": "danger",
 };
 
+function getStatus(stock: number, minStock: number): string {
+  if (stock === 0) return "Out of Stock";
+  if (stock <= minStock) return "Low Stock";
+  return "In Stock";
+}
+
 export default function InventoryItemsPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
@@ -47,15 +84,41 @@ export default function InventoryItemsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiGet<{ items: InventoryItem[] }>("/inventory/items")
-      .then((res) =>
+    Promise.all([
+      apiGet<{ items: ApiItem[] }>("/inventory/items"),
+      apiGet<{ items: StockRecord[] }>("/inventory/stock"),
+    ])
+      .then(([itemsRes, stockRes]) => {
+        const stockByItem = new Map<number, StockRecord[]>();
+        for (const rec of stockRes.items) {
+          const arr = stockByItem.get(rec.item_id) ?? [];
+          arr.push(rec);
+          stockByItem.set(rec.item_id, arr);
+        }
+
         setItems(
-          res.items.map((item) => ({
-            ...item,
-            statusVariant: statusVariantMap[item.status] || "info",
-          }))
-        )
-      )
+          itemsRes.items.map((item) => {
+            const stocks = stockByItem.get(item.id) ?? [];
+            const stock = stocks.reduce((sum, s) => sum + s.quantity, 0);
+            const minStock = stocks.reduce((sum, s) => sum + s.reorder_level, 0);
+            const status = getStatus(stock, minStock);
+            return {
+              id: item.id,
+              sku: item.sku,
+              name: item.name,
+              category: item.category_id !== null ? String(item.category_id) : "—",
+              stock,
+              minStock,
+              price: item.sell_price,
+              cost: item.cost_price,
+              status,
+              statusVariant: statusVariantMap[status] || "info",
+              warehouse: stocks.length > 0 ? String(stocks[0].warehouse_id) : "—",
+              barcode: item.barcode ?? "—",
+            };
+          })
+        );
+      })
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
   }, []);
@@ -71,7 +134,7 @@ export default function InventoryItemsPage() {
     const matchesSearch =
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.id.toLowerCase().includes(searchTerm.toLowerCase());
+      String(item.id).toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory =
       selectedCategory === "All" || item.category === selectedCategory;
     const matchesStatus =
@@ -82,7 +145,7 @@ export default function InventoryItemsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -232,7 +295,7 @@ export default function InventoryItemsPage() {
                   </td>
                   <td className="py-3 px-4 hidden xl:table-cell">
                     <span className="text-sm font-medium">
-                      ${item.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      ${(item.price || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </span>
                   </td>
                   <td className="py-3 px-4">
@@ -243,12 +306,12 @@ export default function InventoryItemsPage() {
                   </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <a
-                        href={`/inventory/items/${item.id}`}
+                      <button
+                        onClick={() => router.push(`/inventory/items/${item.id}`)}
                         className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
                       >
                         <Eye className="h-4 w-4" />
-                      </a>
+                      </button>
                       <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
                         <Edit className="h-4 w-4" />
                       </button>

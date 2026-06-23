@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet } from "@/lib/api";
@@ -19,54 +20,81 @@ import {
   MapPin,
   Users,
   Package,
+  Loader2,
 } from "lucide-react";
 
-interface WarehouseItem {
-  id: string;
+interface ApiWarehouse {
+  id: number;
   code: string;
   name: string;
   address: string;
-  manager: string;
-  phone: string;
+  manager_id: number | null;
+  is_active: boolean;
+  company_id: number;
+  created_at: string;
+  deleted_at: string | null;
+}
+
+interface StockRecord {
+  item_id: number;
+  warehouse_id: number;
+  quantity: number;
+  reserved_qty: number;
+}
+
+interface WarehouseRow extends ApiWarehouse {
   totalItems: number;
   totalStock: number;
-  bins: number;
-  utilization: number;
-  status: string;
-  statusVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
 }
 
 export default function WarehousesPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
-  const [warehouses, setWarehouses] = useState<WarehouseItem[]>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiGet<{ items: WarehouseItem[] }>("/inventory/warehouses")
-      .then((res) => setWarehouses(res.items))
+    Promise.all([
+      apiGet<{ items: ApiWarehouse[] }>("/inventory/warehouses"),
+      apiGet<{ items: StockRecord[] }>("/inventory/stock"),
+    ])
+      .then(([whRes, stockRes]) => {
+        const stock = stockRes.items || [];
+        const rows: WarehouseRow[] = (whRes.items || []).map((wh) => {
+          const whStock = stock.filter((s) => s.warehouse_id === wh.id);
+          const totalItems = new Set(whStock.map((s) => s.item_id)).size;
+          const totalStock = whStock.reduce((a, s) => a + (s.quantity || 0), 0);
+          return { ...wh, totalItems, totalStock };
+        });
+        setWarehouses(rows);
+      })
       .catch(() => setWarehouses([]))
       .finally(() => setLoading(false));
   }, []);
 
+  const activeCount = warehouses.filter((w) => w.is_active).length;
+  const totalStockItems = warehouses.reduce((a, w) => a + (w.totalItems || 0), 0);
+  const totalStockQty = warehouses.reduce((a, w) => a + (w.totalStock || 0), 0);
+
   const warehouseStats = [
     { label: "Total Warehouses", value: String(warehouses.length), change: "All operational" },
-    { label: "Total Stock Items", value: warehouses.reduce((a, w) => a + (w.totalStock || 0), 0).toLocaleString(), change: "+124 this month" },
-    { label: "Total Stock Value", value: "$2.4M", change: "+8.5% from last month" },
-    { label: "Avg Utilization", value: `${warehouses.length > 0 ? Math.round(warehouses.reduce((a, w) => a + (w.utilization || 0), 0) / warehouses.length) : 0}%`, change: "Healthy" },
+    { label: "Total Stock Items", value: totalStockItems.toLocaleString(), change: "Across all warehouses" },
+    { label: "Total Stock Qty", value: totalStockQty.toLocaleString(), change: "Units in stock" },
+    { label: "Active Warehouses", value: String(activeCount), change: `${warehouses.length - activeCount} inactive` },
   ];
 
   const filteredWarehouses = warehouses.filter((wh) => {
+    const term = searchTerm.toLowerCase();
     return (
-      wh.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      wh.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      wh.manager.toLowerCase().includes(searchTerm.toLowerCase())
+      wh.name.toLowerCase().includes(term) ||
+      wh.code.toLowerCase().includes(term)
     );
   });
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Loader2 className="animate-spin h-8 w-8 text-primary" />
       </div>
     );
   }
@@ -153,9 +181,6 @@ export default function WarehousesPage() {
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden xl:table-cell">
                   Items
                 </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden xl:table-cell">
-                  Utilization
-                </th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Status
                 </th>
@@ -181,46 +206,36 @@ export default function WarehousesPage() {
                   <td className="py-3 px-4 hidden md:table-cell">
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <MapPin className="h-3 w-3" />
-                      <span className="truncate max-w-[200px]">{wh.address}</span>
+                      <span className="truncate max-w-[200px]">{wh.address || "—"}</span>
                     </div>
                   </td>
                   <td className="py-3 px-4 hidden lg:table-cell">
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Users className="h-3 w-3" />
-                      {wh.manager}
+                      {wh.manager_id ? `User #${wh.manager_id}` : "—"}
                     </div>
                   </td>
                   <td className="py-3 px-4 hidden xl:table-cell">
                     <div className="flex items-center gap-1 text-sm">
                       <Package className="h-3 w-3 text-muted-foreground" />
-                      <span className="font-medium">{wh.totalStock.toLocaleString()}</span>
-                      <span className="text-muted-foreground">({wh.totalItems} items)</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 hidden xl:table-cell">
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            wh.utilization > 80 ? 'bg-danger' : wh.utilization > 60 ? 'bg-warning' : 'bg-success'
-                          }`}
-                          style={{ width: `${wh.utilization}%` }}
-                        />
-                      </div>
-                      <span className="text-sm text-muted-foreground">{wh.utilization}%</span>
+                      <span className="font-medium">{(wh.totalStock || 0).toLocaleString()}</span>
+                      <span className="text-muted-foreground">({wh.totalItems || 0} items)</span>
                     </div>
                   </td>
                   <td className="py-3 px-4">
-                    <StatusBadge status={wh.status} variant={wh.statusVariant} />
+                    <StatusBadge
+                      status={wh.is_active ? "Active" : "Inactive"}
+                      variant={wh.is_active ? "success" : "muted"}
+                    />
                   </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <a
-                        href={`/inventory/warehouses/${wh.id}`}
+                      <button
+                        onClick={() => router.push(`/inventory/warehouses/${wh.id}`)}
                         className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
                       >
                         <Eye className="h-4 w-4" />
-                      </a>
+                      </button>
                       <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
                         <Edit className="h-4 w-4" />
                       </button>

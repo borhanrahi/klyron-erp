@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { KPICard } from "@/components/common/KPICard";
@@ -11,93 +12,125 @@ import {
   Filter,
   Download,
   AlertTriangle,
-  TrendingUp,
-  TrendingDown,
   Package,
   Warehouse,
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 
-interface StockItem {
-  id: string;
+interface StockRecord {
+  item_id: number;
+  warehouse_id: number;
+  quantity: number;
+  reserved_qty: number;
+  reorder_level: number;
+  reorder_qty: number;
+  id: number;
+  company_id: number;
+  created_at: string;
+}
+
+interface Item {
+  id: number;
   sku: string;
   name: string;
-  category: string;
-  warehouses: Record<string, number>;
-  totalStock: number;
-  reorderLevel: number;
+  category_id: number | null;
+  cost_price: number;
+  sell_price: number;
+}
+
+interface Warehouse {
+  id: number;
+  code: string;
+  name: string;
+  address: string;
+  is_active: boolean;
+}
+
+interface StockRow {
+  stock: StockRecord;
+  item: Item | undefined;
+  warehouse: Warehouse | undefined;
+  available: number;
   status: string;
   statusVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
-  trend: string;
   value: number;
 }
 
-interface AlertItem {
-  id: string;
-  name: string;
-  status: string;
-  severity: "success" | "warning" | "danger" | "info" | "primary" | "muted";
-  daysEmpty: number;
-}
-
-const statusVariantMap: Record<string, StockItem["statusVariant"]> = {
+const statusVariantMap: Record<string, StockRow["statusVariant"]> = {
   OK: "success",
   "Low Stock": "warning",
   "Out of Stock": "danger",
 };
 
-const alertSeverityMap: Record<string, AlertItem["severity"]> = {
-  "Out of Stock": "danger",
-  "Low Stock": "warning",
-};
+function computeStatus(quantity: number, reorderLevel: number): string {
+  if (quantity === 0) return "Out of Stock";
+  if (quantity <= (reorderLevel || 0)) return "Low Stock";
+  return "OK";
+}
 
 export default function StockOverviewPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
-  const [stockOverview, setStockOverview] = useState<StockItem[]>([]);
-  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [rows, setRows] = useState<StockRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiGet<{ items: StockItem[] }>("/inventory/stock")
-      .then((res) => {
-        const items = (res.items || []).map((item) => ({
-          ...item,
-          statusVariant: statusVariantMap[item.status] || "info",
-          warehouses: item.warehouses || {},
-        }));
-        setStockOverview(items);
-        setAlerts(
-          items
-            .filter((item) => item.status === "Low Stock" || item.status === "Out of Stock")
-            .map((item) => ({
-              id: item.id,
-              name: item.name,
-              status: item.status,
-              severity: alertSeverityMap[item.status] || "warning",
-              daysEmpty: item.status === "Out of Stock" ? 14 : 0,
-            }))
-        );
+    Promise.all([
+      apiGet<{ items: StockRecord[] }>("/inventory/stock"),
+      apiGet<{ items: Item[] }>("/inventory/items"),
+      apiGet<{ items: Warehouse[] }>("/inventory/warehouses"),
+    ])
+      .then(([stockRes, itemsRes, warehousesRes]) => {
+        const itemsMap = new Map((itemsRes.items || []).map((i) => [i.id, i]));
+        const warehousesMap = new Map((warehousesRes.items || []).map((w) => [w.id, w]));
+
+        const mapped: StockRow[] = (stockRes.items || []).map((s) => {
+          const item = itemsMap.get(s.item_id);
+          const warehouse = warehousesMap.get(s.warehouse_id);
+          const available = (s.quantity || 0) - (s.reserved_qty || 0);
+          const status = computeStatus(s.quantity || 0, s.reorder_level || 0);
+          const value = (s.quantity || 0) * ((item?.sell_price) || 0);
+
+          return {
+            stock: s,
+            item,
+            warehouse,
+            available,
+            status,
+            statusVariant: statusVariantMap[status] || "info",
+            value,
+          };
+        });
+
+        setRows(mapped);
       })
-      .catch(() => { setStockOverview([]); setAlerts([]); })
+      .catch(() => setRows([]))
       .finally(() => setLoading(false));
   }, []);
 
-  const filteredStock = stockOverview.filter((item) => {
+  const filteredRows = rows.filter((r) => {
+    const itemName = r.item?.name || "";
+    const itemSku = r.item?.sku || "";
     const matchesSearch =
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.sku.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      selectedStatus === "All" || item.status === selectedStatus;
+      itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      itemSku.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = selectedStatus === "All" || r.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
+
+  const totalValue = rows.reduce((a, r) => a + (r.value || 0), 0);
+  const totalStockQty = rows.reduce((a, r) => a + (r.stock.quantity || 0), 0);
+  const uniqueItems = new Set(rows.map((r) => r.stock.item_id)).size;
+  const alerts = rows.filter((r) => r.status === "Out of Stock" || r.status === "Low Stock");
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -124,33 +157,25 @@ export default function StockOverviewPage() {
       <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         <KPICard
           label="Total Stock Value"
-          value={`$${stockOverview.reduce((a, i) => a + (i.value || 0), 0).toLocaleString()}`}
-          change="+8.2% from last month"
-          changeType="up"
+          value={`$${totalValue.toLocaleString()}`}
           icon={<Package className="h-5 w-5" />}
           color="primary"
         />
         <KPICard
-          label="Total Items"
-          value={stockOverview.reduce((a, i) => a + (i.totalStock || 0), 0).toLocaleString()}
-          change="+24 this month"
-          changeType="up"
+          label="Total Stock Qty"
+          value={totalStockQty.toLocaleString()}
           icon={<Package className="h-5 w-5" />}
           color="success"
         />
         <KPICard
           label="Low Stock Alerts"
           value={String(alerts.length)}
-          change={`+${alerts.length} new alerts`}
-          changeType="down"
           icon={<AlertTriangle className="h-5 w-5" />}
           color="warning"
         />
         <KPICard
-          label="Warehouses"
-          value="4"
-          change="All operational"
-          changeType="neutral"
+          label="Unique Items"
+          value={String(uniqueItems)}
           icon={<Warehouse className="h-5 w-5" />}
           color="accent"
         />
@@ -164,20 +189,18 @@ export default function StockOverviewPage() {
             Stock Alerts
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {alerts.map((alert) => (
+            {alerts.map((r) => (
               <div
-                key={alert.id}
+                key={r.stock.id}
                 className="p-3 bg-card rounded-xl border border-border"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-mono text-muted-foreground">{alert.id}</span>
-                  <StatusBadge status={alert.status} variant={alert.severity} />
+                  <span className="text-xs font-mono text-muted-foreground">{r.item?.sku || "N/A"}</span>
+                  <StatusBadge status={r.status} variant={r.statusVariant} />
                 </div>
-                <p className="text-sm font-medium truncate">{alert.name}</p>
-                {alert.daysEmpty > 0 && (
-                  <p className="text-xs text-danger mt-1">
-                    Empty for {alert.daysEmpty} days
-                  </p>
+                <p className="text-sm font-medium truncate">{r.item?.name || "Unknown Item"}</p>
+                {r.status === "Out of Stock" && (
+                  <p className="text-xs text-danger mt-1">Out of stock</p>
                 )}
               </div>
             ))}
@@ -229,77 +252,66 @@ export default function StockOverviewPage() {
                   </button>
                 </th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
-                  Category
-                </th>
-                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                  WH-SH-01
-                </th>
-                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                  WH-SH-02
-                </th>
-                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden xl:table-cell">
-                  WH-BJ-01
-                </th>
-                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden xl:table-cell">
-                  WH-GZ-01
+                  Warehouse
                 </th>
                 <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Total
+                  Qty
+                </th>
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden sm:table-cell">
+                  Reserved
+                </th>
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
+                  Reorder
+                </th>
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                  Available
                 </th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                   Status
                 </th>
-                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden xl:table-cell">
+                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
                   Value
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {filteredStock.map((item) => (
-                <tr key={item.id} className="hover:bg-muted/5 transition-colors">
+              {filteredRows.map((r) => (
+                <tr key={r.stock.id} className="hover:bg-muted/5 transition-colors">
                   <td className="py-3 px-4">
                     <div>
-                      <p className="text-sm font-medium">{item.name}</p>
-                      <p className="text-xs text-muted-foreground font-mono">{item.sku}</p>
+                      <p className="text-sm font-medium">{r.item?.name || "Unknown Item"}</p>
+                      <p className="text-xs text-muted-foreground font-mono">{r.item?.sku || "N/A"}</p>
                     </div>
                   </td>
                   <td className="py-3 px-4 hidden md:table-cell">
-                    <span className="text-sm text-muted-foreground">{item.category}</span>
+                    <span className="text-sm text-muted-foreground">{r.warehouse?.name || "N/A"}</span>
                   </td>
-                  <td className="py-3 px-4 hidden lg:table-cell text-right">
-                    <span className={`text-sm font-medium ${(item.warehouses["WH-SH-01"] || 0) === 0 ? 'text-danger' : ''}`}>
-                      {item.warehouses["WH-SH-01"] || 0}
+                  <td className="py-3 px-4 text-right">
+                    <span className={`text-sm font-medium ${r.stock.quantity === 0 ? 'text-danger' : ''}`}>
+                      {(r.stock.quantity || 0).toLocaleString()}
                     </span>
                   </td>
-                  <td className="py-3 px-4 hidden lg:table-cell text-right">
-                    <span className={`text-sm font-medium ${(item.warehouses["WH-SH-02"] || 0) === 0 ? 'text-danger' : ''}`}>
-                      {item.warehouses["WH-SH-02"] || 0}
+                  <td className="py-3 px-4 text-right hidden sm:table-cell">
+                    <span className="text-sm text-muted-foreground">
+                      {(r.stock.reserved_qty || 0).toLocaleString()}
                     </span>
                   </td>
-                  <td className="py-3 px-4 hidden xl:table-cell text-right">
-                    <span className={`text-sm font-medium ${(item.warehouses["WH-BJ-01"] || 0) === 0 ? 'text-danger' : ''}`}>
-                      {item.warehouses["WH-BJ-01"] || 0}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 hidden xl:table-cell text-right">
-                    <span className={`text-sm font-medium ${(item.warehouses["WH-GZ-01"] || 0) === 0 ? 'text-danger' : ''}`}>
-                      {item.warehouses["WH-GZ-01"] || 0}
+                  <td className="py-3 px-4 text-right hidden md:table-cell">
+                    <span className="text-sm text-muted-foreground">
+                      {(r.stock.reorder_level || 0).toLocaleString()}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-right">
-                    <span className={`text-sm font-semibold ${item.totalStock <= item.reorderLevel ? 'text-warning' : ''}`}>
-                      {item.totalStock}
-                    </span>
-                    <span className="text-xs text-muted-foreground ml-1">
-                      / {item.reorderLevel}
+                    <span className={`text-sm font-semibold ${r.available <= 0 ? 'text-danger' : r.stock.quantity <= (r.stock.reorder_level || 0) ? 'text-warning' : ''}`}>
+                      {r.available.toLocaleString()}
                     </span>
                   </td>
                   <td className="py-3 px-4">
-                    <StatusBadge status={item.status} variant={item.statusVariant} />
+                    <StatusBadge status={r.status} variant={r.statusVariant} />
                   </td>
-                  <td className="py-3 px-4 text-right hidden xl:table-cell">
+                  <td className="py-3 px-4 text-right hidden lg:table-cell">
                     <span className="text-sm font-medium">
-                      ${item.value.toLocaleString()}
+                      ${(r.value || 0).toLocaleString()}
                     </span>
                   </td>
                 </tr>
@@ -310,7 +322,7 @@ export default function StockOverviewPage() {
 
         <div className="p-4 border-t border-border flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Showing {filteredStock.length} of {stockOverview.length} items
+            Showing {filteredRows.length} of {rows.length} items
           </p>
           <div className="flex items-center gap-2">
             <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
