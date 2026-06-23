@@ -87,6 +87,18 @@ export default function EditProjectPage() {
       setError("Code and name are required");
       return;
     }
+    if (!startDate) {
+      setError("Start date is required");
+      return;
+    }
+    if (!endDate) {
+      setError("End date is required");
+      return;
+    }
+    if (!budget || parseFloat(budget) <= 0) {
+      setError("Budget is required and must be greater than 0");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -96,15 +108,16 @@ export default function EditProjectPage() {
         status,
         priority,
         billing_type: billingType || null,
-        start_date: startDate || null,
-        end_date: endDate || null,
-        budget: budget ? parseFloat(budget) : 0,
+        start_date: startDate,
+        end_date: endDate,
+        budget: parseFloat(budget),
         manager_id: managerId ? parseInt(managerId) : null,
         client_id: clientId ? parseInt(clientId) : null,
       });
       router.push(`/projects/projects/${projectId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update project");
+      const msg = err instanceof Error ? err.message : "Failed to update project";
+      setError(msg.includes("API") ? msg.split(": ").slice(1).join(": ") : msg);
     } finally {
       setSaving(false);
     }
@@ -257,31 +270,33 @@ export default function EditProjectPage() {
           <h3 className="text-lg font-semibold mb-6">Timeline & Budget</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">Start Date</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Start Date *</label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
+                  required
                   className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">End Date</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">End Date *</label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
+                  required
                   className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">Budget ($)</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Budget ($) *</label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
@@ -289,6 +304,9 @@ export default function EditProjectPage() {
                   value={budget}
                   onChange={(e) => setBudget(e.target.value)}
                   placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                  required
                   className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
                 />
               </div>
