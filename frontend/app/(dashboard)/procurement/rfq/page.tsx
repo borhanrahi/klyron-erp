@@ -147,7 +147,7 @@ export default function RFQListPage() {
                     <td className="py-3 px-4"><StatusBadge status={rfq.status} variant={STATUS_VARIANT[rfq.status] || "muted"} /></td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => alert("RFQ detail coming soon")} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"><Eye className="h-4 w-4" /></button>
+                        <button onClick={() => router.push(`/procurement/rfq/${rfq.id}`)} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"><Eye className="h-4 w-4" /></button>
                         <button onClick={() => handleDelete(rfq.id)} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger"><Trash2 className="h-4 w-4" /></button>
                       </div>
                     </td>

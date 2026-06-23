@@ -14,6 +14,52 @@ from app.models.procurement import (
     PurchaseOrder, POItem, GRN, GRNItem, SupplierPayment,
     RequestForQuotation,
 )
+
+
+def _pr_item_dict(i):
+    return {"id": i.id, "pr_id": i.pr_id, "item_id": i.item_id, "qty": i.qty,
+            "estimated_price": float(i.estimated_price or 0), "notes": i.notes}
+
+
+def _pr_dict(pr, items):
+    return {"id": pr.id, "company_id": pr.company_id, "pr_number": pr.pr_number,
+            "department_id": pr.department_id, "requester_id": pr.requester_id,
+            "status": pr.status, "priority": pr.priority,
+            "total_estimated": float(pr.total_estimated or 0), "notes": pr.notes,
+            "date": str(pr.date) if pr.date else None,
+            "created_at": str(pr.created_at) if pr.created_at else None,
+            "items": [_pr_item_dict(i) for i in items]}
+
+
+def _po_item_dict(i):
+    return {"id": i.id, "po_id": i.po_id, "item_id": i.item_id,
+            "qty": i.qty, "unit_price": float(i.unit_price or 0),
+            "tax": float(i.tax or 0), "total": float(i.total or 0),
+            "received_qty": i.received_qty or 0}
+
+
+def _po_dict(po, items):
+    return {"id": po.id, "company_id": po.company_id, "po_number": po.po_number,
+            "supplier_id": po.supplier_id, "pr_id": po.pr_id,
+            "status": po.status, "subtotal": float(po.subtotal or 0),
+            "tax": float(po.tax or 0), "total": float(po.total or 0),
+            "delivery_date": str(po.delivery_date) if po.delivery_date else None,
+            "terms": po.terms, "created_at": str(po.created_at) if po.created_at else None,
+            "items": [_po_item_dict(i) for i in items]}
+
+
+def _grn_item_dict(i):
+    return {"id": i.id, "grn_id": i.grn_id, "po_item_id": i.po_item_id,
+            "received_qty": i.received_qty, "accepted_qty": i.accepted_qty,
+            "rejected_qty": i.rejected_qty, "reason": i.reason}
+
+
+def _grn_dict(grn, items):
+    return {"id": grn.id, "company_id": grn.company_id, "grn_number": grn.grn_number,
+            "po_id": grn.po_id, "received_by": grn.received_by,
+            "status": grn.status, "warehouse_id": grn.warehouse_id,
+            "notes": grn.notes, "created_at": str(grn.created_at) if grn.created_at else None,
+            "items": [_grn_item_dict(i) for i in items]}
 from app.schemas.procurement import (
     SupplierCreate, SupplierUpdate, SupplierResponse,
     PurchaseRequisitionCreate, PurchaseRequisitionUpdate, PurchaseRequisitionResponse,
@@ -203,9 +249,8 @@ async def get_requisition(
     items_result = await db.execute(
         select(PRItem).where(PRItem.pr_id == pr.id)
     )
-    pr.items = items_result.scalars().all()
-
-    return ResponseModel(data=PurchaseRequisitionResponse.model_validate(pr))
+    items = items_result.scalars().all()
+    return ResponseModel(data=_pr_dict(pr, items))
 
 
 @router.post("/requisitions", response_model=ResponseModel, status_code=201)
@@ -227,9 +272,8 @@ async def create_requisition(
     await db.flush()
 
     items_result = await db.execute(select(PRItem).where(PRItem.pr_id == pr.id))
-    pr.items = items_result.scalars().all()
-
-    return ResponseModel(data=PurchaseRequisitionResponse.model_validate(pr))
+    items = items_result.scalars().all()
+    return ResponseModel(data=_pr_dict(pr, items))
 
 
 @router.put("/requisitions/{requisition_id}", response_model=ResponseModel)
@@ -263,9 +307,8 @@ async def update_requisition(
     await db.flush()
 
     items_result = await db.execute(select(PRItem).where(PRItem.pr_id == pr.id))
-    pr.items = items_result.scalars().all()
-
-    return ResponseModel(data=PurchaseRequisitionResponse.model_validate(pr))
+    items = items_result.scalars().all()
+    return ResponseModel(data=_pr_dict(pr, items))
 
 
 @router.delete("/requisitions/{requisition_id}", response_model=ResponseModel)
@@ -345,9 +388,8 @@ async def get_purchase_order(
         raise HTTPException(status_code=404, detail="Purchase order not found")
 
     items_result = await db.execute(select(POItem).where(POItem.po_id == po.id))
-    po.items = items_result.scalars().all()
-
-    return ResponseModel(data=PurchaseOrderResponse.model_validate(po))
+    items = items_result.scalars().all()
+    return ResponseModel(data=_po_dict(po, items))
 
 
 @router.post("/orders", response_model=ResponseModel, status_code=201)
@@ -369,9 +411,8 @@ async def create_purchase_order(
     await db.flush()
 
     items_result = await db.execute(select(POItem).where(POItem.po_id == po.id))
-    po.items = items_result.scalars().all()
-
-    return ResponseModel(data=PurchaseOrderResponse.model_validate(po))
+    items = items_result.scalars().all()
+    return ResponseModel(data=_po_dict(po, items))
 
 
 @router.put("/orders/{order_id}", response_model=ResponseModel)
@@ -405,9 +446,8 @@ async def update_purchase_order(
     await db.flush()
 
     items_result = await db.execute(select(POItem).where(POItem.po_id == po.id))
-    po.items = items_result.scalars().all()
-
-    return ResponseModel(data=PurchaseOrderResponse.model_validate(po))
+    items = items_result.scalars().all()
+    return ResponseModel(data=_po_dict(po, items))
 
 
 @router.delete("/orders/{order_id}", response_model=ResponseModel)
@@ -485,9 +525,8 @@ async def get_grn(
         raise HTTPException(status_code=404, detail="GRN not found")
 
     items_result = await db.execute(select(GRNItem).where(GRNItem.grn_id == grn.id))
-    grn.items = items_result.scalars().all()
-
-    return ResponseModel(data=GRNResponse.model_validate(grn))
+    items = items_result.scalars().all()
+    return ResponseModel(data=_grn_dict(grn, items))
 
 
 @router.post("/grn", response_model=ResponseModel, status_code=201)
@@ -509,9 +548,8 @@ async def create_grn(
     await db.flush()
 
     items_result = await db.execute(select(GRNItem).where(GRNItem.grn_id == grn.id))
-    grn.items = items_result.scalars().all()
-
-    return ResponseModel(data=GRNResponse.model_validate(grn))
+    items = items_result.scalars().all()
+    return ResponseModel(data=_grn_dict(grn, items))
 
 
 @router.put("/grn/{grn_id}", response_model=ResponseModel)
@@ -545,9 +583,8 @@ async def update_grn(
     await db.flush()
 
     items_result = await db.execute(select(GRNItem).where(GRNItem.grn_id == grn.id))
-    grn.items = items_result.scalars().all()
-
-    return ResponseModel(data=GRNResponse.model_validate(grn))
+    items = items_result.scalars().all()
+    return ResponseModel(data=_grn_dict(grn, items))
 
 
 @router.delete("/grn/{grn_id}", response_model=ResponseModel)

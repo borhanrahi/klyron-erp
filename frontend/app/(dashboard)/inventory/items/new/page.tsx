@@ -1,40 +1,65 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
+import { apiPost } from "@/lib/api";
 import {
   Package,
   Save,
   ArrowLeft,
-  Upload,
   Barcode,
   DollarSign,
   Hash,
   Tag,
-  Warehouse,
+  Loader2,
 } from "lucide-react";
 
 export default function NewItemPage() {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     sku: "",
     barcode: "",
-    category: "",
+    category_id: "",
     description: "",
-    costPrice: "",
-    sellPrice: "",
-    taxRate: "",
-    initialStock: "",
-    reorderLevel: "",
-    reorderQuantity: "",
-    warehouse: "",
+    cost_price: "",
+    sell_price: "",
+    tax_rate: "",
     unit: "pcs",
     weight: "",
-    dimensions: "",
+    is_service: false,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await apiPost("/inventory/items", {
+        name: formData.name,
+        sku: formData.sku,
+        barcode: formData.barcode || undefined,
+        category_id: formData.category_id ? Number(formData.category_id) : undefined,
+        cost_price: Number(formData.cost_price),
+        sell_price: Number(formData.sell_price),
+        tax_rate: Number(formData.tax_rate) || 0,
+        unit: formData.unit,
+        weight: formData.weight ? Number(formData.weight) : undefined,
+        description: formData.description || undefined,
+        is_service: formData.is_service,
+      });
+      router.push("/inventory/items");
+    } catch {
+      setError("Failed to create item");
+      setSaving(false);
+    }
   };
 
   return (
@@ -59,7 +84,13 @@ export default function NewItemPage() {
         }
       />
 
-      <form className="space-y-6">
+      {error && (
+        <div className="rounded-2xl border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Information */}
         <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -85,64 +116,41 @@ export default function NewItemPage() {
               <label className="text-sm font-medium text-muted-foreground">
                 SKU *
               </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  name="sku"
-                  value={formData.sku}
-                  onChange={handleChange}
-                  placeholder="e.g. ELC-LPT-001"
-                  className="flex-1 px-3 py-2 bg-muted border border-border rounded-lg text-sm font-mono focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                  required
-                />
-                <button
-                  type="button"
-                  className="px-3 py-2 bg-muted border border-border rounded-lg text-sm hover:bg-muted/80 transition-colors"
-                >
-                  Generate
-                </button>
-              </div>
+              <input
+                type="text"
+                name="sku"
+                value={formData.sku}
+                onChange={handleChange}
+                placeholder="e.g. ELC-LPT-001"
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm font-mono focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                required
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground">
                 Barcode / UPC
               </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  name="barcode"
-                  value={formData.barcode}
-                  onChange={handleChange}
-                  placeholder="e.g. 8901234567890"
-                  className="flex-1 px-3 py-2 bg-muted border border-border rounded-lg text-sm font-mono focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                />
-                <button
-                  type="button"
-                  className="px-3 py-2 bg-muted border border-border rounded-lg text-sm hover:bg-muted/80 transition-colors flex items-center gap-1"
-                >
-                  <Barcode className="h-4 w-4" />
-                  Scan
-                </button>
-              </div>
+              <input
+                type="text"
+                name="barcode"
+                value={formData.barcode}
+                onChange={handleChange}
+                placeholder="e.g. 8901234567890"
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm font-mono focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground">
-                Category *
+                Category ID
               </label>
-              <select
-                name="category"
-                value={formData.category}
+              <input
+                type="number"
+                name="category_id"
+                value={formData.category_id}
                 onChange={handleChange}
-                className="w-full px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                required
-              >
-                <option value="">Select category</option>
-                <option value="Electronics">Electronics</option>
-                <option value="Office Furniture">Office Furniture</option>
-                <option value="Office Supplies">Office Supplies</option>
-                <option value="IT Accessories">IT Accessories</option>
-                <option value="Networking">Networking</option>
-              </select>
+                placeholder="e.g. 1"
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium text-muted-foreground">
@@ -177,8 +185,8 @@ export default function NewItemPage() {
                 </span>
                 <input
                   type="number"
-                  name="costPrice"
-                  value={formData.costPrice}
+                  name="cost_price"
+                  value={formData.cost_price}
                   onChange={handleChange}
                   placeholder="0.00"
                   step="0.01"
@@ -197,8 +205,8 @@ export default function NewItemPage() {
                 </span>
                 <input
                   type="number"
-                  name="sellPrice"
-                  value={formData.sellPrice}
+                  name="sell_price"
+                  value={formData.sell_price}
                   onChange={handleChange}
                   placeholder="0.00"
                   step="0.01"
@@ -213,8 +221,8 @@ export default function NewItemPage() {
               </label>
               <input
                 type="number"
-                name="taxRate"
-                value={formData.taxRate}
+                name="tax_rate"
+                value={formData.tax_rate}
                 onChange={handleChange}
                 placeholder="0"
                 step="0.1"
@@ -222,79 +230,36 @@ export default function NewItemPage() {
               />
             </div>
           </div>
-          {formData.costPrice && formData.sellPrice && (
+          {formData.cost_price && formData.sell_price && (
             <div className="mt-3 p-3 bg-muted/50 rounded-lg">
               <p className="text-sm text-muted-foreground">
                 Margin:{" "}
                 <span className="text-success font-medium">
-                  {((Number(formData.sellPrice) - Number(formData.costPrice)) / Number(formData.sellPrice) * 100).toFixed(1)}%
+                  {((Number(formData.sell_price) - Number(formData.cost_price)) / Number(formData.sell_price) * 100).toFixed(1)}%
                 </span>
               </p>
             </div>
           )}
         </div>
 
-        {/* Stock & Warehouse */}
+        {/* Physical Attributes */}
         <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Warehouse className="h-5 w-5 text-primary" />
-            Stock & Warehouse
+            <Hash className="h-5 w-5 text-primary" />
+            Physical Attributes
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground">
-                Initial Stock Quantity
+                Weight (kg)
               </label>
               <input
                 type="number"
-                name="initialStock"
-                value={formData.initialStock}
+                name="weight"
+                value={formData.weight}
                 onChange={handleChange}
-                placeholder="0"
-                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">
-                Default Warehouse *
-              </label>
-              <select
-                name="warehouse"
-                value={formData.warehouse}
-                onChange={handleChange}
-                className="w-full px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                required
-              >
-                <option value="">Select warehouse</option>
-                <option value="WH-SH-01">Shanghai Warehouse</option>
-                <option value="WH-SH-02">Shanghai Warehouse 2</option>
-                <option value="WH-BJ-01">Beijing Warehouse</option>
-                <option value="WH-GZ-01">Guangzhou Warehouse</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">
-                Reorder Level
-              </label>
-              <input
-                type="number"
-                name="reorderLevel"
-                value={formData.reorderLevel}
-                onChange={handleChange}
-                placeholder="Minimum stock before reorder"
-                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">
-                Reorder Quantity
-              </label>
-              <input
-                type="number"
-                name="reorderQuantity"
-                value={formData.reorderQuantity}
-                onChange={handleChange}
-                placeholder="Quantity to reorder"
+                placeholder="0.00"
+                step="0.01"
                 className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>
@@ -318,54 +283,6 @@ export default function NewItemPage() {
           </div>
         </div>
 
-        {/* Physical Attributes */}
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Hash className="h-5 w-5 text-primary" />
-            Physical Attributes
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">
-                Weight (kg)
-              </label>
-              <input
-                type="number"
-                name="weight"
-                value={formData.weight}
-                onChange={handleChange}
-                placeholder="0.00"
-                step="0.01"
-                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">
-                Dimensions (L × W × H cm)
-              </label>
-              <input
-                type="text"
-                name="dimensions"
-                value={formData.dimensions}
-                onChange={handleChange}
-                placeholder="e.g. 40 × 30 × 5"
-                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">
-                Product Image
-              </label>
-              <div className="flex items-center justify-center w-full h-[42px] bg-muted border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/80 transition-colors">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Upload className="h-4 w-4" />
-                  Upload Image
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Actions */}
         <div className="flex items-center justify-end gap-3">
           <a
@@ -376,10 +293,11 @@ export default function NewItemPage() {
           </a>
           <button
             type="submit"
-            className="bg-primary text-white px-6 py-2.5 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2"
+            disabled={saving}
+            className="bg-primary text-white px-6 py-2.5 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2 disabled:opacity-50"
           >
-            <Save className="h-4 w-4" />
-            Save Item
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {saving ? "Saving..." : "Save Item"}
           </button>
         </div>
       </form>
