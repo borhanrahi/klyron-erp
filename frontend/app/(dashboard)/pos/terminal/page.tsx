@@ -22,15 +22,23 @@ interface ApiProduct {
   id: number;
   name: string;
   sku: string;
-  selling_price: number;
-  category_name: string;
-  stock_quantity: number;
+  sell_price: number;
+  category_id: number;
   unit: string;
+}
+
+interface StockRecord {
+  item_id: number;
+  quantity: number;
 }
 
 interface ProductsResponse {
   items: ApiProduct[];
   total: number;
+}
+
+interface StockResponse {
+  items: StockRecord[];
 }
 
 type Product = {
@@ -56,14 +64,21 @@ export default function POSTerminalPage() {
   const [selectedCategory, setSelectedCategory] = useState("All");
 
   useEffect(() => {
-    apiGet<ProductsResponse>("/inventory/items")
-      .then((res) => {
-        const mapped: Product[] = res.items.map((item) => ({
+    Promise.all([
+      apiGet<ProductsResponse>("/inventory/items"),
+      apiGet<StockResponse>("/inventory/stock"),
+    ])
+      .then(([itemsRes, stockRes]) => {
+        const stockMap = new Map<number, number>();
+        (stockRes.items || []).forEach((s) => {
+          stockMap.set(s.item_id, (stockMap.get(s.item_id) || 0) + s.quantity);
+        });
+        const mapped: Product[] = itemsRes.items.map((item) => ({
           id: String(item.id),
           name: item.name,
-          price: item.selling_price,
-          category: item.category_name,
-          stock: item.stock_quantity,
+          price: Number(item.sell_price) || 0,
+          category: String(item.category_id),
+          stock: stockMap.get(item.id) || 0,
           sku: item.sku,
         }));
         setProducts(mapped);
@@ -201,7 +216,7 @@ export default function POSTerminalPage() {
                   </p>
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-primary">
-                      ${product.price.toFixed(2)}
+                      ${(Number(product.price) || 0).toFixed(2)}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       Stock: {product.stock}
@@ -250,7 +265,7 @@ export default function POSTerminalPage() {
                       {item.product.name}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      ${item.product.price.toFixed(2)} each
+                      ${(Number(item.product.price) || 0).toFixed(2)} each
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
@@ -275,7 +290,7 @@ export default function POSTerminalPage() {
                     </button>
                   </div>
                   <div className="text-sm font-semibold w-20 text-right">
-                    ${(item.product.price * item.quantity).toFixed(2)}
+                    ${(Number(item.product.price * item.quantity) || 0).toFixed(2)}
                   </div>
                   <button
                     onClick={() => removeFromCart(item.product.id)}

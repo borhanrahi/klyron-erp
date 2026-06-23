@@ -22,11 +22,9 @@ interface Task {
   title: string;
   status: string;
   priority: string;
-  assignee?: string;
-  assigneeName?: string;
-  project?: string;
-  dueDate?: string;
-  tags?: string[];
+  assignee_id?: number;
+  project_id?: number;
+  due_date?: string;
 }
 
 interface TaskColumn {
@@ -39,27 +37,18 @@ interface TaskColumn {
 }
 
 const priorityColors: Record<string, string> = {
-  Critical: "text-danger",
-  High: "text-warning",
-  Medium: "text-info",
-  Low: "text-muted-foreground",
+  critical: "text-danger",
+  high: "text-warning",
+  medium: "text-info",
+  low: "text-muted-foreground",
 };
 
 const priorityBg: Record<string, string> = {
-  Critical: "bg-danger/10",
-  High: "bg-warning/10",
-  Medium: "bg-info/10",
-  Low: "bg-muted",
+  critical: "bg-danger/10",
+  high: "bg-warning/10",
+  medium: "bg-info/10",
+  low: "bg-muted",
 };
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 export default function TasksBoardPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -77,10 +66,11 @@ export default function TasksBoardPage() {
           done: [],
         };
         const statusMap: Record<string, string> = {
-          "To Do": "todo",
-          "In Progress": "in-progress",
-          Review: "review",
-          Done: "done",
+          todo: "todo",
+          in_progress: "in-progress",
+          review: "review",
+          done: "done",
+          completed: "done",
         };
         items.forEach((task) => {
           const col = statusMap[task.status] || "todo";
@@ -132,7 +122,7 @@ export default function TasksBoardPage() {
               Filter
             </button>
             <a
-              href="/projects/tasks/list/new"
+              href="/projects/tasks/new"
               className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
@@ -163,20 +153,10 @@ export default function TasksBoardPage() {
               {column.tasks.map((task) => (
                 <a
                   key={task.id}
-                  href={`/projects/tasks/list/${task.id}`}
+                  href={`/projects/tasks/${task.id}`}
                   className="block p-3 bg-muted rounded-xl hover:bg-muted/80 transition-all cursor-pointer group hover:shadow-sm"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex gap-1">
-                      {(task.tags || []).map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
                     <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${priorityBg[task.priority] || ""} ${priorityColors[task.priority] || ""}`}>
                       {task.priority}
                     </span>
@@ -187,15 +167,15 @@ export default function TasksBoardPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
                       <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-semibold text-primary">
-                        {task.assignee || getInitials(task.assigneeName || "NA")}
+                        #{task.assignee_id || "NA"}
                       </div>
                       <span className="text-[10px] text-muted-foreground">
-                        {task.assigneeName || "Unassigned"}
+                        {task.assignee_id ? `User #${task.assignee_id}` : "Unassigned"}
                       </span>
                     </div>
                     <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <Calendar className="h-3 w-3" />
-                      {task.dueDate || "TBD"}
+                      {task.due_date ? new Date(task.due_date).toLocaleDateString() : "TBD"}
                     </div>
                   </div>
                 </a>

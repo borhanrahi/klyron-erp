@@ -1,95 +1,175 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { apiGet } from "@/lib/api";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
   FolderKanban,
   ArrowLeft,
   Edit,
-  Calendar,
-  DollarSign,
-  Users,
-  Target,
   CheckCircle,
   Clock,
-  AlertTriangle,
-  TrendingUp,
-  FileText,
-  MessageSquare,
+  Target,
   ListTodo,
   Milestone,
+  FileText,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 
-const projectData = {
-  id: "PRJ-001",
-  name: "E-Commerce Platform Redesign",
-  description:
-    "Complete redesign of the company e-commerce platform with modern UI/UX, improved performance, and new features including AI-powered recommendations.",
-  manager: "Sarah Chen",
-  managerAvatar: "SC",
-  budget: 125000,
-  spent: 87500,
-  progress: 70,
-  status: "In Progress",
-  statusVariant: "info" as const,
-  startDate: "Jan 15, 2024",
-  endDate: "Jul 30, 2024",
-  team: [
-    { name: "Sarah Chen", role: "Project Manager", avatar: "SC" },
-    { name: "Mike Johnson", role: "Lead Developer", avatar: "MJ" },
-    { name: "Emily Davis", role: "UI/UX Designer", avatar: "ED" },
-    { name: "David Park", role: "Backend Developer", avatar: "DP" },
-    { name: "Omar Hassan", role: "Frontend Developer", avatar: "OH" },
-    { name: "Priya Patel", role: "QA Engineer", avatar: "PP" },
-  ],
-  tasks: {
-    total: 48,
-    completed: 34,
-    inProgress: 8,
-    todo: 6,
-  },
-  milestones: [
-    { name: "Discovery & Planning", date: "Feb 15, 2024", status: "Completed", statusVariant: "success" as const },
-    { name: "Design Phase", date: "Mar 30, 2024", status: "Completed", statusVariant: "success" as const },
-    { name: "Frontend Development", date: "May 15, 2024", status: "In Progress", statusVariant: "info" as const },
-    { name: "Backend Integration", date: "Jun 15, 2024", status: "Upcoming", statusVariant: "muted" as const },
-    { name: "Testing & QA", date: "Jul 10, 2024", status: "Upcoming", statusVariant: "muted" as const },
-    { name: "Launch", date: "Jul 30, 2024", status: "Upcoming", statusVariant: "muted" as const },
-  ],
-  recentActivity: [
-    { user: "Sarah Chen", action: "updated task", target: "API Integration", time: "2 hours ago" },
-    { user: "Mike Johnson", action: "completed", target: "Payment Gateway Setup", time: "4 hours ago" },
-    { user: "Emily Davis", action: "uploaded", target: "New homepage mockups", time: "6 hours ago" },
-    { user: "David Park", action: "commented on", target: "Product Catalog API", time: "8 hours ago" },
-  ],
-};
+interface Project {
+  id: string;
+  code: string;
+  name: string;
+  client_id: string;
+  manager_id: string;
+  budget: number;
+  start_date: string;
+  end_date: string;
+  status: string;
+  priority: string;
+  progress_pct: number;
+  billing_type: string;
+  company_id: string;
+  created_at: string;
+}
+
+interface Task {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+}
+
+interface Milestone {
+  id: string;
+  name: string;
+  due_date: string;
+  amount: number;
+  status: string;
+}
+
+function milestoneVariant(status: string) {
+  const s = status.toLowerCase();
+  if (s === "completed" || s === "done") return "success";
+  if (s === "in progress" || s === "active") return "info";
+  if (s === "cancelled" || s === "failed") return "danger";
+  if (s === "upcoming" || s === "pending" || s === "not started") return "muted";
+  return "info";
+}
+
+function projectStatusVariant(status: string) {
+  const s = status.toLowerCase();
+  if (s === "completed" || s === "done") return "success";
+  if (s === "in progress" || s === "active") return "info";
+  if (s === "on hold" || s === "paused") return "warning";
+  if (s === "cancelled") return "danger";
+  if (s === "planning" || s === "not started") return "muted";
+  return "info";
+}
 
 export default function ProjectDetailPage() {
+  const router = useRouter();
+  const params = useParams();
+  const projectId = params.id as string;
+
+  const [project, setProject] = useState<Project | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
 
-  const budgetPercentage = (projectData.spent / projectData.budget) * 100;
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
 
-  return (
-    <div className="space-y-6 animate-in fade-in-0 duration-200">
-      <PageHeader
-        title={projectData.name}
-        description={projectData.id}
-        breadcrumbs={[
-          { label: "Projects", href: "/projects" },
-          { label: "Projects", href: "/projects/projects" },
-          { label: projectData.name },
-        ]}
-        icon={<FolderKanban className="h-6 w-6 text-primary" />}
-        actions={
-          <div className="flex items-center gap-3">
-            <a
-              href="/projects/projects"
+    async function load() {
+      try {
+        const [projRes, tasksRes, msRes] = await Promise.all([
+          apiGet<{ data: Project }>(`/projects/${projectId}`),
+          apiGet<{ items: Task[]; total: number }>(`/projects/tasks/list?project_id=${projectId}`),
+          apiGet<{ items: Milestone[]; total: number }>(`/projects/milestones/list?project_id=${projectId}`),
+        ]);
+        if (cancelled) return;
+        setProject(projRes.data);
+        setTasks(tasksRes.items ?? []);
+        setMilestones(msRes.items ?? []);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load project");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  const taskStats = {
+    total: tasks.length,
+    completed: tasks.filter((t) => t.status.toLowerCase() === "completed" || t.status.toLowerCase() === "done").length,
+    inProgress: tasks.filter((t) => t.status.toLowerCase() === "in progress" || t.status.toLowerCase() === "active").length,
+    todo: tasks.filter((t) => t.status.toLowerCase() === "todo" || t.status.toLowerCase() === "to do" || t.status.toLowerCase() === "not started").length,
+  };
+
+  const fmtCurrency = (n: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+  const fmtDate = (s: string) => (s ? new Date(s).toLocaleDateString() : "—");
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error || !project) {
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          title="Project Not Found"
+          icon={<FolderKanban className="h-6 w-6 text-primary" />}
+          actions={
+            <button
+              onClick={() => router.back()}
               className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
-            </a>
+            </button>
+          }
+        />
+        <div className="rounded-2xl border border-border bg-card p-8 text-center">
+          <AlertTriangle className="h-12 w-12 text-warning mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">{error ?? "Project not found."}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-in fade-in-0 duration-200">
+      <PageHeader
+        title={project.name}
+        description={project.code}
+        breadcrumbs={[
+          { label: "Projects", href: "/projects" },
+          { label: "Projects", href: "/projects/projects" },
+          { label: project.name },
+        ]}
+        icon={<FolderKanban className="h-6 w-6 text-primary" />}
+        actions={
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </button>
             <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
               <Edit className="h-4 w-4" />
               Edit Project
@@ -98,39 +178,34 @@ export default function ProjectDetailPage() {
         }
       />
 
-      {/* Project Summary */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <p className="text-sm text-muted-foreground">Progress</p>
-          <p className="text-2xl font-bold mt-1">{projectData.progress}%</p>
+          <p className="text-2xl font-bold mt-1">{project.progress_pct}%</p>
           <div className="h-2 bg-muted rounded-full mt-2 overflow-hidden">
             <div
               className="h-full bg-primary rounded-full"
-              style={{ width: `${projectData.progress}%` }}
+              style={{ width: `${project.progress_pct}%` }}
             />
           </div>
         </div>
         <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <p className="text-sm text-muted-foreground">Budget</p>
-          <p className="text-2xl font-bold mt-1">
-            ${projectData.budget.toLocaleString()}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Spent: ${projectData.spent.toLocaleString()} (
-            {budgetPercentage.toFixed(0)}%)
-          </p>
+          <p className="text-2xl font-bold mt-1">{fmtCurrency(project.budget)}</p>
+          <p className="text-xs text-muted-foreground mt-1">{project.billing_type ?? "—"}</p>
         </div>
         <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <p className="text-sm text-muted-foreground">Tasks</p>
-          <p className="text-2xl font-bold mt-1">{projectData.tasks.total}</p>
-          <p className="text-xs text-success mt-1">
-            {projectData.tasks.completed} completed
-          </p>
+          <p className="text-2xl font-bold mt-1">{taskStats.total}</p>
+          <p className="text-xs text-success mt-1">{taskStats.completed} completed</p>
         </div>
         <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <p className="text-sm text-muted-foreground">Team Size</p>
-          <p className="text-2xl font-bold mt-1">{projectData.team.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">members assigned</p>
+          <p className="text-sm text-muted-foreground">Priority</p>
+          <p className="text-2xl font-bold mt-1 capitalize">{project.priority}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            <StatusBadge status={project.status} variant={projectStatusVariant(project.status)} />
+          </p>
         </div>
       </div>
 
@@ -140,7 +215,6 @@ export default function ProjectDetailPage() {
           { id: "overview", label: "Overview", icon: FileText },
           { id: "tasks", label: "Tasks", icon: ListTodo },
           { id: "milestones", label: "Milestones", icon: Milestone },
-          { id: "team", label: "Team", icon: Users },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -164,20 +238,16 @@ export default function ProjectDetailPage() {
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Description</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {projectData.description}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
             <h3 className="text-lg font-semibold mb-4">Project Details</h3>
             <div className="space-y-3">
               {[
-                { label: "Status", value: <StatusBadge status={projectData.status} variant={projectData.statusVariant} /> },
-                { label: "Manager", value: projectData.manager },
-                { label: "Start Date", value: projectData.startDate },
-                { label: "End Date", value: projectData.endDate },
-                { label: "Budget", value: `$${projectData.budget.toLocaleString()}` },
+                { label: "Status", value: <StatusBadge status={project.status} variant={projectStatusVariant(project.status)} /> },
+                { label: "Manager ID", value: project.manager_id },
+                { label: "Client ID", value: project.client_id },
+                { label: "Start Date", value: fmtDate(project.start_date) },
+                { label: "End Date", value: fmtDate(project.end_date) },
+                { label: "Budget", value: fmtCurrency(project.budget) },
+                { label: "Created", value: fmtDate(project.created_at) },
               ].map((item) => (
                 <div key={item.label} className="flex justify-between py-2 border-b border-border/50 last:border-0">
                   <span className="text-sm text-muted-foreground">{item.label}</span>
@@ -187,55 +257,31 @@ export default function ProjectDetailPage() {
             </div>
           </div>
           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Budget Tracking</h3>
+            <h3 className="text-lg font-semibold mb-4">Progress</h3>
             <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-muted-foreground">Spent</span>
-                  <span className="font-medium">
-                    ${projectData.spent.toLocaleString()} / $
-                    {projectData.budget.toLocaleString()}
-                  </span>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="text-xl font-bold text-primary">{project.progress_pct}%</span>
                 </div>
-                <div className="h-3 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${
-                      budgetPercentage > 90 ? "bg-danger" : budgetPercentage > 70 ? "bg-warning" : "bg-success"
-                    }`}
-                    style={{ width: `${budgetPercentage}%` }}
-                  />
+                <div>
+                  <p className="text-sm font-medium">Overall Completion</p>
+                  <p className="text-xs text-muted-foreground">{taskStats.completed} of {taskStats.total} tasks done</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-3 mt-4">
                 <div className="text-center p-3 bg-muted rounded-xl">
-                  <p className="text-xs text-muted-foreground">Remaining</p>
-                  <p className="text-lg font-bold text-success">
-                    ${(projectData.budget - projectData.spent).toLocaleString()}
-                  </p>
+                  <p className="text-xs text-muted-foreground">To Do</p>
+                  <p className="text-lg font-bold">{taskStats.todo}</p>
                 </div>
                 <div className="text-center p-3 bg-muted rounded-xl">
-                  <p className="text-xs text-muted-foreground">Burn Rate</p>
-                  <p className="text-lg font-bold">$12.5K/mo</p>
+                  <p className="text-xs text-muted-foreground">In Progress</p>
+                  <p className="text-lg font-bold text-info">{taskStats.inProgress}</p>
+                </div>
+                <div className="text-center p-3 bg-muted rounded-xl">
+                  <p className="text-xs text-muted-foreground">Completed</p>
+                  <p className="text-lg font-bold text-success">{taskStats.completed}</p>
                 </div>
               </div>
-            </div>
-          </div>
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
-            <div className="space-y-4">
-              {projectData.recentActivity.map((activity, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-primary mt-2" />
-                  <div>
-                    <p className="text-sm">
-                      <span className="font-medium">{activity.user}</span>{" "}
-                      <span className="text-muted-foreground">{activity.action}</span>{" "}
-                      <span className="font-medium">{activity.target}</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">{activity.time}</p>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
         </div>
@@ -245,22 +291,33 @@ export default function ProjectDetailPage() {
       {activeTab === "tasks" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { title: "To Do", count: projectData.tasks.todo, color: "text-muted-foreground" },
-            { title: "In Progress", count: projectData.tasks.inProgress, color: "text-info" },
-            { title: "Completed", count: projectData.tasks.completed, color: "text-success" },
+            { title: "To Do", count: taskStats.todo, color: "text-muted-foreground" },
+            { title: "In Progress", count: taskStats.inProgress, color: "text-info" },
+            { title: "Completed", count: taskStats.completed, color: "text-success" },
           ].map((col) => (
             <div key={col.title} className="rounded-2xl border border-border bg-card shadow-sm">
               <div className="p-4 border-b border-border flex items-center justify-between">
                 <h4 className={`text-sm font-semibold ${col.color}`}>{col.title}</h4>
                 <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{col.count}</span>
               </div>
-              <div className="p-3 space-y-2">
-                {Array.from({ length: Math.min(col.count, 3) }).map((_, i) => (
-                  <div key={i} className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors cursor-pointer">
-                    <p className="text-sm font-medium">Sample task item {i + 1}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Assigned to team member</p>
-                  </div>
-                ))}
+              <div className="p-3 space-y-2 max-h-[300px] overflow-y-auto">
+                {tasks
+                  .filter((t) => {
+                    const s = t.status.toLowerCase();
+                    if (col.title === "To Do") return s === "todo" || s === "to do" || s === "not started";
+                    if (col.title === "In Progress") return s === "in progress" || s === "active";
+                    return s === "completed" || s === "done";
+                  })
+                  .slice(0, 5)
+                  .map((t) => (
+                    <div key={t.id} className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors cursor-pointer">
+                      <p className="text-sm font-medium">{t.title}</p>
+                      <p className="text-xs text-muted-foreground mt-1 capitalize">{t.priority}</p>
+                    </div>
+                  ))}
+                {col.count === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4">No tasks</p>
+                )}
               </div>
             </div>
           ))}
@@ -270,53 +327,40 @@ export default function ProjectDetailPage() {
       {/* Milestones Tab */}
       {activeTab === "milestones" && (
         <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <div className="space-y-4">
-            {projectData.milestones.map((ms, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-4 p-4 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
-              >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  ms.status === "Completed" ? "bg-success/10" : ms.status === "In Progress" ? "bg-info/10" : "bg-muted"
-                }`}>
-                  {ms.status === "Completed" ? (
-                    <CheckCircle className="h-5 w-5 text-success" />
-                  ) : ms.status === "In Progress" ? (
-                    <Clock className="h-5 w-5 text-info" />
-                  ) : (
-                    <Target className="h-5 w-5 text-muted-foreground" />
-                  )}
+          {milestones.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No milestones found.</p>
+          ) : (
+            <div className="space-y-4">
+              {milestones.map((ms) => (
+                <div
+                  key={ms.id}
+                  className="flex items-center gap-4 p-4 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    ms.status.toLowerCase() === "completed" ? "bg-success/10" : "bg-muted"
+                  }`}>
+                    {ms.status.toLowerCase() === "completed" ? (
+                      <CheckCircle className="h-5 w-5 text-success" />
+                    ) : ms.status.toLowerCase() === "in progress" ? (
+                      <Clock className="h-5 w-5 text-info" />
+                    ) : (
+                      <Target className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{ms.name}</p>
+                    <p className="text-xs text-muted-foreground">Due: {fmtDate(ms.due_date)}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {ms.amount != null && (
+                      <span className="text-xs text-muted-foreground">{fmtCurrency(ms.amount)}</span>
+                    )}
+                    <StatusBadge status={ms.status} variant={milestoneVariant(ms.status)} />
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{ms.name}</p>
-                  <p className="text-xs text-muted-foreground">Due: {ms.date}</p>
-                </div>
-                <StatusBadge status={ms.status} variant={ms.statusVariant} />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Team Tab */}
-      {activeTab === "team" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projectData.team.map((member) => (
-            <div
-              key={member.name}
-              className="rounded-2xl border border-border bg-card p-5 shadow-sm hover:shadow-md transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                  {member.avatar}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">{member.name}</p>
-                  <p className="text-xs text-muted-foreground">{member.role}</p>
-                </div>
-              </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>

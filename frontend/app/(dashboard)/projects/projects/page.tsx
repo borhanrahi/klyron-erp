@@ -10,45 +10,20 @@ import {
   Plus,
   Eye,
   Edit,
-  Trash2,
   Calendar,
-  DollarSign,
-  Users,
-  ChevronLeft,
-  ChevronRight,
-  ArrowUpDown,
-  Filter,
 } from "lucide-react";
 
 interface Project {
-  id: string;
+  id: number;
+  code: string;
   name: string;
-  manager: string;
-  managerAvatar: string;
+  manager_id: number | null;
   budget: number;
-  spent: number;
-  progress: number;
+  start_date: string | null;
+  end_date: string | null;
   status: string;
-  statusVariant: "info" | "success" | "warning" | "danger" | "primary" | "muted";
-  startDate: string;
-  endDate: string;
-  team: number;
-}
-
-const statusVariantMap: Record<string, Project["statusVariant"]> = {
-  "In Progress": "info",
-  Completed: "success",
-  Planning: "warning",
-  "On Hold": "muted",
-};
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  progress_pct: number;
+  priority: string;
 }
 
 export default function ProjectsListPage() {
@@ -59,30 +34,22 @@ export default function ProjectsListPage() {
 
   useEffect(() => {
     apiGet<{ items: Project[] }>("/projects/")
-      .then((res) =>
-        setProjects(
-          res.items.map((p) => ({
-            ...p,
-            statusVariant: statusVariantMap[p.status] || "info",
-            managerAvatar: p.managerAvatar || getInitials(p.manager || ""),
-          }))
-        )
-      )
+      .then((res) => setProjects(res.items || []))
       .catch(() => setProjects([]))
       .finally(() => setLoading(false));
   }, []);
 
   const projectStats = [
-    { label: "Total Projects", value: String(projects.length), change: `+${projects.filter((p) => p.startDate > "2024-01-01").length} this quarter` },
-    { label: "In Progress", value: String(projects.filter((p) => p.status === "In Progress").length), change: `${projects.length > 0 ? Math.round((projects.filter((p) => p.status === "In Progress").length / projects.length) * 100) : 0}% active` },
-    { label: "Completed", value: String(projects.filter((p) => p.status === "Completed").length), change: `${projects.length > 0 ? Math.round((projects.filter((p) => p.status === "Completed").length / projects.length) * 100) : 0}% completion` },
-    { label: "Total Budget", value: `$${(projects.reduce((a, p) => a + (p.budget || 0), 0) / 1000).toFixed(0)}K`, change: `$${(projects.reduce((a, p) => a + (p.spent || 0), 0) / 1000).toFixed(0)}K spent` },
+    { label: "Total Projects", value: String(projects.length), change: "" },
+    { label: "In Progress", value: String(projects.filter((p) => p.status === "in_progress").length), change: "" },
+    { label: "Completed", value: String(projects.filter((p) => p.status === "completed").length), change: "" },
+    { label: "Total Budget", value: `$${(projects.reduce((a, p) => a + (p.budget || 0), 0) / 1000).toFixed(0)}K`, change: "" },
   ];
 
   const filteredProjects = projects.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.id.toLowerCase().includes(searchTerm.toLowerCase());
+      (p.code || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
       selectedStatus === "All" || p.status === selectedStatus;
     return matchesSearch && matchesStatus;
@@ -197,34 +164,31 @@ export default function ProjectsListPage() {
                     <div>
                       <p className="text-sm font-medium">{project.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {project.id} · {project.team} members
+                        {project.code}
                       </p>
                     </div>
                   </td>
                   <td className="py-3 px-4 hidden md:table-cell">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-semibold text-primary">
-                        {project.managerAvatar}
+                        {project.manager_id || "—"}
                       </div>
                       <span className="text-sm text-muted-foreground">
-                        {project.manager}
+                        Manager #{project.manager_id || "—"}
                       </span>
                     </div>
                   </td>
                   <td className="py-3 px-4 hidden lg:table-cell">
                     <div>
                       <p className="text-sm font-medium">
-                        ${project.budget.toLocaleString()}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Spent: ${project.spent.toLocaleString()}
+                        ${(Number(project.budget) || 0).toLocaleString()}
                       </p>
                     </div>
                   </td>
                   <td className="py-3 px-4">
                     <div className="w-24">
                       <div className="flex justify-between text-xs mb-1">
-                        <span>{project.progress}%</span>
+                        <span>{project.progress_pct || 0}%</span>
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div
@@ -241,14 +205,11 @@ export default function ProjectsListPage() {
                   <td className="py-3 px-4 hidden xl:table-cell">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Calendar className="h-3 w-3" />
-                      {project.startDate} - {project.endDate}
+                      {project.start_date ? new Date(project.start_date).toLocaleDateString() : "—"} - {project.end_date ? new Date(project.end_date).toLocaleDateString() : "—"}
                     </div>
                   </td>
                   <td className="py-3 px-4">
-                    <StatusBadge
-                      status={project.status}
-                      variant={project.statusVariant}
-                    />
+                    <StatusBadge status={project.status} />
                   </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">

@@ -20,33 +20,16 @@ import {
 } from "lucide-react";
 
 interface BugItem {
-  id: string;
+  id: number;
   title: string;
   severity: string;
-  severityVariant: "danger" | "warning" | "info" | "muted";
   status: string;
-  statusVariant: "danger" | "warning" | "info" | "success" | "muted";
-  reporter: string;
-  assignee: string;
-  project: string;
-  created: string;
-  updated: string;
+  reporter_id: number | null;
+  assignee_id: number | null;
+  project_id: number;
+  created_at: string;
+  resolved_at: string | null;
 }
-
-const severityVariantMap: Record<string, BugItem["severityVariant"]> = {
-  Critical: "danger",
-  High: "warning",
-  Medium: "info",
-  Low: "muted",
-};
-
-const statusVariantMap: Record<string, BugItem["statusVariant"]> = {
-  Open: "danger",
-  "In Progress": "info",
-  "In Review": "warning",
-  Resolved: "success",
-  Closed: "muted",
-};
 
 export default function BugsPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,24 +40,16 @@ export default function BugsPage() {
 
   useEffect(() => {
     apiGet<{ items: BugItem[] }>("/projects/bugs/list")
-      .then((res) =>
-        setBugs(
-          res.items.map((b) => ({
-            ...b,
-            severityVariant: severityVariantMap[b.severity] || "info",
-            statusVariant: statusVariantMap[b.status] || "info",
-          }))
-        )
-      )
+      .then((res) => setBugs(res.items || []))
       .catch(() => setBugs([]))
       .finally(() => setLoading(false));
   }, []);
 
   const bugStats = [
-    { label: "Open Bugs", value: String(bugs.filter((b) => b.status === "Open").length), change: `${bugs.filter((b) => b.severity === "Critical" && b.status === "Open").length} Critical`, color: "text-danger" },
-    { label: "In Progress", value: String(bugs.filter((b) => b.status === "In Progress").length), change: `${bugs.filter((b) => b.severity === "High" && b.status === "In Progress").length} High`, color: "text-info" },
-    { label: "Resolved", value: String(bugs.filter((b) => b.status === "Resolved").length), change: "This month", color: "text-success" },
-    { label: "Avg. Resolution", value: "2.3d", change: "-0.5d vs last month", color: "text-primary" },
+    { label: "Open Bugs", value: String(bugs.filter((b) => b.status === "open").length), change: `${bugs.filter((b) => b.severity === "critical" && b.status === "open").length} Critical`, color: "text-danger" },
+    { label: "In Progress", value: String(bugs.filter((b) => b.status === "in_progress").length), change: `${bugs.filter((b) => b.severity === "high" && b.status === "in_progress").length} High`, color: "text-info" },
+    { label: "Resolved", value: String(bugs.filter((b) => b.status === "resolved").length), change: "This month", color: "text-success" },
+    { label: "Total", value: String(bugs.length), change: "", color: "text-primary" },
   ];
 
   const filteredBugs = bugs.filter((b) => {
@@ -108,7 +83,7 @@ export default function BugsPage() {
         icon={<Bug className="h-6 w-6 text-danger" />}
         actions={
           <a
-            href="/projects/bugs/list/new"
+            href="/projects/bugs/new"
             className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />
@@ -154,10 +129,10 @@ export default function BugsPage() {
                 className="px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               >
                 <option value="All">Severity: All</option>
-                <option value="Critical">Critical</option>
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
               </select>
               <select
                 value={selectedStatus}
@@ -165,10 +140,10 @@ export default function BugsPage() {
                 className="px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               >
                 <option value="All">Status: All</option>
-                <option value="Open">Open</option>
-                <option value="In Progress">In Progress</option>
-                <option value="In Review">In Review</option>
-                <option value="Resolved">Resolved</option>
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="in_review">In Review</option>
+                <option value="resolved">Resolved</option>
               </select>
             </div>
           </div>
@@ -212,51 +187,39 @@ export default function BugsPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">
-                          {bug.id}
+                          BUG-{bug.id}
                         </span>
                       </div>
                       <p className="text-sm font-medium mt-0.5">{bug.title}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {bug.project}
+                        Project #{bug.project_id}
                       </p>
                     </div>
                   </td>
                   <td className="py-3 px-4 hidden md:table-cell">
-                    <StatusBadge
-                      status={bug.severity}
-                      variant={bug.severityVariant}
-                    />
+                    <StatusBadge status={bug.severity} />
                   </td>
                   <td className="py-3 px-4 hidden lg:table-cell">
                     <span className="text-sm text-muted-foreground">
-                      {bug.reporter}
+                      {bug.reporter_id ? `User #${bug.reporter_id}` : "—"}
                     </span>
                   </td>
                   <td className="py-3 px-4 hidden xl:table-cell">
-                    <span
-                      className={`text-sm ${
-                        bug.assignee === "Unassigned"
-                          ? "text-muted-foreground italic"
-                          : ""
-                      }`}
-                    >
-                      {bug.assignee}
+                    <span className="text-sm">
+                      {bug.assignee_id ? `User #${bug.assignee_id}` : "Unassigned"}
                     </span>
                   </td>
                   <td className="py-3 px-4 hidden lg:table-cell">
                     <span className="text-sm text-muted-foreground">
-                      {bug.updated}
+                      {bug.created_at ? new Date(bug.created_at).toLocaleDateString() : "—"}
                     </span>
                   </td>
                   <td className="py-3 px-4">
-                    <StatusBadge
-                      status={bug.status}
-                      variant={bug.statusVariant}
-                    />
+                    <StatusBadge status={bug.status} />
                   </td>
                   <td className="py-3 px-4 text-right">
                     <a
-                      href={`/projects/bugs/list/${bug.id}`}
+                      href={`/projects/bugs/${bug.id}`}
                       className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground inline-flex"
                     >
                       <Eye className="h-4 w-4" />
