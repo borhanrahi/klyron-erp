@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { apiPost } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { apiGet, apiPut } from "@/lib/api";
 import { PageHeader } from "@/components/common/PageHeader";
 import {
   FolderKanban,
@@ -11,14 +11,34 @@ import {
   Calendar,
   DollarSign,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 
 const STATUSES = ["planning", "in progress", "on hold", "completed", "cancelled"];
 const PRIORITIES = ["low", "medium", "high", "critical"];
 const BILLING_TYPES = ["fixed", "hourly", "milestone", "retainer"];
 
-export default function NewProjectPage() {
+interface Project {
+  id: number;
+  code: string;
+  name: string;
+  client_id: number | null;
+  manager_id: number | null;
+  budget: number;
+  start_date: string | null;
+  end_date: string | null;
+  status: string;
+  priority: string;
+  progress_pct: number;
+  billing_type: string | null;
+}
+
+export default function EditProjectPage() {
   const router = useRouter();
+  const params = useParams();
+  const projectId = params.id as string;
+
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +52,34 @@ export default function NewProjectPage() {
   const [budget, setBudget] = useState("");
   const [managerId, setManagerId] = useState("");
   const [clientId, setClientId] = useState("");
-  const [description, setDescription] = useState("");
+
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await apiGet<{ data: Project }>(`/projects/${projectId}`);
+        if (cancelled) return;
+        const p = res.data;
+        setCode(p.code);
+        setName(p.name);
+        setStatus(p.status);
+        setPriority(p.priority);
+        setBillingType(p.billing_type ?? "");
+        setStartDate(p.start_date ? p.start_date.slice(0, 10) : "");
+        setEndDate(p.end_date ? p.end_date.slice(0, 10) : "");
+        setBudget(p.budget?.toString() ?? "");
+        setManagerId(p.manager_id?.toString() ?? "");
+        setClientId(p.client_id?.toString() ?? "");
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load project");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [projectId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +90,7 @@ export default function NewProjectPage() {
     setSaving(true);
     setError(null);
     try {
-      await apiPost("/projects", {
+      await apiPut(`/projects/${projectId}`, {
         code: code.trim(),
         name: name.trim(),
         status,
@@ -55,33 +102,66 @@ export default function NewProjectPage() {
         manager_id: managerId ? parseInt(managerId) : null,
         client_id: clientId ? parseInt(clientId) : null,
       });
-      router.push("/projects/projects");
+      router.push(`/projects/projects/${projectId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create project");
+      setError(err instanceof Error ? err.message : "Failed to update project");
     } finally {
       setSaving(false);
     }
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error && !name) {
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          title="Project Not Found"
+          icon={<FolderKanban className="h-6 w-6 text-primary" />}
+          actions={
+            <button
+              onClick={() => router.back()}
+              className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </button>
+          }
+        />
+        <div className="rounded-2xl border border-border bg-card p-8 text-center">
+          <AlertTriangle className="h-12 w-12 text-warning mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
       <PageHeader
-        title="Create New Project"
-        description="Set up a new project with details and milestones."
+        title={`Edit ${name}`}
+        description={`Editing project ${code}`}
         breadcrumbs={[
           { label: "Projects", href: "/projects" },
           { label: "Projects", href: "/projects/projects" },
-          { label: "New Project" },
+          { label: name, href: `/projects/projects/${projectId}` },
+          { label: "Edit" },
         ]}
         icon={<FolderKanban className="h-6 w-6 text-primary" />}
         actions={
-          <a
-            href="/projects/projects"
+          <button
+            onClick={() => router.back()}
             className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Projects
-          </a>
+            Back
+          </button>
         }
       />
 
@@ -101,7 +181,6 @@ export default function NewProjectPage() {
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="PRJ-009"
                 className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>
@@ -111,7 +190,6 @@ export default function NewProjectPage() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Enter project name"
                 className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>
@@ -219,19 +297,20 @@ export default function NewProjectPage() {
         </div>
 
         <div className="flex items-center justify-end gap-3">
-          <a
-            href="/projects/projects"
+          <button
+            type="button"
+            onClick={() => router.back()}
             className="border border-border bg-muted text-foreground px-6 py-2.5 rounded-lg font-medium transition-all hover:bg-muted/80"
           >
             Cancel
-          </a>
+          </button>
           <button
             type="submit"
             disabled={saving}
             className="bg-primary text-white px-6 py-2.5 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2 disabled:opacity-50"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {saving ? "Creating..." : "Create Project"}
+            {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </form>

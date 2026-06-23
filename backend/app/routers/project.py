@@ -100,7 +100,12 @@ async def create_project(
     project = Project(**data.model_dump(exclude={"company_id"}), company_id=current_user.company_id)
     db.add(project)
     await db.flush()
-    await db.refresh(project)
+    result = await db.execute(
+        select(Project)
+        .options(selectinload(Project.tasks), selectinload(Project.milestones))
+        .where(Project.id == project.id)
+    )
+    project = result.scalars().unique().one()
     return ResponseModel(data=ProjectResponse.model_validate(project))
 
 
@@ -112,13 +117,15 @@ async def update_project(
     current_user: User = Depends(require_company),
 ):
     result = await db.execute(
-        select(Project).where(
+        select(Project)
+        .options(selectinload(Project.tasks), selectinload(Project.milestones))
+        .where(
             Project.id == project_id,
             Project.company_id == current_user.company_id,
             Project.deleted_at.is_(None),
         )
     )
-    project = result.scalar_one_or_none()
+    project = result.scalars().unique().one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     for k, v in data.model_dump(exclude_unset=True).items():

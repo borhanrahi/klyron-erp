@@ -170,7 +170,10 @@ export default function ProjectDetailPage() {
               <ArrowLeft className="h-4 w-4" />
               Back
             </button>
-            <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
+            <button
+              onClick={() => router.push(`/projects/projects/${projectId}/edit`)}
+              className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2"
+            >
               <Edit className="h-4 w-4" />
               Edit Project
             </button>
