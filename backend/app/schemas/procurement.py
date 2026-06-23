@@ -280,3 +280,40 @@ class SupplierPaymentResponse(SupplierPaymentBase):
 
     class Config:
         from_attributes = True
+
+
+# ── RequestForQuotation ─────────────────────────────────────────────────────
+
+class RFQBase(BaseModel):
+    rfq_number: str
+    title: str
+    description: Optional[str] = None
+    supplier_id: Optional[int] = None
+    status: str = "draft"
+    issue_date: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    total_amount: float = 0
+
+
+class RFQCreate(RFQBase):
+    company_id: Optional[int] = None
+
+
+class RFQUpdate(BaseModel):
+    rfq_number: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    supplier_id: Optional[int] = None
+    status: Optional[str] = None
+    issue_date: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    total_amount: Optional[float] = None
+
+
+class RFQResponse(RFQBase):
+    id: int
+    company_id: Optional[int] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

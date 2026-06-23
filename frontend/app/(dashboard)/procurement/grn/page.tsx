@@ -1,272 +1,182 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet, apiDelete } from "@/lib/api";
 import {
   Search,
   Plus,
-  Filter,
-  Download,
   Eye,
-  Edit,
   Trash2,
-  Calendar,
-  Building2,
   Package,
-  CheckCircle,
+  Loader2,
 } from "lucide-react";
 
-const goodsReceiptNotes = [
-  {
-    id: "GRN-2024-001",
-    poReference: "PO-2024-001",
-    supplier: "TechParts International",
-    receivedDate: "2024-01-22",
-    receivedBy: "Alice Johnson",
-    items: 12,
-    totalQuantity: 15,
-    status: "Accepted",
-    condition: "Good",
-  },
-  {
-    id: "GRN-2024-002",
-    poReference: "PO-2024-003",
-    supplier: "Packaging Solutions Ltd",
-    receivedDate: "2024-01-20",
-    receivedBy: "Bob Smith",
-    items: 8,
-    totalQuantity: 500,
-    status: "Accepted",
-    condition: "Good",
-  },
-  {
-    id: "GRN-2024-003",
-    poReference: "PO-2024-004",
-    supplier: "Office Supplies Direct",
-    receivedDate: "2024-01-18",
-    receivedBy: "Carol Williams",
-    items: 15,
-    totalQuantity: 200,
-    status: "Partial",
-    condition: "Mixed",
-  },
-  {
-    id: "GRN-2024-004",
-    poReference: "PO-2024-006",
-    supplier: "Industrial Equipment Inc",
-    receivedDate: "2024-01-17",
-    receivedBy: "David Brown",
-    items: 3,
-    totalQuantity: 3,
-    status: "Rejected",
-    condition: "Damaged",
-  },
-  {
-    id: "GRN-2024-005",
-    poReference: "PO-2024-002",
-    supplier: "Global Materials Co",
-    receivedDate: "2024-01-25",
-    receivedBy: "Eva Martinez",
-    items: 6,
-    totalQuantity: 60,
-    status: "Pending Inspection",
-    condition: "N/A",
-  },
-];
+function fmtDate(s?: string | null) {
+  if (!s) return "—";
+  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
 
-export default function GRNPage() {
+const STATUS_VARIANT: Record<string, "success" | "warning" | "danger" | "info" | "muted"> = {
+  draft: "muted", received: "success", partial: "warning", rejected: "danger", confirmed: "info",
+};
+
+interface GRNItem {
+  id: number;
+  grn_id: number;
+  po_item_id?: number;
+  received_qty: number;
+  accepted_qty: number;
+  rejected_qty: number;
+  reason?: string;
+}
+
+interface GRNRecord {
+  id: number;
+  grn_number: string;
+  po_id?: number;
+  date?: string;
+  received_by?: number;
+  status: string;
+  warehouse_id?: number;
+  notes?: string;
+  created_at?: string;
+  items?: GRNItem[];
+}
+
+export default function GRNListPage() {
+  const router = useRouter();
+  const [grns, setGrns] = useState<GRNRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
 
-  const statuses = [
-    "All",
-    "Accepted",
-    "Partial",
-    "Rejected",
-    "Pending Inspection",
-  ];
+  const fetchGRNs = () => {
+    setLoading(true);
+    apiGet<{ items: GRNRecord[] }>("/procurement/grn")
+      .then((res) => setGrns(res.items || []))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  };
 
-  const filteredGRN = goodsReceiptNotes.filter((grn) => {
-    const matchesSearch =
-      grn.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      grn.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      grn.poReference.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      filterStatus === "All" || grn.status === filterStatus;
-    return matchesSearch && matchesStatus;
+  useEffect(() => { fetchGRNs(); }, []);
+
+  const filtered = grns.filter((g) => {
+    const matchSearch = g.grn_number.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchStatus = statusFilter === "All" || g.status === statusFilter;
+    return matchSearch && matchStatus;
   });
 
+  const stats = {
+    total: grns.length,
+    draft: grns.filter((g) => g.status === "draft").length,
+    received: grns.filter((g) => g.status === "received").length,
+    partial: grns.filter((g) => g.status === "partial").length,
+  };
+
+  async function handleDelete(id: number) {
+    if (!confirm("Delete this GRN?")) return;
+    try {
+      await apiDelete(`/procurement/grn/${id}`);
+      fetchGRNs();
+    } catch { alert("Failed to delete GRN"); }
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in-0 duration-200">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+        <span>Procurement</span>
+        <span className="text-primary font-bold border-b-2 border-primary pb-0.5">Goods Received Notes</span>
+      </div>
+
       <PageHeader
-        title="Goods Receipt Notes"
-        description="Track received goods and inventory updates"
-        breadcrumbs={[
-          { label: "Dashboard", href: "/" },
-          { label: "Procurement", href: "/procurement" },
-          { label: "GRN" },
-        ]}
+        title="Goods Received Notes"
+        description="Track received goods against purchase orders."
+        icon={<Package className="h-6 w-6 text-primary" />}
         actions={
-          <button className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors">
-            <Plus className="h-4 w-4" />
-            New GRN
+          <button onClick={() => router.push("/procurement/grn/new")} className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2">
+            <Plus className="h-4 w-4" /> New GRN
           </button>
         }
       />
 
-      <div className="bg-card rounded-xl border border-border p-6">
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search GRNs..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          { label: "Total GRNs", value: stats.total, color: "text-foreground" },
+          { label: "Draft", value: stats.draft, color: "text-muted-foreground" },
+          { label: "Received", value: stats.received, color: "text-success" },
+          { label: "Partial", value: stats.partial, color: "text-warning" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <p className="text-sm text-muted-foreground">{s.label}</p>
+            <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
           </div>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            {statuses.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
-          <button className="flex items-center gap-2 px-4 py-2 border border-border bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors">
-            <Download className="h-4 w-4" />
-            Export
-          </button>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card shadow-sm">
+        <div className="p-4 border-b border-border">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input type="text" placeholder="Search GRNs..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+            </div>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
+              <option value="All">Status: All</option>
+              <option value="draft">Draft</option>
+              <option value="received">Received</option>
+              <option value="partial">Partial</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">
-                  GRN Number
-                </th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">
-                  PO Reference
-                </th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">
-                  Supplier
-                </th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">
-                  Received Date
-                </th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">
-                  Received By
-                </th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">
-                  Items
-                </th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">
-                  Qty
-                </th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">
-                  Condition
-                </th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">
-                  Status
-                </th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredGRN.map((grn) => (
-                <tr
-                  key={grn.id}
-                  className="border-b border-border hover:bg-muted/50 transition-colors"
-                >
-                  <td className="py-4 px-4">
-                    <span className="font-medium text-primary">{grn.id}</span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-muted-foreground">
-                      {grn.poReference}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-foreground">{grn.supplier}</span>
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-foreground">
-                        {grn.receivedDate}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-foreground">{grn.receivedBy}</span>
-                  </td>
-                  <td className="py-4 px-4 text-foreground">{grn.items}</td>
-                  <td className="py-4 px-4 text-foreground">
-                    {grn.totalQuantity}
-                  </td>
-                  <td className="py-4 px-4">
-                    <span
-                      className={`px-2 py-1 rounded-full text-sm ${
-                        grn.condition === "Good"
-                          ? "bg-success/20 text-success"
-                          : grn.condition === "Damaged"
-                          ? "bg-danger/20 text-danger"
-                          : grn.condition === "Mixed"
-                          ? "bg-warning/20 text-warning"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {grn.condition}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <StatusBadge status={grn.status} />
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-2">
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      </button>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-                        <Edit className="h-4 w-4 text-muted-foreground" />
-                      </button>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-                        <Trash2 className="h-4 w-4 text-danger" />
-                      </button>
-                    </div>
-                  </td>
+          {loading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground"><Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading GRNs...</div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-12 text-danger">{error}</div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">GRN Number</th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">PO Reference</th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">Date</th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Items</th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Status</th>
+                  <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {filtered.map((grn) => (
+                  <tr key={grn.id} className="hover:bg-muted/5 transition-colors">
+                    <td className="py-3 px-4"><span className="text-sm font-medium text-primary">{grn.grn_number}</span></td>
+                    <td className="py-3 px-4 hidden md:table-cell"><span className="text-sm text-muted-foreground">{grn.po_id ? `PO-${grn.po_id}` : "—"}</span></td>
+                    <td className="py-3 px-4 hidden lg:table-cell"><span className="text-sm text-muted-foreground">{fmtDate(grn.date || grn.created_at)}</span></td>
+                    <td className="py-3 px-4"><span className="text-sm text-muted-foreground">{grn.items?.length || 0} items</span></td>
+                    <td className="py-3 px-4"><StatusBadge status={grn.status} variant={STATUS_VARIANT[grn.status] || "muted"} /></td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => router.push(`/procurement/grn/${grn.id}`)} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"><Eye className="h-4 w-4" /></button>
+                        <button onClick={() => handleDelete(grn.id)} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger"><Trash2 className="h-4 w-4" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr><td colSpan={6} className="py-12 text-center text-muted-foreground">No GRNs found</td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
-        <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredGRN.length} of {goodsReceiptNotes.length} GRNs
-          </p>
-          <div className="flex items-center gap-2">
-            <button className="px-3 py-1 border border-border bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors">
-              Previous
-            </button>
-            <button className="px-3 py-1 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-              1
-            </button>
-            <button className="px-3 py-1 border border-border bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors">
-              Next
-            </button>
-          </div>
+        <div className="p-4 border-t border-border">
+          <p className="text-sm text-muted-foreground">Showing {filtered.length} of {grns.length} GRNs</p>
         </div>
       </div>
     </div>

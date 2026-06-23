@@ -1,22 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiDelete } from "@/lib/api";
 import {
   Search,
   Plus,
-  Filter,
   Download,
   Star,
-  Phone,
   Mail,
-  MapPin,
-  MoreVertical,
   Eye,
   Edit,
   Trash2,
+  Loader2,
 } from "lucide-react";
 
 interface Supplier {
@@ -34,17 +32,54 @@ interface Supplier {
 }
 
 export default function SuppliersPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const fetchSuppliers = useCallback(async () => {
+    try {
+      const res = await apiGet<{ items: any[] }>("/procurement/suppliers");
+      setSuppliers(
+        res.items.map((s: any) => ({
+          id: s.id,
+          name: s.name || s.company_name || "",
+          contact: s.contact_person || s.contact || "",
+          email: s.email || "",
+          phone: s.phone || "",
+          location: s.location || s.address || "",
+          category: s.category || "",
+          rating: s.rating || 0,
+          balance: s.balance || s.outstanding_balance || 0,
+          status: s.status || "Active",
+          since: s.created_at || s.since || "",
+        }))
+      );
+    } catch {
+      setSuppliers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    apiGet<{ items: Supplier[] }>("/procurement/suppliers")
-      .then((res) => setSuppliers(res.items))
-      .catch(() => setSuppliers([]))
-      .finally(() => setLoading(false));
-  }, []);
+    fetchSuppliers();
+  }, [fetchSuppliers]);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this supplier?")) return;
+    setDeleting(id);
+    try {
+      await apiDelete(`/procurement/suppliers/${id}`);
+      setSuppliers((prev) => prev.filter((s) => s.id !== id));
+    } catch {
+      alert("Failed to delete supplier. Please try again.");
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   const categories = [
     "All",
@@ -68,7 +103,7 @@ export default function SuppliersPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -84,7 +119,10 @@ export default function SuppliersPage() {
           { label: "Suppliers" },
         ]}
         actions={
-          <button className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors">
+          <button
+            onClick={() => router.push("/procurement/suppliers/new")}
+            className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors"
+          >
             <Plus className="h-4 w-4" />
             Add Supplier
           </button>
@@ -191,14 +229,27 @@ export default function SuppliersPage() {
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors">
+                      <button
+                        onClick={() =>
+                          router.push(`/procurement/suppliers/${supplier.id}`)
+                        }
+                        className="p-2 hover:bg-muted rounded-lg transition-colors"
+                      >
                         <Eye className="h-4 w-4 text-muted-foreground" />
                       </button>
                       <button className="p-2 hover:bg-muted rounded-lg transition-colors">
                         <Edit className="h-4 w-4 text-muted-foreground" />
                       </button>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-                        <Trash2 className="h-4 w-4 text-danger" />
+                      <button
+                        onClick={() => handleDelete(supplier.id)}
+                        disabled={deleting === supplier.id}
+                        className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {deleting === supplier.id ? (
+                          <Loader2 className="h-4 w-4 text-danger animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4 text-danger" />
+                        )}
                       </button>
                     </div>
                   </td>

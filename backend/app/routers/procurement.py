@@ -12,6 +12,7 @@ from app.models.auth import User
 from app.models.procurement import (
     Supplier, PurchaseRequisition, PRItem,
     PurchaseOrder, POItem, GRN, GRNItem, SupplierPayment,
+    RequestForQuotation,
 )
 from app.schemas.procurement import (
     SupplierCreate, SupplierUpdate, SupplierResponse,
@@ -22,6 +23,7 @@ from app.schemas.procurement import (
     GRNCreate, GRNUpdate, GRNResponse,
     GRNItemCreate, GRNItemResponse,
     SupplierPaymentCreate, SupplierPaymentUpdate, SupplierPaymentResponse,
+    RFQCreate, RFQUpdate, RFQResponse,
 )
 from app.schemas.common import PaginatedResponse, ResponseModel
 
@@ -671,3 +673,118 @@ async def delete_supplier_payment(
     payment.deleted_at = datetime.utcnow()
     await db.flush()
     return ResponseModel(message="Supplier payment deleted")
+
+
+# ── RFQ ──
+
+@router.get("/rfqs", response_model=PaginatedResponse)
+async def list_rfqs(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(25, ge=1, le=100),
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    query = select(RequestForQuotation).where(
+        RequestForQuotation.company_id == current_user.company_id,
+        RequestForQuotation.deleted_at.is_(None),
+    )
+    count_query = select(sa_func.count()).select_from(RequestForQuotation).where(
+        RequestForQuotation.company_id == current_user.company_id,
+        RequestForQuotation.deleted_at.is_(None),
+    )
+
+    if search:
+        query = query.where(RequestForQuotation.title.ilike(f"%{search}%"))
+        count_query = count_query.where(RequestForQuotation.title.ilike(f"%{search}%"))
+
+    if status:
+        query = query.where(RequestForQuotation.status == status)
+        count_query = count_query.where(RequestForQuotation.status == status)
+
+    total = (await db.execute(count_query)).scalar() or 0
+    query = query.order_by(RequestForQuotation.created_at.desc()).offset(
+        (page - 1) * per_page
+    ).limit(per_page)
+    result = await db.execute(query)
+    items = result.scalars().all()
+
+    return PaginatedResponse(
+        items=[RFQResponse.model_validate(i) for i in items],
+        total=total,
+        page=page,
+        per_page=per_page,
+        pages=(total + per_page - 1) // per_page,
+    )
+
+
+@router.get("/rfqs/{rfq_id}", response_model=ResponseModel)
+async def get_rfq(
+    rfq_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    result = await db.execute(select(RequestForQuotation).where(
+        RequestForQuotation.id == rfq_id,
+        RequestForQuotation.company_id == current_user.company_id,
+        RequestForQuotation.deleted_at.is_(None),
+    ))
+    rfq = result.scalar_one_or_none()
+    if not rfq:
+        raise HTTPException(status_code=404, detail="RFQ not found")
+    return ResponseModel(data=RFQResponse.model_validate(rfq))
+
+
+@router.post("/rfqs", response_model=ResponseModel, status_code=201)
+async def create_rfq(
+    data: RFQCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    rfq = RequestForQuotation(**data.model_dump(exclude={"company_id"}), company_id=current_user.company_id)
+    db.add(rfq)
+    await db.flush()
+    await db.refresh(rfq)
+    return ResponseModel(data=RFQResponse.model_validate(rfq))
+
+
+@router.put("/rfqs/{rfq_id}", response_model=ResponseModel)
+async def update_rfq(
+    rfq_id: int,
+    data: RFQUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    result = await db.execute(select(RequestForQuotation).where(
+        RequestForQuotation.id == rfq_id,
+        RequestForQuotation.company_id == current_user.company_id,
+        RequestForQuotation.deleted_at.is_(None),
+    ))
+    rfq = result.scalar_one_or_none()
+    if not rfq:
+        raise HTTPException(status_code=404, detail="RFQ not found")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(rfq, k, v)
+    await db.flush()
+    await db.refresh(rfq)
+    return ResponseModel(data=RFQResponse.model_validate(rfq))
+
+
+@router.delete("/rfqs/{rfq_id}", response_model=ResponseModel)
+async def delete_rfq(
+    rfq_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    result = await db.execute(select(RequestForQuotation).where(
+        RequestForQuotation.id == rfq_id,
+        RequestForQuotation.company_id == current_user.company_id,
+        RequestForQuotation.deleted_at.is_(None),
+    ))
+    rfq = result.scalar_one_or_none()
+    if not rfq:
+        raise HTTPException(status_code=404, detail="RFQ not found")
+    rfq.deleted_at = datetime.utcnow()
+    await db.flush()
+    return ResponseModel(message="RFQ deleted")

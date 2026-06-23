@@ -1,54 +1,66 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiDelete } from "@/lib/api";
 import {
   Search,
   Plus,
-  Filter,
   Download,
   Eye,
-  Edit,
   Trash2,
   Calendar,
   Building2,
-  Truck,
 } from "lucide-react";
 
 interface PurchaseOrder {
-  id: string;
-  supplier: string;
-  date: string;
-  deliveryDate: string;
-  amount: number;
+  id: number;
+  po_number: string;
+  supplier_id: number;
   status: string;
-  items: number;
-  prReference: string;
+  total: number;
+  delivery_date: string;
+  created_at: string;
+  items: { id: number; item_id: number; qty: number; unit_price: number; tax: number; total: number }[];
 }
 
 export default function PurchaseOrdersPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await apiGet<{ items: PurchaseOrder[] }>("/procurement/orders");
+      setPurchaseOrders(res.items);
+    } catch {
+      setError("Failed to load purchase orders.");
+      setPurchaseOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    apiGet<{ items: any[] }>("/procurement/orders")
-      .then((res) => setPurchaseOrders(res.items.map((po: any) => ({
-        id: po.order_number || `PO-${po.id}`,
-        supplier: po.supplier_name || po.supplier || "",
-        date: po.order_date || po.created_at || "",
-        deliveryDate: po.expected_delivery || po.delivery_date || "",
-        amount: po.total_amount || po.total || 0,
-        status: po.status || "Draft",
-        items: Array.isArray(po.items) ? po.items.length : 0,
-        prReference: po.pr_reference || po.requisition_number || "",
-      }))))
-      .catch(() => setPurchaseOrders([]))
-      .finally(() => setLoading(false));
+    fetchOrders();
   }, []);
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Delete this purchase order?")) return;
+    try {
+      await apiDelete(`/procurement/orders/${id}`);
+      fetchOrders();
+    } catch {
+      alert("Failed to delete purchase order.");
+    }
+  };
 
   const statuses = [
     "All",
@@ -62,10 +74,10 @@ export default function PurchaseOrdersPage() {
 
   const filteredOrders = purchaseOrders.filter((po) => {
     const matchesSearch =
-      po.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      po.supplier.toLowerCase().includes(searchTerm.toLowerCase());
+      po.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      po.status.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
-      filterStatus === "All" || po.status === filterStatus;
+      filterStatus === "All" || po.status.toLowerCase() === filterStatus.toLowerCase();
     return matchesSearch && matchesStatus;
   });
 
@@ -88,12 +100,21 @@ export default function PurchaseOrdersPage() {
           { label: "Purchase Orders" },
         ]}
         actions={
-          <button className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors">
+          <button
+            onClick={() => router.push("/procurement/purchase-orders/new")}
+            className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors"
+          >
             <Plus className="h-4 w-4" />
             Create PO
           </button>
         }
       />
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
 
       <div className="bg-card rounded-xl border border-border p-6">
         <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -135,19 +156,13 @@ export default function PurchaseOrdersPage() {
                   Supplier
                 </th>
                 <th className="text-left py-3 px-4 text-muted-foreground font-medium">
-                  PR Reference
-                </th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">
-                  Order Date
-                </th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">
                   Delivery Date
                 </th>
                 <th className="text-left py-3 px-4 text-muted-foreground font-medium">
                   Items
                 </th>
                 <th className="text-left py-3 px-4 text-muted-foreground font-medium">
-                  Amount
+                  Total
                 </th>
                 <th className="text-left py-3 px-4 text-muted-foreground font-medium">
                   Status
@@ -164,55 +179,54 @@ export default function PurchaseOrdersPage() {
                   className="border-b border-border hover:bg-muted/50 transition-colors"
                 >
                   <td className="py-4 px-4">
-                    <span className="font-medium text-primary">{po.id}</span>
+                    <span className="font-medium text-primary">{po.po_number}</span>
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
                       <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-foreground">{po.supplier}</span>
+                      <span className="text-foreground">Supplier #{po.supplier_id}</span>
                     </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-muted-foreground">
-                      {po.prReference}
-                    </span>
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-foreground">{po.date}</span>
+                      <span className="text-foreground">{po.delivery_date || "—"}</span>
                     </div>
                   </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-2">
-                      <Truck className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-foreground">
-                        {po.deliveryDate}
-                      </span>
-                    </div>
+                  <td className="py-4 px-4 text-foreground">
+                    {Array.isArray(po.items) ? po.items.length : 0}
                   </td>
-                  <td className="py-4 px-4 text-foreground">{po.items}</td>
                   <td className="py-4 px-4 font-medium text-foreground">
-                    ${po.amount.toLocaleString()}
+                    ${Number(po.total).toLocaleString()}
                   </td>
                   <td className="py-4 px-4">
                     <StatusBadge status={po.status} />
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors">
+                      <button
+                        onClick={() => router.push(`/procurement/purchase-orders/${po.id}`)}
+                        className="p-2 hover:bg-muted rounded-lg transition-colors"
+                      >
                         <Eye className="h-4 w-4 text-muted-foreground" />
                       </button>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-                        <Edit className="h-4 w-4 text-muted-foreground" />
-                      </button>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors">
+                      <button
+                        onClick={() => handleDelete(po.id)}
+                        className="p-2 hover:bg-muted rounded-lg transition-colors"
+                      >
                         <Trash2 className="h-4 w-4 text-danger" />
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
+              {filteredOrders.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                    No purchase orders found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -222,17 +236,6 @@ export default function PurchaseOrdersPage() {
             Showing {filteredOrders.length} of {purchaseOrders.length} purchase
             orders
           </p>
-          <div className="flex items-center gap-2">
-            <button className="px-3 py-1 border border-border bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors">
-              Previous
-            </button>
-            <button className="px-3 py-1 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-              1
-            </button>
-            <button className="px-3 py-1 border border-border bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors">
-              Next
-            </button>
-          </div>
         </div>
       </div>
     </div>

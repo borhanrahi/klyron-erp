@@ -1,21 +1,24 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
+import { apiPost } from "@/lib/api";
 import {
   Save,
   X,
-  Upload,
   Building2,
   User,
   Mail,
   Phone,
   MapPin,
-  Globe,
   CreditCard,
+  Loader2,
 } from "lucide-react";
 
 export default function NewSupplierPage() {
+  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     contactPerson: "",
@@ -29,13 +32,38 @@ export default function NewSupplierPage() {
     category: "",
     paymentTerms: "",
     taxId: "",
+    creditLimit: "",
+    status: "Active",
     website: "",
     notes: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form submitted:", formData);
+    setSubmitting(true);
+    try {
+      await apiPost("/procurement/suppliers", {
+        name: formData.name,
+        contact_person: formData.contactPerson,
+        email: formData.email,
+        phone: formData.phone,
+        address: [formData.address, formData.city, formData.state, formData.zipCode, formData.country]
+          .filter(Boolean)
+          .join(", "),
+        tax_id: formData.taxId,
+        credit_limit: formData.creditLimit ? parseFloat(formData.creditLimit) : undefined,
+        category: formData.category,
+        payment_terms: formData.paymentTerms,
+        status: formData.status,
+        website: formData.website,
+        notes: formData.notes,
+      });
+      router.push("/procurement/suppliers");
+    } catch (err: any) {
+      alert(err?.message || "Failed to create supplier. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -51,16 +79,24 @@ export default function NewSupplierPage() {
         ]}
         actions={
           <div className="flex items-center gap-3">
-            <button className="px-4 py-2 border border-border bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors flex items-center gap-2">
+            <button
+              onClick={() => router.push("/procurement/suppliers")}
+              className="px-4 py-2 border border-border bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors flex items-center gap-2"
+            >
               <X className="h-4 w-4" />
               Cancel
             </button>
             <button
               onClick={handleSubmit}
-              className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors"
+              disabled={submitting}
+              className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              <Save className="h-4 w-4" />
-              Save Supplier
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {submitting ? "Saving..." : "Save Supplier"}
             </button>
           </div>
         }
@@ -111,17 +147,19 @@ export default function NewSupplierPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                Website
+                Status
               </label>
-              <input
-                type="url"
-                value={formData.website}
+              <select
+                value={formData.status}
                 onChange={(e) =>
-                  setFormData({ ...formData, website: e.target.value })
+                  setFormData({ ...formData, status: e.target.value })
                 }
                 className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="https://example.com"
-              />
+              >
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                <option value="Pending">Pending</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
@@ -135,6 +173,36 @@ export default function NewSupplierPage() {
                 }
                 className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="Enter tax ID"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Credit Limit
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.creditLimit}
+                onChange={(e) =>
+                  setFormData({ ...formData, creditLimit: e.target.value })
+                }
+                className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Website
+              </label>
+              <input
+                type="url"
+                value={formData.website}
+                onChange={(e) =>
+                  setFormData({ ...formData, website: e.target.value })
+                }
+                className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="https://example.com"
               />
             </div>
           </div>

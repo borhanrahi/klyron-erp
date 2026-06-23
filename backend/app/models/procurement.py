@@ -125,3 +125,19 @@ class SupplierPayment(Base):
     reference = Column(String(255))
     notes = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class RequestForQuotation(Base):
+    __tablename__ = "requests_for_quotation"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    rfq_number = Column(String(50), unique=True, nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"))
+    status = Column(String(20), default="draft")
+    issue_date = Column(DateTime(timezone=True), server_default=func.now())
+    due_date = Column(DateTime(timezone=True))
+    total_amount = Column(Numeric(15, 2), default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)

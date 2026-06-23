@@ -1,88 +1,130 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
+import { apiGet, apiPost } from "@/lib/api";
 import {
   Save,
   X,
   Plus,
   Trash2,
   Package,
-  FileText,
   Building2,
   Truck,
   CreditCard,
 } from "lucide-react";
 
-interface POItem {
+interface Supplier {
   id: number;
-  description: string;
-  quantity: number;
-  unit: string;
-  unitPrice: number;
+  name: string;
+}
+
+interface POItem {
+  item_id: number;
+  qty: number;
+  unit_price: number;
+  tax: number;
+  total: number;
 }
 
 export default function NewPurchaseOrderPage() {
+  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(true);
+
   const [formData, setFormData] = useState({
-    supplier: "",
-    prReference: "",
-    deliveryDate: "",
-    paymentTerms: "",
-    shippingMethod: "",
-    shippingAddress: "",
-    specialInstructions: "",
+    po_number: "",
+    supplier_id: "",
+    pr_id: "",
+    delivery_date: "",
+    terms: "Net 30",
+    subtotal: 0,
+    tax: 0,
+    total: 0,
   });
 
   const [items, setItems] = useState<POItem[]>([
-    { id: 1, description: "", quantity: 1, unit: "pcs", unitPrice: 0 },
+    { item_id: 0, qty: 1, unit_price: 0, tax: 0, total: 0 },
   ]);
 
+  useEffect(() => {
+    setLoadingSuppliers(true);
+    apiGet<{ items: Supplier[] }>("/procurement/suppliers")
+      .then((res) => setSuppliers(res.items))
+      .catch(() => setSuppliers([]))
+      .finally(() => setLoadingSuppliers(false));
+  }, []);
+
   const addItem = () => {
-    setItems([
-      ...items,
-      {
-        id: items.length + 1,
-        description: "",
-        quantity: 1,
-        unit: "pcs",
-        unitPrice: 0,
-      },
-    ]);
+    setItems([...items, { item_id: 0, qty: 1, unit_price: 0, tax: 0, total: 0 }]);
   };
 
-  const removeItem = (id: number) => {
+  const removeItem = (index: number) => {
     if (items.length > 1) {
-      setItems(items.filter((item) => item.id !== id));
+      setItems(items.filter((_, i) => i !== index));
     }
   };
 
-  const updateItem = (
-    id: number,
-    field: keyof POItem,
-    value: string | number
-  ) => {
+  const updateItem = (index: number, field: keyof POItem, value: number) => {
     setItems(
-      items.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
+      items.map((item, i) => {
+        if (i !== index) return item;
+        const updated = { ...item, [field]: value };
+        updated.total = updated.qty * updated.unit_price + updated.tax;
+        return updated;
+      })
     );
   };
 
-  const totalAmount = items.reduce(
-    (sum, item) => sum + item.quantity * item.unitPrice,
-    0
-  );
+  const calculateTotals = () => {
+    const subtotal = items.reduce((sum, item) => sum + item.qty * item.unit_price, 0);
+    const tax = items.reduce((sum, item) => sum + item.tax, 0);
+    return { subtotal, tax, total: subtotal + tax };
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const totals = calculateTotals();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form submitted:", { formData, items });
+    if (!formData.po_number || !formData.supplier_id) {
+      alert("PO Number and Supplier are required.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await apiPost("/procurement/orders", {
+        po_number: formData.po_number,
+        supplier_id: Number(formData.supplier_id),
+        pr_id: formData.pr_id ? Number(formData.pr_id) : null,
+        status: "draft",
+        subtotal: totals.subtotal,
+        tax: totals.tax,
+        total: totals.total,
+        delivery_date: formData.delivery_date,
+        terms: formData.terms,
+        items: items.map((item) => ({
+          item_id: item.item_id,
+          qty: item.qty,
+          unit_price: item.unit_price,
+          tax: item.tax,
+          total: item.total,
+        })),
+      });
+      router.push("/procurement/purchase-orders");
+    } catch {
+      alert("Failed to create purchase order.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Create Purchase Order"
-        description="Generate a new purchase order from requisition"
+        description="Generate a new purchase order"
         breadcrumbs={[
           { label: "Dashboard", href: "/" },
           { label: "Procurement", href: "/procurement" },
@@ -91,16 +133,20 @@ export default function NewPurchaseOrderPage() {
         ]}
         actions={
           <div className="flex items-center gap-3">
-            <button className="px-4 py-2 border border-border bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors flex items-center gap-2">
+            <button
+              onClick={() => router.push("/procurement/purchase-orders")}
+              className="px-4 py-2 border border-border bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors flex items-center gap-2"
+            >
               <X className="h-4 w-4" />
               Cancel
             </button>
             <button
               onClick={handleSubmit}
-              className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors"
+              disabled={submitting}
+              className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
-              Create PO
+              {submitting ? "Creating..." : "Create PO"}
             </button>
           </div>
         }
@@ -110,35 +156,38 @@ export default function NewPurchaseOrderPage() {
         <div className="bg-card rounded-xl border border-border p-6">
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <Building2 className="h-5 w-5" />
-            Supplier Information
+            Purchase Order Details
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                PO Number *
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.po_number}
+                onChange={(e) => setFormData({ ...formData, po_number: e.target.value })}
+                className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="e.g., PO-2026-001"
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
                 Supplier *
               </label>
               <select
                 required
-                value={formData.supplier}
-                onChange={(e) =>
-                  setFormData({ ...formData, supplier: e.target.value })
-                }
+                value={formData.supplier_id}
+                onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
                 className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="">Select supplier</option>
-                <option value="TechParts International">
-                  TechParts International
-                </option>
-                <option value="Global Materials Co">
-                  Global Materials Co
-                </option>
-                <option value="Packaging Solutions Ltd">
-                  Packaging Solutions Ltd
-                </option>
-                <option value="Office Supplies Direct">
-                  Office Supplies Direct
-                </option>
-                <option value="GreenTech Solutions">GreenTech Solutions</option>
+                <option value="">{loadingSuppliers ? "Loading..." : "Select supplier"}</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -146,13 +195,11 @@ export default function NewPurchaseOrderPage() {
                 PR Reference
               </label>
               <input
-                type="text"
-                value={formData.prReference}
-                onChange={(e) =>
-                  setFormData({ ...formData, prReference: e.target.value })
-                }
+                type="number"
+                value={formData.pr_id}
+                onChange={(e) => setFormData({ ...formData, pr_id: e.target.value })}
                 className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="e.g., PR-2024-001"
+                placeholder="PR ID"
               />
             </div>
           </div>
@@ -166,73 +213,24 @@ export default function NewPurchaseOrderPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                Required Delivery Date *
+                Delivery Date
               </label>
               <input
                 type="date"
-                required
-                value={formData.deliveryDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, deliveryDate: e.target.value })
-                }
+                value={formData.delivery_date}
+                onChange={(e) => setFormData({ ...formData, delivery_date: e.target.value })}
                 className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                Shipping Method
+                Payment Terms
               </label>
               <select
-                value={formData.shippingMethod}
-                onChange={(e) =>
-                  setFormData({ ...formData, shippingMethod: e.target.value })
-                }
+                value={formData.terms}
+                onChange={(e) => setFormData({ ...formData, terms: e.target.value })}
                 className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="">Select shipping method</option>
-                <option value="Standard">Standard Shipping</option>
-                <option value="Express">Express Shipping</option>
-                <option value="Overnight">Overnight</option>
-                <option value="Freight">Freight</option>
-                <option value="Pickup">Supplier Pickup</option>
-              </select>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Delivery Address
-              </label>
-              <textarea
-                value={formData.shippingAddress}
-                onChange={(e) =>
-                  setFormData({ ...formData, shippingAddress: e.target.value })
-                }
-                rows={2}
-                className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Enter delivery address..."
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-card rounded-xl border border-border p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Payment Information
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Payment Terms *
-              </label>
-              <select
-                required
-                value={formData.paymentTerms}
-                onChange={(e) =>
-                  setFormData({ ...formData, paymentTerms: e.target.value })
-                }
-                className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">Select payment terms</option>
                 <option value="Net 15">Net 15</option>
                 <option value="Net 30">Net 30</option>
                 <option value="Net 45">Net 45</option>
@@ -264,16 +262,16 @@ export default function NewPurchaseOrderPage() {
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">
-                    Description
+                    Item ID
                   </th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium w-24">
                     Qty
                   </th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium w-28">
-                    Unit
-                  </th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium w-32">
                     Unit Price
+                  </th>
+                  <th className="text-left py-3 px-4 text-muted-foreground font-medium w-32">
+                    Tax
                   </th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium w-32">
                     Total
@@ -282,73 +280,54 @@ export default function NewPurchaseOrderPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
-                  <tr key={item.id} className="border-b border-border">
+                {items.map((item, index) => (
+                  <tr key={index} className="border-b border-border">
                     <td className="py-3 px-4">
                       <input
-                        type="text"
-                        value={item.description}
-                        onChange={(e) =>
-                          updateItem(item.id, "description", e.target.value)
-                        }
+                        type="number"
+                        min="1"
+                        value={item.item_id || ""}
+                        onChange={(e) => updateItem(index, "item_id", parseInt(e.target.value) || 0)}
                         className="w-full px-3 py-1.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                        placeholder="Item description"
+                        placeholder="Item ID"
                       />
                     </td>
                     <td className="py-3 px-4">
                       <input
                         type="number"
                         min="1"
-                        value={item.quantity}
-                        onChange={(e) =>
-                          updateItem(
-                            item.id,
-                            "quantity",
-                            parseInt(e.target.value) || 1
-                          )
-                        }
+                        value={item.qty}
+                        onChange={(e) => updateItem(index, "qty", parseInt(e.target.value) || 1)}
                         className="w-full px-3 py-1.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                       />
-                    </td>
-                    <td className="py-3 px-4">
-                      <select
-                        value={item.unit}
-                        onChange={(e) =>
-                          updateItem(item.id, "unit", e.target.value)
-                        }
-                        className="w-full px-3 py-1.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
-                        <option value="pcs">Pieces</option>
-                        <option value="kg">Kilograms</option>
-                        <option value="ltr">Liters</option>
-                        <option value="m">Meters</option>
-                        <option value="box">Boxes</option>
-                        <option value="set">Sets</option>
-                      </select>
                     </td>
                     <td className="py-3 px-4">
                       <input
                         type="number"
                         min="0"
                         step="0.01"
-                        value={item.unitPrice}
-                        onChange={(e) =>
-                          updateItem(
-                            item.id,
-                            "unitPrice",
-                            parseFloat(e.target.value) || 0
-                          )
-                        }
+                        value={item.unit_price}
+                        onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-1.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </td>
+                    <td className="py-3 px-4">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.tax}
+                        onChange={(e) => updateItem(index, "tax", parseFloat(e.target.value) || 0)}
                         className="w-full px-3 py-1.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </td>
                     <td className="py-3 px-4 font-medium text-foreground">
-                      ${(item.quantity * item.unitPrice).toFixed(2)}
+                      ${item.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="py-3 px-4">
                       <button
                         type="button"
-                        onClick={() => removeItem(item.id)}
+                        onClick={() => removeItem(index)}
                         className="p-1.5 hover:bg-muted rounded-lg transition-colors"
                         disabled={items.length === 1}
                       >
@@ -360,37 +339,35 @@ export default function NewPurchaseOrderPage() {
               </tbody>
               <tfoot>
                 <tr className="border-t border-border">
-                  <td
-                    colSpan={4}
-                    className="py-3 px-4 text-right font-medium text-foreground"
-                  >
-                    Total Amount:
+                  <td colSpan={4} className="py-3 px-4 text-right font-medium text-foreground">
+                    Subtotal:
                   </td>
                   <td className="py-3 px-4 font-bold text-lg text-foreground">
-                    ${totalAmount.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                    })}
+                    ${totals.subtotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </td>
+                  <td></td>
+                </tr>
+                <tr className="border-t border-border">
+                  <td colSpan={4} className="py-3 px-4 text-right font-medium text-foreground">
+                    Tax:
+                  </td>
+                  <td className="py-3 px-4 font-bold text-lg text-foreground">
+                    ${totals.tax.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </td>
+                  <td></td>
+                </tr>
+                <tr className="border-t border-border">
+                  <td colSpan={4} className="py-3 px-4 text-right font-bold text-foreground">
+                    Total:
+                  </td>
+                  <td className="py-3 px-4 font-bold text-xl text-foreground">
+                    ${totals.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </td>
                   <td></td>
                 </tr>
               </tfoot>
             </table>
           </div>
-        </div>
-
-        <div className="bg-card rounded-xl border border-border p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">
-            Special Instructions
-          </h2>
-          <textarea
-            value={formData.specialInstructions}
-            onChange={(e) =>
-              setFormData({ ...formData, specialInstructions: e.target.value })
-            }
-            rows={3}
-            className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            placeholder="Add any special instructions for the supplier..."
-          />
         </div>
       </form>
     </div>
