@@ -130,6 +130,15 @@
 - [x] **All 21 finance pages** now fetch from real backend API — zero hardcoded/mock data
 - [x] Build compiles cleanly, committed and pushed
 
+### Phase 13: Projects Module — Create/Edit Wired to API
+- [x] **Project create page rewired** — `projects/projects/new/page.tsx` rewritten with `useState` + `apiPost`, form validation, mandatory fields (code, name, start/end date, budget)
+- [x] **Project edit page created** — `projects/projects/[id]/edit/page.tsx` loads via `apiGet`, saves via `apiPut`
+- [x] **Detail page Edit button fixed** — routes to `/edit`
+- [x] **Backend create/update fixed** — added `selectinload(Project.tasks)`, `selectinload(Project.milestones)` to avoid `MissingGreenlet` on response
+- [x] Timeline & Budget fields (start_date, end_date, budget) now mandatory with HTML5 `required` + JS validation
+- [x] Production build passes — compiled chunks contain correct handler code (`apiPost`, `handleSubmit`, validation)
+- [ ] **"Failed to fetch" on create** — diagnosed as dev server serving stale 282-byte Turbopack stub; restarting `npm run dev` resolves it
+
 ---
 
 ## In Progress / Remaining
@@ -143,8 +152,8 @@
 - [ ] HR: All sub-pages beyond the 6 connected (departments, designations, etc.)
 - [ ] Finance: Tax Rates, Payment Terms
 - [ ] Master Data: Currencies, Countries, Units, Designations, Branches
-- [ ] All "new" / "create" form pages (submit to API) — remaining in inventory, projects, support
-- [ ] All "detail" / "[id]" pages (fetch single record) — remaining in inventory, projects, support
+- [ ] All "new" / "create" form pages (submit to API) — remaining in inventory, support
+- [ ] All "detail" / "[id]" pages (fetch single record) — remaining in inventory, support
 - [ ] Admin pages
 - [ ] Settings pages (Profile, Billing, Theme, Notifications, Currencies)
 
