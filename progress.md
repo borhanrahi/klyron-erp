@@ -71,10 +71,10 @@
 - [x] Created HR 40 frontend pages
 - [x] Created ESS Apply for Leave page (`/ess/leave/apply`) with full form UX
 
-### Phase 7: Frontend — Pages Connected to Live API (40+ pages)
+### Phase 7: Frontend — Pages Connected to Live API (55+ pages)
 - [x] **HR Module (6 pages)**: Dashboard, Employee Directory, Attendance, Leave, Payroll, ESS Dashboard
 - [x] **Sales Module (13 pages)**: Customers list/[id], Leads list/new/[id], Deals list/new/[id], Quotations list/new/[id], Orders list/new/[id], Campaigns list/[id], Inquiries list/[id]
-- [x] **Finance Module (5 pages)**: Invoices, Ledger (chart of accounts), Banking (bank accounts + transactions), Estimates, Credit Notes
+- [x] **Finance Module (21 pages)**: Invoices list/new/[id], Ledger, Banking list/new/[id], Estimates list/new/[id], Credit Notes list/new/[id], Debit Notes list/new/[id], Journal Entries list/new/[id], Expenses list/new/[id], Budgets list/new/[id], Reports
 - [x] **Procurement Module (3 pages)**: Suppliers, Purchase Orders, Requisitions
 - [x] **Projects Module (4 pages)**: Projects, Tasks, Bugs, Timesheets
 - [x] **Support Module (2 pages)**: Tickets, Meetings
@@ -93,7 +93,7 @@
 - [x] **POS Terminal** — fetches products from `/inventory/items` API
 
 ### Phase 9: API Verification
-- [x] **All 40+ wired endpoints verified returning 200** with correct data:
+- [x] **All 55+ wired endpoints verified returning 200** with correct data:
   - Sales: 22 customers, 12 leads, 10 deals, 8 quotations, 6 orders, 5 campaigns, 5 inquiries
   - Finance: 10 invoices, 5 bank accounts, 22 chart of accounts, 90 transactions, 5 estimates, 3 credit notes, 75 expenses, 10 budgets
   - Procurement: 9 suppliers, 6 orders, 8 requisitions
@@ -123,6 +123,13 @@
 - [x] Fixed TypeScript build error in procurement/requisitions (field name mismatch)
 - [x] Build compiles cleanly
 
+### Phase 12: Finance Module — All Pages Wired to Real API
+- [x] **Fixed 5 hardcoded pages** to fetch from real API: Invoices detail, Invoices new, Journal list, Debit Notes list, Reports
+- [x] **Created 16 missing pages** with full API integration: Credit Notes detail/new, Debit Notes detail/new, Estimates detail/new, Banking detail/new, Expenses list/detail/new, Budgets list/detail/new, Journal detail/new
+- [x] **Replaced all hardcoded stats cards** across 5 connected pages (Invoices, Credit Notes, Estimates, Banking, Ledger) — stats now computed from fetched data
+- [x] **All 21 finance pages** now fetch from real backend API — zero hardcoded/mock data
+- [x] Build compiles cleanly, committed and pushed
+
 ---
 
 ## In Progress / Remaining
@@ -132,13 +139,12 @@
 - [ ] Other module dashboard KPI stats — still hardcoded
 
 ### Frontend — Unwired Pages
-- [ ] Finance: Banking (partially wired — transactions work), Expenses, Budgets
 - [ ] Procurement: GRN (Goods Received Notes)
 - [ ] HR: All sub-pages beyond the 6 connected (departments, designations, etc.)
 - [ ] Finance: Tax Rates, Payment Terms
 - [ ] Master Data: Currencies, Countries, Units, Designations, Branches
-- [ ] All "new" / "create" form pages (submit to API) — remaining in finance, inventory, projects, support
-- [ ] All "detail" / "[id]" pages (fetch single record) — remaining in finance, inventory, projects, support
+- [ ] All "new" / "create" form pages (submit to API) — remaining in inventory, projects, support
+- [ ] All "detail" / "[id]" pages (fetch single record) — remaining in inventory, projects, support
 - [ ] Admin pages
 - [ ] Settings pages (Profile, Billing, Theme, Notifications, Currencies)
 
