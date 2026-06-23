@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet } from "@/lib/api";
@@ -57,6 +58,7 @@ interface EstimateItem {
 }
 
 export default function EstimatesPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [estimates, setEstimates] = useState<EstimateItem[]>([]);
@@ -112,7 +114,7 @@ export default function EstimatesPage() {
               <Download className="h-4 w-4" />
               Export
             </button>
-            <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2">
+            <button onClick={() => router.push("/finance/estimates/new")} className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2">
               <Plus className="h-4 w-4" />
               New Estimate
             </button>
@@ -215,7 +217,7 @@ export default function EstimatesPage() {
                 const estId = (estimate.estimate_number || estimate.id || "").toString();
                 const status = (estimate.status || "").toLowerCase();
                 const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
-                const itemCount = estimate.item_count ?? estimate.items ?? (estimate.line_items?.length || 0);
+                const itemCount = estimate.item_count ?? (Array.isArray(estimate.items) ? estimate.items.length : estimate.line_items?.length) ?? 0;
                 return (
                 <tr
                   key={estimate.id}
@@ -259,7 +261,7 @@ export default function EstimatesPage() {
                   </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                      <button onClick={() => router.push(`/finance/estimates/${estimate.id}`)} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
                         <Eye className="h-4 w-4" />
                       </button>
                       {status === "accepted" && (

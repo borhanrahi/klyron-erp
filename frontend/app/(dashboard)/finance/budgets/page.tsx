@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { apiGet } from "@/lib/api";
 import {
   DollarSign,
   Search,
   Plus,
+  Eye,
   Loader2,
 } from "lucide-react";
 
@@ -25,6 +27,7 @@ interface Budget {
 }
 
 export default function BudgetsPage() {
+  const router = useRouter();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +63,7 @@ export default function BudgetsPage() {
         icon={<DollarSign className="h-6 w-6 text-primary" />}
         actions={
           <button
-            onClick={() => (window.location.href = "/finance/budgets/new")}
+            onClick={() => router.push("/finance/budgets/new")}
             className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />
@@ -137,6 +140,9 @@ export default function BudgetsPage() {
                   <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                     Usage %
                   </th>
+                  <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
@@ -145,8 +151,7 @@ export default function BudgetsPage() {
                   return (
                     <tr
                       key={b.id}
-                      className="hover:bg-muted/5 transition-colors cursor-pointer"
-                      onClick={() => (window.location.href = `/finance/budgets/${b.id}`)}
+                      className="hover:bg-muted/5 transition-colors"
                     >
                       <td className="py-3 px-4">
                         <span className="text-sm font-medium text-primary">
@@ -190,6 +195,11 @@ export default function BudgetsPage() {
                             {usage.toFixed(0)}%
                           </span>
                         </div>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <button onClick={(e) => { e.stopPropagation(); router.push(`/finance/budgets/${b.id}`); }} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                          <Eye className="h-4 w-4" />
+                        </button>
                       </td>
                     </tr>
                   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet } from "@/lib/api";
@@ -53,6 +54,7 @@ interface InvoiceItem {
 }
 
 export default function InvoicesPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
@@ -108,7 +110,7 @@ export default function InvoicesPage() {
               <Download className="h-4 w-4" />
               Export
             </button>
-            <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2">
+            <button onClick={() => router.push("/finance/invoices/new")} className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2">
               <Plus className="h-4 w-4" />
               New Invoice
             </button>
@@ -247,14 +249,9 @@ export default function InvoicesPage() {
                   </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                      <button onClick={() => router.push(`/finance/invoices/${invoice.id}`)} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
                         <Eye className="h-4 w-4" />
                       </button>
-                      {status !== "paid" && status !== "draft" && (
-                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-primary">
-                            <Send className="h-4 w-4" />
-                          </button>
-                      )}
                     </div>
                   </td>
                 </tr>

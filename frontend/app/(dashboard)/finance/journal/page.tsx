@@ -114,6 +114,7 @@ export default function JournalEntriesPage() {
                   <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">Reference</th>
                   <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Amount</th>
                   <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Type</th>
+                  <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
@@ -125,6 +126,7 @@ export default function JournalEntriesPage() {
                     <td className="py-3 px-4 hidden lg:table-cell"><span className="text-sm text-muted-foreground">{entry.reference || "—"}</span></td>
                     <td className="py-3 px-4 text-right"><span className={`text-sm font-semibold ${entry.amount >= 0 ? "text-success" : "text-danger"}`}>{fmt(entry.amount)}</span></td>
                     <td className="py-3 px-4"><StatusBadge status={entry.type} variant={TYPE_VARIANT[entry.type] || "muted"} /></td>
+                    <td className="py-3 px-4 text-right"><button onClick={() => router.push(`/finance/journal/${entry.id}`)} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"><Eye className="h-4 w-4" /></button></td>
                   </tr>
                 ))}
               </tbody>
