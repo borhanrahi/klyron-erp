@@ -22,14 +22,18 @@
 - [x] FastAPI app with CORS, logging middleware, health check at `/health`
 - [x] Root endpoint `/` returns proper FastAPI welcome response
 
-### Phase 3: Backend — Routers & Schemas (550 API Routes)
-- [x] **16 module routers** registered in `api.py` — 550 routes total
+### Phase 3: Backend — Routers & Schemas (550+ API Routes)
+- [x] **19 module routers** registered in `api.py` — 550+ routes total (auth + 15 modules + ESS + reports + dashboard)
 - [x] Pydantic schemas for all 13 module files + HR (160+ schemas) + ESS
 - [x] Fixed company_id duplication bug across all 13 schema files
 - [x] HR models massively expanded — 30+ new tables
 - [x] HR comprehensive router — 184 routes with full CRUD + dashboard + reports + ESS
 - [x] ESS backend router (22 endpoints) + ESS schemas — all 22 verified working
+- [x] Reports router (`/reports/dashboard`, `/reports/pos-summary`) — fixed `Invoice.total`, `POSSale.total` field names
+- [x] Dashboard router (`/dashboard/executive`, `/dashboard/team`, `/dashboard/activity`) — fixed `Employee.first_name/last_name` (use `User.full_name`), `PurchaseOrder.deleted_at`
 - [x] Fixed lazy-loading 500 errors: added `selectinload` for Invoice.items, Estimate.items, Quotation.items, SalesOrder.items, PurchaseOrder.items, PurchaseRequisition.items
+- [x] Fixed `MissingGreenlet` on order/quotation create/update — build response dicts directly instead of `model_validate()` on ORM objects
+- [x] Fixed `model_dump()` sending nulls overriding server defaults — added `exclude_unset=True, exclude_none=True`
 
 ### Phase 4: Seed Data
 - [x] Created HR seed script (`backend/scripts/seed_data.py`): 25 users, 24 employees, all HR data
@@ -37,6 +41,7 @@
 - [x] Created comprehensive module seed script (`backend/scripts/seed_all_modules.py`)
 - [x] Fixed seed script bugs: missing asyncio import, sys.path, Branch.is_active, Supplier.rating, Expense.category_id, datetime not date
 - [x] Added Branch creation to master data seed (3 branches: Head Office, Banani, Chattogram)
+- [x] Created activity seed script (`backend/scripts/seed_activity.py`): 200 audit logs + 60 notifications
 - [x] **Ran `seed_all_modules.py` successfully** — ALL 8 modules seeded:
   - Master Data: 8 currencies, countries/states, 10 units, 5 tax codes, 7 payment terms, 24 designations, 3 branches
   - Inventory: 4 warehouses, 10 categories, 33 items, 121 stock records, 80 adjustments, 40 transfers
@@ -50,47 +55,62 @@
 ### Phase 5: Frontend — Layout, Auth, Components
 - [x] Fixed dark mode, text visibility, Button component colors for dark mode contrast
 - [x] Fixed login page to authenticate via backend API and store JWT token
+- [x] Login page stores both `token` + `refresh_token` in localStorage
 - [x] Created `PageHeader` component with `actions` prop (ReactNode)
 - [x] Created reusable components: KPICard, StatusBadge, PageHeader
-- [x] Created `frontend/lib/api.ts` — API client with `apiGet`, `apiPost`, `apiPut`, `apiDelete` + Bearer token injection
+- [x] Created `frontend/lib/api.ts` — API client with `apiGet`, `apiPost`, `apiPut`, `apiDelete` + Bearer token injection + auto-refresh on 401
 - [x] TopNav fetches `/auth/me` and shows real user name + initials
 - [x] Dashboard layout (Sidebar, TopNav, DashboardLayout) with collapsible navigation groups
 
-### Phase 6: Frontend — 95 Module Pages Converted
+### Phase 6: Frontend — 95+ Module Pages Converted
 - [x] **All 95 pages** converted from HTML designs to Next.js components across 12 modules
+- [x] Created all 16 sales frontend pages (orders, quotations, leads, deals, customers, contracts, campaigns, inquiries — list/new/[id])
 - [x] Updated Sidebar with collapsible navigation groups for all modules
 - [x] Fixed build — resolved all import errors, build passes cleanly
 - [x] Created 13 ESS frontend pages all connected to real API
 - [x] Created HR 40 frontend pages
+- [x] Created ESS Apply for Leave page (`/ess/leave/apply`) with full form UX
 
-### Phase 7: Frontend — Pages Connected to Live API (28+ pages)
+### Phase 7: Frontend — Pages Connected to Live API (40+ pages)
 - [x] **HR Module (6 pages)**: Dashboard, Employee Directory, Attendance, Leave, Payroll, ESS Dashboard
-- [x] **Sales Module (7 pages)**: Customers, Leads, Deals, Quotations, Orders, Campaigns, Inquiries
+- [x] **Sales Module (13 pages)**: Customers list/[id], Leads list/new/[id], Deals list/new/[id], Quotations list/new/[id], Orders list/new/[id], Campaigns list/[id], Inquiries list/[id]
 - [x] **Finance Module (5 pages)**: Invoices, Ledger (chart of accounts), Banking (bank accounts + transactions), Estimates, Credit Notes
 - [x] **Procurement Module (3 pages)**: Suppliers, Purchase Orders, Requisitions
 - [x] **Projects Module (4 pages)**: Projects, Tasks, Bugs, Timesheets
 - [x] **Support Module (2 pages)**: Tickets, Meetings
 - [x] **Inventory Module (3 pages)**: Items, Warehouses, Stock
-- [x] **POS Module (1 page)**: History/Sessions
+- [x] **POS Module (2 pages)**: History/Sessions, Reports
 - [x] **Inventory Adjustments page**: live API (GET list + POST create)
 - [x] Fixed items rendering bug (objects as React children) in Quotations, Orders, Purchase Orders, Requisitions pages
+- [x] Fixed null safety across all 13 ESS pages
 
-### Phase 8: API Verification
-- [x] **All 28 wired endpoints verified returning 200** with correct data:
+### Phase 8: Frontend — Dashboard & Reports Wired
+- [x] **Executive Dashboard** — fetches real revenue/customers/orders/invoices from `/dashboard/executive`
+- [x] **Team Dashboard** — fetches real project tasks/employees/projects from `/dashboard/team`
+- [x] **Activity Feed** — fetches real audit log timeline/pulse/active users from `/dashboard/activity`
+- [x] **Reports main page** — fetches from `/reports/dashboard`
+- [x] **POS Reports** — fetches from `/reports/pos-summary`
+- [x] **POS Terminal** — fetches products from `/inventory/items` API
+
+### Phase 9: API Verification
+- [x] **All 40+ wired endpoints verified returning 200** with correct data:
   - Sales: 22 customers, 12 leads, 10 deals, 8 quotations, 6 orders, 5 campaigns, 5 inquiries
   - Finance: 10 invoices, 5 bank accounts, 22 chart of accounts, 90 transactions, 5 estimates, 3 credit notes, 75 expenses, 10 budgets
   - Procurement: 9 suppliers, 6 orders, 8 requisitions
   - Inventory: 33 items, 4 warehouses, 121 stock records
-  - POS: 8 sessions
+  - POS: 8 sessions, 42+ sales
   - Projects: 8 projects, 58 tasks, 11 bugs, 38 timesheets
   - Support: 24 tickets, 8 meetings
+  - Dashboard/Reports: real aggregated data from API
 
-### Phase 9: Backend Root & Health
-- [x] Root `/` returns proper FastAPI welcome JSON (message, version, docs, health, api_base)
-- [x] `/health` returns `{"status":"healthy","version":"1.0.0"}`
-- [x] `/docs` returns Swagger UI HTML
+### Phase 10: TopNav Profile Dropdown
+- [x] Added profile dropdown with user name + role display
+- [x] Settings submenu with Profile, Billing, Theme, Notifications, Currencies
+- [x] Logout button with token + refresh_token cleanup
+- [x] Click-outside detection to close dropdown
+- [x] Fixed dropdown overflow — Settings submenu now opens to the left of the main dropdown to prevent viewport overflow
 
-### Phase 10: ESS Apply for Leave Page
+### Phase 11: ESS Apply for Leave Page
 - [x] Created `/ess/leave/apply` dedicated page with full form UX
 - [x] Balance summary cards (clickable to select leave type, progress bars, remaining days)
 - [x] Leave type selector grid with icons (Annual, Sick, Casual, Maternity, Paternity, Bereavement, Study)
@@ -108,22 +128,19 @@
 ## In Progress / Remaining
 
 ### Frontend — KPI Stats Still Mock
-- [ ] Executive Dashboard KPIs (Revenue $84,254, Active Customers 2,847, etc.) — still hardcoded
 - [ ] Customers page KPIs (Total Customers 1,248, Avg. Lifetime Value $24,500) — still hardcoded
 - [ ] Other module dashboard KPI stats — still hardcoded
 
 ### Frontend — Unwired Pages
 - [ ] Finance: Banking (partially wired — transactions work), Expenses, Budgets
 - [ ] Procurement: GRN (Goods Received Notes)
-- [ ] POS: Reports
 - [ ] HR: All sub-pages beyond the 6 connected (departments, designations, etc.)
 - [ ] Finance: Tax Rates, Payment Terms
 - [ ] Master Data: Currencies, Countries, Units, Designations, Branches
-- [ ] All "new" / "create" form pages (submit to API)
-- [ ] All "detail" / "[id]" pages (fetch single record)
-- [ ] Dashboard: Team Dashboard, Activity Feed
+- [ ] All "new" / "create" form pages (submit to API) — remaining in finance, inventory, projects, support
+- [ ] All "detail" / "[id]" pages (fetch single record) — remaining in finance, inventory, projects, support
 - [ ] Admin pages
-- [ ] Settings pages
+- [ ] Settings pages (Profile, Billing, Theme, Notifications, Currencies)
 
 ### Frontend — UX Polish
 - [ ] Empty state handling for pages with 0 records
@@ -141,7 +158,7 @@
 - [ ] Role-based access control (RBAC) enforcement
 - [ ] File upload endpoints (employee documents, etc.)
 - [ ] Email/notification service
-- [ ] Audit logging
+- [ ] Audit logging (partially done — seed_activity.py)
 - [ ] Batch operations API
 
 ### Infrastructure
@@ -160,10 +177,13 @@
 | Styling | Tailwind CSS v4 (CSS @theme) | No JS config needed |
 | Backend | FastAPI + async SQLAlchemy 2.0 | Async, auto-docs, type-safe |
 | Database | PostgreSQL 16 (port 5433) | Local PG on 5432, Docker on 5433 |
-| Auth | JWT Bearer tokens | Simple, stateless |
+| Auth | JWT Bearer tokens + refresh tokens | Simple, stateless, auto-refresh |
 | ORM | asyncpg + SQLAlchemy 2.0 | Async performance |
 | Package manager | uv (Python) | Fast venv + deps |
 | Table creation | Base.metadata.create_all() | Fast prototyping |
+| Create endpoints | Direct response dict construction | Avoids MissingGreenlet on lazy-loaded relationships |
+| API pagination | `{items, total, page, per_page, pages}` | Consistent list response format |
+| API single-item | `{success, message, data}` | Consistent detail response format |
 
 ---
 
@@ -172,13 +192,14 @@
 | File | Purpose |
 |------|---------|
 | `backend/app/main.py` | FastAPI app entry point, CORS, middleware |
-| `backend/app/api.py` | 16 router registrations, 550 routes |
+| `backend/app/api.py` | 19 router registrations, 550+ routes |
 | `backend/app/config.py` | Pydantic Settings |
 | `backend/app/models/` | All SQLAlchemy models |
-| `backend/app/routers/` | All API endpoint routers |
+| `backend/app/routers/` | All API endpoint routers (sales, finance, inventory, procurement, hr, ess, pos, projects, support, reports, dashboard, auth, master_data, subscriptions, workflow) |
 | `backend/app/schemas/` | All Pydantic request/response schemas |
-| `backend/scripts/seed_all_modules.py` | Comprehensive seed script |
-| `frontend/app/globals.css` | Tailwind v4 theme config |
-| `frontend/lib/api.ts` | API client (apiGet, apiPost, etc.) |
-| `frontend/components/common/` | Reusable components (Sidebar, TopNav, etc.) |
+| `backend/scripts/seed_all_modules.py` | Comprehensive module seed script |
+| `backend/scripts/seed_activity.py` | Activity/audit log seed script |
+| `frontend/app/globals.css` | Tailwind v4 theme config, dark mode variables |
+| `frontend/lib/api.ts` | API client (apiGet, apiPost, apiPut, apiDelete, auto-refresh on 401) |
+| `frontend/components/common/` | Reusable components (Sidebar, TopNav, KPICard, StatusBadge, PageHeader, ThemeToggle) |
 | `docker-compose.yml` | PostgreSQL, pgAdmin, Redis |

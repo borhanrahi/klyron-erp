@@ -121,7 +121,7 @@ export function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) {
                 </button>
 
                 {settingsOpen && (
-                  <div className="absolute left-full top-0 ml-1 w-48 rounded-xl border border-border bg-card shadow-lg py-1 z-50 animate-in fade-in-0 zoom-in-95 duration-150">
+                  <div className="absolute right-full top-0 mr-1 w-48 rounded-xl border border-border bg-card shadow-lg py-1 z-50 animate-in fade-in-0 zoom-in-95 duration-150">
                     {settingsLinks.map((link) => (
                       <Link
                         key={link.href}
