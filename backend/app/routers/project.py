@@ -97,6 +97,16 @@ async def create_project(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_company),
 ):
+    existing = await db.execute(
+        select(Project).where(
+            Project.code == data.code,
+            Project.company_id == current_user.company_id,
+            Project.deleted_at.is_(None),
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail=f"Project with code '{data.code}' already exists")
+
     project = Project(**data.model_dump(exclude={"company_id"}), company_id=current_user.company_id)
     db.add(project)
     await db.flush()

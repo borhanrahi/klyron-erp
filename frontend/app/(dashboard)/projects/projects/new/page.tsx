@@ -55,7 +55,7 @@ export default function NewProjectPage() {
     setSaving(true);
     setError(null);
     try {
-      await apiPost("/projects", {
+      await apiPost("/projects/", {
         code: code.trim(),
         name: name.trim(),
         status,
