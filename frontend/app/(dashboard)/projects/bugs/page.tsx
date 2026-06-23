@@ -55,7 +55,7 @@ export default function BugsPage() {
   const filteredBugs = bugs.filter((b) => {
     const matchesSearch =
       b.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      b.id.toLowerCase().includes(searchTerm.toLowerCase());
+      String(b.id).includes(searchTerm);
     const matchesSeverity =
       selectedSeverity === "All" || b.severity === selectedSeverity;
     const matchesStatus =

@@ -11,6 +11,8 @@ import {
   Eye,
   Edit,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 interface Project {
@@ -118,10 +120,10 @@ export default function ProjectsListPage() {
               className="px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
             >
               <option value="All">Status: All</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Completed">Completed</option>
-              <option value="Planning">Planning</option>
-              <option value="On Hold">On Hold</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+              <option value="planning">Planning</option>
+              <option value="on_hold">On Hold</option>
             </select>
           </div>
         </div>
@@ -193,11 +195,11 @@ export default function ProjectsListPage() {
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full ${
-                            project.progress === 100
+                            project.progress_pct === 100
                               ? "bg-success"
                               : "bg-primary"
                           }`}
-                          style={{ width: `${project.progress}%` }}
+                          style={{ width: `${project.progress_pct || 0}%` }}
                         />
                       </div>
                     </div>
