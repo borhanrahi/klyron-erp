@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
@@ -66,13 +66,6 @@ function mapCampaign(raw: any): Campaign {
   };
 }
 
-const campaignStats = [
-  { label: "Active Campaigns", value: "8", change: "+2 this month" },
-  { label: "Total Sent", value: "47.2K", change: "+8.5K this quarter" },
-  { label: "Avg. Open Rate", value: "34.2%", change: "+2.1% vs industry" },
-  { label: "Total Conversions", value: "331", change: "+68 this month" },
-];
-
 export default function CampaignsListPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,6 +95,19 @@ export default function CampaignsListPage() {
       selectedStatus === "All" || campaign.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
+
+  const campaignStats = useMemo(() => {
+    const active = campaigns.filter((c) => c.status === "active").length;
+    const total = campaigns.length;
+    const draft = campaigns.filter((c) => c.status === "draft").length;
+    const completed = campaigns.filter((c) => c.status === "completed").length;
+    return [
+      { label: "Active Campaigns", value: String(active), change: "Currently running" },
+      { label: "Total Campaigns", value: String(total), change: "All time" },
+      { label: "Draft Campaigns", value: String(draft), change: "Not yet launched" },
+      { label: "Completed Campaigns", value: String(completed), change: "Finished" },
+    ];
+  }, [campaigns]);
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">

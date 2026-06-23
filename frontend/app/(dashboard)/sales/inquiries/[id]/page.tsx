@@ -1,44 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet, apiPut, apiDelete } from "@/lib/api";
 import {
-  HelpCircle,
   ArrowLeft,
   Mail,
   Phone,
   Building2,
-  Clock,
   MessageSquare,
   Send,
-  User,
   FileText,
   ExternalLink,
   Check,
   X,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 
-const inquiry = {
-  id: "INQ-001",
-  name: "Michael Chen",
-  title: "CTO",
-  email: "michael.chen@startup.io",
-  phone: "+1 (555) 111-2233",
-  company: "Startup Ventures",
-  subject: "Enterprise Plan Pricing",
-  message:
-    "Hi, I'm interested in your enterprise plan for our growing team. We currently have 500+ users and need to understand the pricing structure, volume discounts, and any custom features available. Could you also share information about your SLA and support options?",
-  source: "Website Form",
-  status: "New",
-  statusVariant: "info" as const,
-  date: "Mar 24, 2024",
-  time: "10:30 AM",
-  priority: "High",
-  assignedTo: "Mike Johnson",
-  page: "/pricing",
-  referrer: "Google Search",
-};
+interface Inquiry {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+  source: string;
+  status: string;
+  created_at: string;
+}
 
 const responseTemplates = [
   { id: 1, name: "Pricing Information", subject: "Enterprise Pricing Details" },
@@ -46,9 +37,130 @@ const responseTemplates = [
   { id: 3, name: "Follow Up", subject: "Following Up on Your Inquiry" },
 ];
 
+const statusVariantMap: Record<string, "success" | "warning" | "danger" | "info" | "primary" | "muted"> = {
+  new: "info",
+  contacted: "primary",
+  qualified: "success",
+  unqualified: "muted",
+  spam: "danger",
+};
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
 export default function InquiryDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const id = params.id as string;
+
+  const [inquiry, setInquiry] = useState<Inquiry | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [editing, setEditing] = useState(false);
+  const [editStatus, setEditStatus] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const [response, setResponse] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("");
+
+  const fetchInquiry = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await apiGet<{ data: Inquiry }>(`/sales/inquiries/${id}`);
+      setInquiry(res.data);
+      setEditStatus(res.data.status);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load inquiry");
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchInquiry();
+  }, [fetchInquiry]);
+
+  async function handleSaveStatus() {
+    if (!inquiry) return;
+    try {
+      setSaving(true);
+      const res = await apiPut<{ data: Inquiry }>(`/sales/inquiries/${id}`, {
+        status: editStatus,
+      });
+      setInquiry(res.data);
+      setEditing(false);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to update");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm("Are you sure you want to delete this inquiry?")) return;
+    try {
+      setDeleting(true);
+      await apiDelete(`/sales/inquiries/${id}`);
+      router.push("/sales/inquiries");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to delete");
+      setDeleting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4 max-w-5xl mx-auto">
+        <Link
+          href="/sales/inquiries"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Inquiries
+        </Link>
+        <div className="rounded-2xl border border-danger/30 bg-danger/10 p-6 text-center">
+          <p className="text-danger font-medium">{error}</p>
+          <button
+            onClick={fetchInquiry}
+            className="mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors underline"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!inquiry) return null;
+
+  const variant = statusVariantMap[inquiry.status] || "info";
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200 max-w-5xl mx-auto">
@@ -63,31 +175,22 @@ export default function InquiryDetailPage() {
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{inquiry.subject}</h1>
-            <StatusBadge
-              status={inquiry.status}
-              variant={inquiry.statusVariant}
-            />
+            <h1 className="text-2xl font-bold">{inquiry.name}</h1>
+            <StatusBadge status={inquiry.status} variant={variant} />
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            {inquiry.id} • Submitted on {inquiry.date} at {inquiry.time}
+            #{inquiry.id} &bull; Submitted on {formatDate(inquiry.created_at)} at{" "}
+            {formatTime(inquiry.created_at)}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-            <X className="h-4 w-4" />
-            Reject
-          </button>
-          <Link
-            href="/sales/leads/new"
-            className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2"
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="border border-danger/30 bg-danger/10 text-danger px-4 py-2 rounded-lg font-medium transition-all hover:bg-danger/20 active:scale-95 flex items-center gap-2 disabled:opacity-50"
           >
-            <ExternalLink className="h-4 w-4" />
-            Convert to Lead
-          </Link>
-          <button className="bg-success text-white px-4 py-2 rounded-lg font-medium transition-all hover:opacity-90 active:scale-95 flex items-center gap-2">
-            <Check className="h-4 w-4" />
-            Mark as Qualified
+            <Trash2 className="h-4 w-4" />
+            {deleting ? "Deleting..." : "Delete"}
           </button>
         </div>
       </div>
@@ -140,47 +243,6 @@ export default function InquiryDetailPage() {
               </button>
             </div>
           </div>
-
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Activity History</h3>
-            <div className="relative">
-              <div className="absolute left-5 top-0 bottom-0 w-px bg-border" />
-              <div className="space-y-4">
-                <div className="relative pl-12">
-                  <div className="absolute left-3.5 top-1 w-3 h-3 rounded-full bg-card border-2 border-border" />
-                  <div className="p-4 rounded-xl hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="text-sm font-semibold">
-                        Inquiry received
-                      </h4>
-                      <span className="text-xs text-muted-foreground">
-                        {inquiry.date} {inquiry.time}
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Form submission from {inquiry.page}
-                    </p>
-                  </div>
-                </div>
-                <div className="relative pl-12">
-                  <div className="absolute left-3.5 top-1 w-3 h-3 rounded-full bg-card border-2 border-border" />
-                  <div className="p-4 rounded-xl hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="text-sm font-semibold">
-                        Assigned to {inquiry.assignedTo}
-                      </h4>
-                      <span className="text-xs text-muted-foreground">
-                        {inquiry.date} 10:35 AM
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Auto-assigned based on round-robin
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         <div className="space-y-6">
@@ -189,13 +251,10 @@ export default function InquiryDetailPage() {
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                  MC
+                  {getInitials(inquiry.name)}
                 </div>
                 <div>
                   <p className="font-medium">{inquiry.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {inquiry.title}
-                  </p>
                 </div>
               </div>
               <div className="space-y-2">
@@ -213,10 +272,6 @@ export default function InquiryDetailPage() {
                   <Phone className="h-4 w-4" />
                   {inquiry.phone}
                 </a>
-                <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Building2 className="h-4 w-4" />
-                  {inquiry.company}
-                </span>
               </div>
             </div>
           </div>
@@ -229,31 +284,54 @@ export default function InquiryDetailPage() {
                 <span className="text-sm font-medium">{inquiry.source}</span>
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
-                <span className="text-sm text-muted-foreground">Priority</span>
-                <StatusBadge
-                  status={inquiry.priority}
-                  variant={
-                    inquiry.priority === "High"
-                      ? "danger"
-                      : inquiry.priority === "Medium"
-                        ? "warning"
-                        : "muted"
-                  }
-                />
+                <span className="text-sm text-muted-foreground">Status</span>
+                {editing ? (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(e.target.value)}
+                      className="px-2 py-1 bg-muted text-foreground border border-border rounded text-sm focus:border-primary outline-none"
+                    >
+                      <option value="new">New</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="qualified">Qualified</option>
+                      <option value="unqualified">Unqualified</option>
+                      <option value="spam">Spam</option>
+                    </select>
+                    <button
+                      onClick={handleSaveStatus}
+                      disabled={saving}
+                      className="p-1 rounded hover:bg-success/20 text-success transition-colors disabled:opacity-50"
+                    >
+                      <Check className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditing(false);
+                        setEditStatus(inquiry.status);
+                      }}
+                      className="p-1 rounded hover:bg-muted text-muted-foreground transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="text-sm font-medium hover:text-primary transition-colors cursor-pointer"
+                  >
+                    <StatusBadge
+                      status={inquiry.status}
+                      variant={variant}
+                    />
+                  </button>
+                )}
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
-                <span className="text-sm text-muted-foreground">
-                  Assigned To
-                </span>
+                <span className="text-sm text-muted-foreground">Created</span>
                 <span className="text-sm font-medium">
-                  {inquiry.assignedTo}
+                  {formatDate(inquiry.created_at)}
                 </span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
-                <span className="text-sm text-muted-foreground">
-                  Referrer
-                </span>
-                <span className="text-sm font-medium">{inquiry.referrer}</span>
               </div>
             </div>
           </div>

@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { apiGet, apiDelete } from "@/lib/api";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
   Megaphone,
@@ -19,70 +22,97 @@ import {
   Send,
   Pause,
   Play,
+  Trash2,
+  Loader2,
 } from "lucide-react";
-import Link from "next/link";
 
-const campaign = {
-  id: "CMP-001",
-  name: "Q1 Product Launch",
-  type: "Email",
-  status: "Active",
-  statusVariant: "success" as const,
-  startDate: "Jan 15, 2024",
-  endDate: "Mar 31, 2024",
-  description:
-    "Multi-touch email campaign to announce our new product features and drive upgrades from free to paid tier.",
-  budget: "$15,000",
-  spent: "$12,400",
-  targetSegment: "Active Free Users",
-  targetCount: 12500,
-};
+interface Campaign {
+  id: number;
+  name: string;
+  type: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+  budget: number;
+  target_audience: string;
+}
 
-const stats = {
-  sent: 12500,
-  delivered: 12375,
-  opened: 4375,
-  clicked: 1062,
-  conversions: 85,
-  unsubscribed: 24,
-  bounced: 125,
-  revenue: "$42,500",
-};
-
-const timeline = [
-  {
-    id: 1,
-    date: "Jan 15, 2024",
-    event: "Campaign launched",
-    details: "Initial email sent to 12,500 contacts",
-  },
-  {
-    id: 2,
-    date: "Jan 22, 2024",
-    event: "Follow-up sequence started",
-    details: "Second email to non-openers",
-  },
-  {
-    id: 3,
-    date: "Feb 1, 2024",
-    event: "A/B test results",
-    details: "Version B outperformed by 23%",
-  },
-  {
-    id: 4,
-    date: "Feb 15, 2024",
-    event: "Mid-campaign optimization",
-    details: "Adjusted send time based on engagement data",
-  },
-  {
-    id: 5,
-    date: "Mar 1, 2024",
-    event: "Final push started",
-    details: "Last email series to remaining non-converters",
-  },
-];
+function statusVariant(status: string): "success" | "warning" | "danger" | "info" | "muted" {
+  switch (status?.toLowerCase()) {
+    case "active":
+      return "success";
+    case "paused":
+      return "warning";
+    case "draft":
+      return "muted";
+    case "completed":
+      return "info";
+    case "cancelled":
+      return "danger";
+    default:
+      return "info";
+  }
+}
 
 export default function CampaignDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const id = params.id as string;
+
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    apiGet<{ data: Campaign }>(`/sales/campaigns/${id}`)
+      .then((res) => setCampaign(res.data))
+      .catch((err) => setError(err.message || "Failed to load campaign"))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  async function handleDelete() {
+    if (!confirm("Are you sure you want to delete this campaign?")) return;
+    setDeleting(true);
+    try {
+      await apiDelete(`/sales/campaigns/${id}`);
+      router.push("/sales/campaigns");
+    } catch (err: any) {
+      setError(err.message || "Failed to delete campaign");
+      setDeleting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error || !campaign) {
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto">
+        <Link
+          href="/sales/campaigns"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Campaigns
+        </Link>
+        <div className="rounded-2xl border border-border bg-card p-12 text-center">
+          <p className="text-danger font-medium">{error || "Campaign not found"}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const isActive = campaign.status?.toLowerCase() === "active";
+  const isPaused = campaign.status?.toLowerCase() === "paused";
+
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200 max-w-6xl mx-auto">
       <Link
@@ -99,12 +129,12 @@ export default function CampaignDetailPage() {
             <h1 className="text-2xl font-bold">{campaign.name}</h1>
             <StatusBadge
               status={campaign.status}
-              variant={campaign.statusVariant}
+              variant={statusVariant(campaign.status)}
             />
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            {campaign.id} • {campaign.type} Campaign • {campaign.startDate} —{" "}
-            {campaign.endDate}
+            #{campaign.id} • {campaign.type} Campaign • {campaign.start_date} —{" "}
+            {campaign.end_date}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -116,227 +146,102 @@ export default function CampaignDetailPage() {
             <Edit className="h-4 w-4" />
             Edit
           </button>
-          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-            <Pause className="h-4 w-4" />
-            Pause
-          </button>
-          <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
-            <Send className="h-4 w-4" />
-            Send Next Email
+          {isActive && (
+            <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
+              <Pause className="h-4 w-4" />
+              Pause
+            </button>
+          )}
+          {isPaused && (
+            <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
+              <Play className="h-4 w-4" />
+              Resume
+            </button>
+          )}
+          {isActive && (
+            <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
+              <Send className="h-4 w-4" />
+              Send Next Email
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="border border-danger/30 text-danger px-4 py-2 rounded-lg font-medium transition-all hover:bg-danger/10 flex items-center gap-2 disabled:opacity-50"
+          >
+            {deleting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+            Delete
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm col-span-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
-            <Send className="h-4 w-4 text-primary" />
-            <span className="text-xs text-muted-foreground">Sent</span>
+            <Megaphone className="h-4 w-4 text-primary" />
+            <span className="text-xs text-muted-foreground">Type</span>
           </div>
-          <p className="text-xl font-bold">{stats.sent.toLocaleString()}</p>
+          <p className="text-xl font-bold">{campaign.type}</p>
         </div>
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm col-span-2">
-          <div className="flex items-center gap-2 mb-2">
-            <Mail className="h-4 w-4 text-success" />
-            <span className="text-xs text-muted-foreground">Delivered</span>
-          </div>
-          <p className="text-xl font-bold">
-            {stats.delivered.toLocaleString()}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm col-span-2">
-          <div className="flex items-center gap-2 mb-2">
-            <Eye className="h-4 w-4 text-info" />
-            <span className="text-xs text-muted-foreground">Opened</span>
-          </div>
-          <p className="text-xl font-bold">{stats.opened.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground">
-            {((stats.opened / stats.delivered) * 100).toFixed(1)}% rate
-          </p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm col-span-2">
-          <div className="flex items-center gap-2 mb-2">
-            <MousePointerClick className="h-4 w-4 text-warning" />
-            <span className="text-xs text-muted-foreground">Clicked</span>
-          </div>
-          <p className="text-xl font-bold">{stats.clicked.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground">
-            {((stats.clicked / stats.opened) * 100).toFixed(1)}% rate
-          </p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm col-span-2">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="h-4 w-4 text-primary" />
-            <span className="text-xs text-muted-foreground">Conversions</span>
-          </div>
-          <p className="text-xl font-bold text-success">
-            {stats.conversions}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {((stats.conversions / stats.clicked) * 100).toFixed(1)}% rate
-          </p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm col-span-2">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <DollarSign className="h-4 w-4 text-success" />
-            <span className="text-xs text-muted-foreground">Revenue</span>
-          </div>
-          <p className="text-xl font-bold">{stats.revenue}</p>
-          <p className="text-xs text-success">
-            {((parseFloat(stats.revenue.replace(/[$,]/g, "")) /
-              parseFloat(campaign.spent.replace(/[$,]/g, ""))) *
-              100)
-              .toFixed(0)}
-            % ROI
-          </p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm col-span-2">
-          <div className="flex items-center gap-2 mb-2">
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
             <span className="text-xs text-muted-foreground">Budget</span>
           </div>
           <p className="text-xl font-bold">
-            {campaign.spent} / {campaign.budget}
+            ${campaign.budget.toLocaleString()}
           </p>
-          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mt-2">
-            <div
-              className="h-full bg-primary rounded-full"
-              style={{
-                width: `${
-                  (parseFloat(campaign.spent.replace(/[$,]/g, "")) /
-                    parseFloat(campaign.budget.replace(/[$,]/g, ""))) *
-                  100
-                }%`,
-              }}
-            />
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <Target className="h-4 w-4 text-info" />
+            <span className="text-xs text-muted-foreground">Audience</span>
           </div>
+          <p className="text-xl font-bold">{campaign.target_audience}</p>
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="h-4 w-4 text-warning" />
+            <span className="text-xs text-muted-foreground">Status</span>
+          </div>
+          <p className="text-xl font-bold capitalize">{campaign.status}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Campaign Overview</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-              {campaign.description}
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <h3 className="text-lg font-semibold mb-4">Campaign Details</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-3 rounded-xl bg-muted/50">
+            <p className="text-xs text-muted-foreground">Campaign Name</p>
+            <p className="text-sm font-medium mt-1">{campaign.name}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-muted/50">
+            <p className="text-xs text-muted-foreground">Type</p>
+            <p className="text-sm font-medium mt-1">{campaign.type}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-muted/50">
+            <p className="text-xs text-muted-foreground">Start Date</p>
+            <p className="text-sm font-medium mt-1">{campaign.start_date}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-muted/50">
+            <p className="text-xs text-muted-foreground">End Date</p>
+            <p className="text-sm font-medium mt-1">{campaign.end_date}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-muted/50">
+            <p className="text-xs text-muted-foreground">Budget</p>
+            <p className="text-sm font-medium mt-1">
+              ${campaign.budget.toLocaleString()}
             </p>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 rounded-xl bg-muted/50">
-                <p className="text-xs text-muted-foreground">Target Segment</p>
-                <p className="text-sm font-medium mt-1">
-                  {campaign.targetSegment}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-muted/50">
-                <p className="text-xs text-muted-foreground">
-                  Target Audience Size
-                </p>
-                <p className="text-sm font-medium mt-1">
-                  {campaign.targetCount.toLocaleString()}
-                </p>
-              </div>
-            </div>
           </div>
-
-          <div className="rounded-2xl border border-border bg-card shadow-sm">
-            <div className="p-6 border-b border-border">
-              <h3 className="text-lg font-semibold">Engagement Funnel</h3>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                {[
-                  {
-                    label: "Sent",
-                    value: stats.sent,
-                    color: "bg-primary",
-                  },
-                  {
-                    label: "Delivered",
-                    value: stats.delivered,
-                    color: "bg-info",
-                  },
-                  {
-                    label: "Opened",
-                    value: stats.opened,
-                    color: "bg-success",
-                  },
-                  {
-                    label: "Clicked",
-                    value: stats.clicked,
-                    color: "bg-warning",
-                  },
-                  {
-                    label: "Converted",
-                    value: stats.conversions,
-                    color: "bg-success",
-                  },
-                ].map((step) => (
-                  <div key={step.label}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm text-muted-foreground">
-                        {step.label}
-                      </span>
-                      <span className="text-sm font-medium">
-                        {step.value.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${step.color} rounded-full`}
-                        style={{
-                          width: `${(step.value / stats.sent) * 100}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Campaign Timeline</h3>
-            <div className="relative">
-              <div className="absolute left-5 top-0 bottom-0 w-px bg-border" />
-              <div className="space-y-4">
-                {timeline.map((event) => (
-                  <div key={event.id} className="relative pl-12">
-                    <div className="absolute left-3.5 top-1 w-3 h-3 rounded-full bg-card border-2 border-primary" />
-                    <div className="p-3 rounded-xl hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm font-medium">{event.event}</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {event.date}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {event.details}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-            <div className="space-y-2">
-              <button className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 rounded-lg transition-colors flex items-center gap-2">
-                <Send className="h-4 w-4" />
-                Send Test Email
-              </button>
-              <button className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 rounded-lg transition-colors flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                View Recipients
-              </button>
-              <button className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 rounded-lg transition-colors flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                Export Report
-              </button>
-            </div>
+          <div className="p-3 rounded-xl bg-muted/50">
+            <p className="text-xs text-muted-foreground">Target Audience</p>
+            <p className="text-sm font-medium mt-1">
+              {campaign.target_audience}
+            </p>
           </div>
         </div>
       </div>
