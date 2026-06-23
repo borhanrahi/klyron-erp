@@ -46,13 +46,6 @@ interface LedgerItem {
   [key: string]: unknown;
 }
 
-const accountStats = [
-  { label: "Total Assets", value: "$931,430", change: "+5.2% this quarter", icon: ArrowUpRight },
-  { label: "Total Liabilities", value: "$103,210", change: "-3.1% vs last month", icon: ArrowDownRight },
-  { label: "Total Equity", value: "$789,220", change: "Stable", icon: ArrowUpRight },
-  { label: "Total Accounts", value: "156", change: "5 added this month", icon: BookOpen },
-];
-
 export default function LedgerPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("All");
@@ -66,6 +59,16 @@ export default function LedgerPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const totalAssets = accounts.filter((a) => (a.account_type || a.type || "").toLowerCase() === "asset").reduce((s, a) => s + (a.balance || 0), 0);
+  const totalLiabilities = accounts.filter((a) => (a.account_type || a.type || "").toLowerCase() === "liability").reduce((s, a) => s + (a.balance || 0), 0);
+  const totalEquity = accounts.filter((a) => (a.account_type || a.type || "").toLowerCase() === "equity").reduce((s, a) => s + (a.balance || 0), 0);
+  const accountStats = [
+    { label: "Total Assets", value: formatCurrency(totalAssets), change: `${accounts.filter((a) => (a.account_type || a.type || "").toLowerCase() === "asset").length} accounts`, icon: ArrowUpRight },
+    { label: "Total Liabilities", value: formatCurrency(totalLiabilities), change: `${accounts.filter((a) => (a.account_type || a.type || "").toLowerCase() === "liability").length} accounts`, icon: ArrowDownRight },
+    { label: "Total Equity", value: formatCurrency(totalEquity), change: `${accounts.filter((a) => (a.account_type || a.type || "").toLowerCase() === "equity").length} accounts`, icon: ArrowUpRight },
+    { label: "Total Accounts", value: `${accounts.length}`, change: "All active", icon: BookOpen },
+  ];
 
   const filteredAccounts = accounts.filter((account) => {
     const code = (account.account_code || account.code || "").toString();

@@ -53,13 +53,6 @@ interface CreditNoteItem {
   [key: string]: unknown;
 }
 
-const cnStats = [
-  { label: "Total Credit Notes", value: "24", change: "Q1 2024" },
-  { label: "Total Value", value: "$18,450", change: "3.2% of revenue" },
-  { label: "Pending", value: "3", change: "$4,720 value" },
-  { label: "Applied", value: "18", change: "This quarter" },
-];
-
 export default function CreditNotesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
@@ -73,6 +66,16 @@ export default function CreditNotesPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const totalValue = creditNotes.reduce((s, n) => s + (n.total || n.amount || 0), 0);
+  const pendingCount = creditNotes.filter((n) => n.status === "pending" || n.status === "draft").length;
+  const appliedCount = creditNotes.filter((n) => n.status === "applied").length;
+  const cnStats = [
+    { label: "Total Credit Notes", value: `${creditNotes.length}`, change: "All time" },
+    { label: "Total Value", value: formatCurrency(totalValue), change: "All credit notes" },
+    { label: "Pending", value: `${pendingCount}`, change: `${formatCurrency(creditNotes.filter((n) => n.status === "pending" || n.status === "draft").reduce((s, n) => s + (n.total || n.amount || 0), 0))} value` },
+    { label: "Applied", value: `${appliedCount}`, change: "This quarter" },
+  ];
 
   const filteredNotes = creditNotes.filter((note) => {
     const id = (note.credit_note_number || note.id || "").toString();

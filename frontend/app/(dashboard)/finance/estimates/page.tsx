@@ -56,13 +56,6 @@ interface EstimateItem {
   [key: string]: unknown;
 }
 
-const estimateStats = [
-  { label: "Total Estimates", value: "42", change: "Q1 2024" },
-  { label: "Total Value", value: "$173,900", change: "Pipeline value" },
-  { label: "Win Rate", value: "68%", change: "+5% vs last quarter" },
-  { label: "Pending", value: "8", change: "$89,200 value" },
-];
-
 export default function EstimatesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
@@ -76,6 +69,17 @@ export default function EstimatesPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const totalValue = estimates.reduce((s, e) => s + (e.total || e.amount || 0), 0);
+  const acceptedCount = estimates.filter((e) => e.status === "accepted" || e.status === "approved").length;
+  const winRate = estimates.length > 0 ? Math.round((acceptedCount / estimates.length) * 100) : 0;
+  const pendingCount = estimates.filter((e) => e.status === "draft" || e.status === "pending" || e.status === "sent").length;
+  const estimateStats = [
+    { label: "Total Estimates", value: `${estimates.length}`, change: "All time" },
+    { label: "Total Value", value: formatCurrency(totalValue), change: "Pipeline value" },
+    { label: "Win Rate", value: `${winRate}%`, change: `${acceptedCount} accepted` },
+    { label: "Pending", value: `${pendingCount}`, change: formatCurrency(estimates.filter((e) => e.status === "draft" || e.status === "pending" || e.status === "sent").reduce((s, e) => s + (e.total || e.amount || 0), 0)) + " value" },
+  ];
 
   const filteredEstimates = estimates.filter((estimate) => {
     const id = (estimate.estimate_number || estimate.id || "").toString();

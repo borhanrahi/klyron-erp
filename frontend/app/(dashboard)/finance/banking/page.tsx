@@ -61,13 +61,6 @@ interface TransactionItem {
   [key: string]: unknown;
 }
 
-const bankStats = [
-  { label: "Total Balance", value: "$419,540", change: "+8.3% this month", icon: Landmark },
-  { label: "Incoming (30d)", value: "$142,350", change: "+12 invoices paid", icon: ArrowDownRight },
-  { label: "Outstanding (30d)", value: "$89,200", change: "15 payments made", icon: ArrowUpRight },
-  { label: "Accounts", value: "4", change: "3 banks", icon: Building2 },
-];
-
 export default function BankingPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAccount, setSelectedAccount] = useState("All");
@@ -88,6 +81,16 @@ export default function BankingPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const totalBalance = bankAccounts.reduce((s, b) => s + (b.balance || 0), 0);
+  const incoming = recentTransactions.filter((t) => (t.amount || 0) > 0).reduce((s, t) => s + (t.amount || 0), 0);
+  const outgoing = recentTransactions.filter((t) => (t.amount || 0) < 0).reduce((s, t) => s + Math.abs(t.amount || 0), 0);
+  const bankStats = [
+    { label: "Total Balance", value: formatCurrency(totalBalance), change: `${bankAccounts.length} accounts`, icon: Landmark },
+    { label: "Incoming (All)", value: formatCurrency(incoming), change: `${recentTransactions.filter((t) => (t.amount || 0) > 0).length} credits`, icon: ArrowDownRight },
+    { label: "Outgoing (All)", value: formatCurrency(outgoing), change: `${recentTransactions.filter((t) => (t.amount || 0) < 0).length} debits`, icon: ArrowUpRight },
+    { label: "Accounts", value: `${bankAccounts.length}`, change: `${new Set(bankAccounts.map((b) => b.bank_name || b.bank)).size} banks`, icon: Building2 },
+  ];
 
   const filteredTransactions = recentTransactions.filter((txn) => {
     const desc = (txn.description || "").toLowerCase();

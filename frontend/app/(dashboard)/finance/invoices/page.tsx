@@ -52,13 +52,6 @@ interface InvoiceItem {
   [key: string]: unknown;
 }
 
-const invoiceStats = [
-  { label: "Total Invoiced", value: "$115,175", change: "Q1 2024" },
-  { label: "Collected", value: "$82,588", change: "71.7% rate" },
-  { label: "Outstanding", value: "$25,825", change: "8 invoices" },
-  { label: "Overdue", value: "$3,200", change: "1 invoice" },
-];
-
 export default function InvoicesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
@@ -72,6 +65,17 @@ export default function InvoicesPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const totalInvoiced = invoices.reduce((s, i) => s + (i.total || 0), 0);
+  const totalPaid = invoices.reduce((s, i) => s + ((i as any).paid_amount || 0), 0);
+  const totalOutstanding = invoices.reduce((s, i) => s + ((i as any).balance_due || 0), 0);
+  const overdueCount = invoices.filter((i) => i.status === "overdue").length;
+  const invoiceStats = [
+    { label: "Total Invoiced", value: formatCurrency(totalInvoiced), change: `${invoices.length} invoices` },
+    { label: "Collected", value: formatCurrency(totalPaid), change: totalInvoiced > 0 ? `${Math.round((totalPaid / totalInvoiced) * 100)}% rate` : "0% rate" },
+    { label: "Outstanding", value: formatCurrency(totalOutstanding), change: `${invoices.filter((i) => i.status !== "paid").length} pending` },
+    { label: "Overdue", value: `${overdueCount}`, change: overdueCount === 1 ? "1 invoice" : `${overdueCount} invoices` },
+  ];
 
   const filteredInvoices = invoices.filter((invoice) => {
     const id = (invoice.invoice_number || invoice.id || "").toString();
