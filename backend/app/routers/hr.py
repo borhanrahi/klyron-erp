@@ -510,9 +510,12 @@ async def delete_candidate(item_id: int, db: AsyncSession = Depends(get_db), cur
 # ── Interviews ──
 
 @router.get("/interviews", response_model=PaginatedResponse)
-async def list_interviews(page: int = Query(1, ge=1), per_page: int = Query(25, ge=1, le=100), search: Optional[str] = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_company)):
+async def list_interviews(page: int = Query(1, ge=1), per_page: int = Query(25, ge=1, le=100), search: Optional[str] = None, candidate_id: Optional[int] = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_company)):
     query = select(Interview).where(Interview.company_id == current_user.company_id)
     count_query = select(sa_func.count()).select_from(Interview).where(Interview.company_id == current_user.company_id)
+    if candidate_id:
+        query = query.where(Interview.candidate_id == candidate_id)
+        count_query = count_query.where(Interview.candidate_id == candidate_id)
     if search:
         query = query.where(Interview.status.ilike(f"%{search}%"))
         count_query = count_query.where(Interview.status.ilike(f"%{search}%"))
@@ -568,9 +571,12 @@ async def delete_interview(item_id: int, db: AsyncSession = Depends(get_db), cur
 # ── Offer Letters ──
 
 @router.get("/offer-letters", response_model=PaginatedResponse)
-async def list_offer_letters(page: int = Query(1, ge=1), per_page: int = Query(25, ge=1, le=100), search: Optional[str] = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_company)):
+async def list_offer_letters(page: int = Query(1, ge=1), per_page: int = Query(25, ge=1, le=100), search: Optional[str] = None, candidate_id: Optional[int] = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_company)):
     query = select(OfferLetter).where(OfferLetter.company_id == current_user.company_id)
     count_query = select(sa_func.count()).select_from(OfferLetter).where(OfferLetter.company_id == current_user.company_id)
+    if candidate_id:
+        query = query.where(OfferLetter.candidate_id == candidate_id)
+        count_query = count_query.where(OfferLetter.candidate_id == candidate_id)
     if search:
         query = query.where(OfferLetter.position.ilike(f"%{search}%"))
         count_query = count_query.where(OfferLetter.position.ilike(f"%{search}%"))
