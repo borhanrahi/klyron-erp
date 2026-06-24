@@ -141,7 +141,10 @@ export default function CampaignDetailPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button className="border border-border bg-muted text-foreground px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:bg-muted/80 flex items-center gap-1.5">
+          <button
+            onClick={() => router.push(`/sales/campaigns/${id}/report`)}
+            className="border border-border bg-muted text-foreground px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:bg-muted/80 flex items-center gap-1.5"
+          >
             <BarChart3 className="h-3.5 w-3.5" />
             Report
           </button>
