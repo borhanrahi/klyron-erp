@@ -567,21 +567,42 @@ async def seed_sales(session, item_ids):
 
     # Sales Campaigns
     campaign_count = 0
+    campaign_statuses = ["active", "active", "draft", "draft", "completed", "completed", "paused", "planning"]
     campaigns = [
-        ("Monsoon Sale 2026", "email", "All customers", 50000, "active"),
-        ("Corporate Bundle Offer", "social", "IT managers", 120000, "active"),
-        ("Referral Program Q3", "referral", "Existing customers", 30000, "planning"),
-        ("Back to Office Promo", "banner", "SME owners", 75000, "completed"),
-        ("Year-End Clearance", "email", "All leads", 200000, "planning"),
+        ("Monsoon Sale 2026", "email", "All customers", 50000),
+        ("Corporate Bundle Offer", "social", "IT managers", 120000),
+        ("Referral Program Q3", "referral", "Existing customers", 30000),
+        ("Back to Office Promo", "banner", "SME owners", 75000),
+        ("Year-End Clearance", "email", "All leads", 200000),
+        ("Diwali Mega Sale", "email", "All customers", 80000),
+        ("Partner Onboarding Drive", "event", "New partners", 45000),
+        ("Free Trial Push", "paid", "Trial users", 60000),
+        ("Customer Win-Back", "email", "Churned customers", 25000),
+        ("Product Launch 2026", "social", "All prospects", 150000),
+        ("LinkedIn Thought Leadership", "social", "Enterprise leads", 35000),
+        ("Webinar Series Q2", "event", "Tech audience", 20000),
+        ("Annual Customer Survey", "email", "Active customers", 5000),
+        ("Upsell Premium Plan", "email", "Free users", 40000),
+        ("Festival Season Promo", "paid", "All segments", 90000),
+        ("New Branch Announcement", "banner", "Local customers", 15000),
+        ("Training Workshop Series", "event", "Existing customers", 30000),
+        ("Google Ads Retargeting", "paid", "Website visitors", 55000),
+        ("Newsletter Signup Drive", "email", "Blog readers", 8000),
+        ("CRM Migration Offer", "referral", "Competitor users", 70000),
+        ("Quarterly Business Review", "event", "Enterprise clients", 10000),
+        ("Social Media Contest", "social", "All followers", 12000),
+        ("End of Year Giveaway", "email", "All customers", 45000),
+        ("App Download Campaign", "paid", "Mobile users", 65000),
+        ("Customer Appreciation Week", "email", "Loyal customers", 20000),
     ]
-    for name, t_type, audience, budget, status in campaigns:
+    for name, t_type, audience, budget in campaigns:
         existing = await session.execute(select(SalesCampaign).where(SalesCampaign.name == name))
         if not existing.scalar_one_or_none():
             session.add(SalesCampaign(
                 company_id=COMPANY_ID, name=name, type=t_type,
-                start_date=date.today() - timedelta(days=random.randint(1, 30)),
+                start_date=date.today() - timedelta(days=random.randint(1, 60)),
                 end_date=date.today() + timedelta(days=random.randint(15, 90)),
-                target_audience=audience, status=status, budget=budget,
+                target_audience=audience, status=random.choice(campaign_statuses), budget=budget,
             ))
             campaign_count += 1
     log(f"Campaigns: {campaign_count}")
