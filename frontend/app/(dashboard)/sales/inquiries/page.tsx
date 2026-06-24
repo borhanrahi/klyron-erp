@@ -101,7 +101,7 @@ export default function InquiriesListPage() {
       inquiry.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inquiry.company.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
-      selectedStatus === "All" || inquiry.status === selectedStatus;
+      selectedStatus === "All" || inquiry.status.toLowerCase() === selectedStatus.toLowerCase();
     return matchesSearch && matchesStatus;
   });
 
