@@ -1,24 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
   HelpCircle,
   Search,
-  Filter,
-  Plus,
   Eye,
-  Edit,
-  Trash2,
   ChevronLeft,
   ChevronRight,
-  ArrowUpDown,
-  Mail,
-  Phone,
-  Building2,
-  MessageSquare,
-  Clock,
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
@@ -67,43 +57,45 @@ function mapInquiry(raw: any): Inquiry {
   };
 }
 
-const inquiryStats = [
-  { label: "Total Inquiries", value: "184", change: "+28 this week" },
-  { label: "New", value: "12", change: "6 high priority" },
-  { label: "In Progress", value: "8", change: "Avg response: 2h" },
-  { label: "Conversion Rate", value: "34.2%", change: "+3.8% vs last month" },
-];
+const PER_PAGE = 10;
 
 export default function InquiriesListPage() {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const fetchInquiries = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, string> = {
+        page: String(page),
+        per_page: String(PER_PAGE),
+      };
+      if (searchTerm) params.search = searchTerm;
+      if (selectedStatus !== "All") params.status = selectedStatus;
+      const res = await apiGet<any>("/sales/inquiries", params);
+      const items = (res.items ?? res.data ?? []).map(mapInquiry);
+      setInquiries(items);
+      setTotal(res.total ?? items.length);
+      setTotalPages(res.pages ?? 1);
+    } catch (err) {
+      console.error("Failed to fetch inquiries:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, searchTerm, selectedStatus]);
 
   useEffect(() => {
-    async function fetchInquiries() {
-      try {
-        const res = await apiGet<any>("/sales/inquiries");
-        const items = (res.items ?? res.data ?? []).map(mapInquiry);
-        setInquiries(items);
-      } catch (err) {
-        console.error("Failed to fetch inquiries:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchInquiries();
-  }, []);
+  }, [fetchInquiries]);
 
-  const filteredInquiries = inquiries.filter((inquiry) => {
-    const matchesSearch =
-      inquiry.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inquiry.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inquiry.company.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      selectedStatus === "All" || inquiry.status.toLowerCase() === selectedStatus.toLowerCase();
-    return matchesSearch && matchesStatus;
-  });
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedStatus]);
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -118,30 +110,9 @@ export default function InquiriesListPage() {
 
       <PageHeader
         title="Inquiries"
-        description="Manage customer inquiries and support requests from web forms."
+        description="Manage customer inquiries and support requests."
         icon={<HelpCircle className="h-6 w-6 text-primary" />}
-        actions={
-          <div className="flex items-center gap-3">
-            <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Filters
-            </button>
-          </div>
-        }
       />
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {inquiryStats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-2xl border border-border bg-card p-5 shadow-sm"
-          >
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
-            <p className="text-2xl font-bold mt-1">{stat.value}</p>
-            <p className="text-xs text-success mt-1">{stat.change}</p>
-          </div>
-        ))}
-      </div>
 
       <div className="rounded-2xl border border-border bg-card shadow-sm">
         <div className="p-4 border-b border-border">
@@ -156,23 +127,17 @@ export default function InquiriesListPage() {
                 className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-              >
-                <option value="All">Status: All</option>
-                <option value="New">New</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Qualified">Qualified</option>
-                <option value="Closed">Closed</option>
-              </select>
-              <button className="flex items-center gap-2 px-3 py-2 bg-muted border border-border rounded-lg text-sm hover:bg-muted/80 transition-colors">
-                <Filter className="h-4 w-4" />
-                <span className="hidden sm:inline">More Filters</span>
-              </button>
-            </div>
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+            >
+              <option value="All">All Status</option>
+              <option value="new">New</option>
+              <option value="in_progress">In Progress</option>
+              <option value="qualified">Qualified</option>
+              <option value="closed">Closed</option>
+            </select>
           </div>
         </div>
 
@@ -181,116 +146,73 @@ export default function InquiriesListPage() {
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <span className="ml-2 text-sm text-muted-foreground">Loading inquiries...</span>
           </div>
+        ) : inquiries.length === 0 ? (
+          <div className="py-20 text-center text-muted-foreground text-sm">
+            No inquiries found
+          </div>
         ) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      <button className="flex items-center gap-1 hover:text-foreground transition-colors">
-                        Contact
-                        <ArrowUpDown className="h-3 w-3" />
-                      </button>
-                    </th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
-                      Company
-                    </th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      Subject
-                    </th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                      Source
-                    </th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      Status
-                    </th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                      Priority
-                    </th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                      Date
-                    </th>
-                    <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      Actions
-                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Contact</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">Company</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Subject</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">Source</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Status</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">Priority</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">Date</th>
+                    <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
-                  {filteredInquiries.map((inquiry) => (
-                    <tr
-                      key={inquiry.id}
-                      className="hover:bg-muted/5 transition-colors"
-                    >
+                  {inquiries.map((inquiry) => (
+                    <tr key={inquiry.id} className="hover:bg-muted/5 transition-colors">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                            {inquiry.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+                            {(inquiry.name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2)}
                           </div>
-                          <div>
-                            <p className="text-sm font-medium">{inquiry.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {inquiry.email}
-                            </p>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{inquiry.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{inquiry.email}</p>
                           </div>
                         </div>
                       </td>
                       <td className="py-3 px-4 hidden md:table-cell">
-                        <span className="text-sm text-muted-foreground">
-                          {inquiry.company}
-                        </span>
+                        <span className="text-sm text-muted-foreground">{inquiry.company}</span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="text-sm font-medium">
-                          {inquiry.subject}
-                        </span>
+                        <span className="text-sm font-medium">{inquiry.subject}</span>
                       </td>
                       <td className="py-3 px-4 hidden lg:table-cell">
-                        <span className="text-sm text-muted-foreground">
-                          {inquiry.source}
-                        </span>
+                        <span className="text-sm text-muted-foreground">{inquiry.source}</span>
                       </td>
                       <td className="py-3 px-4">
-                        <StatusBadge
-                          status={inquiry.status}
-                          variant={inquiry.statusVariant}
-                        />
+                        <StatusBadge status={inquiry.status} variant={inquiry.statusVariant} />
                       </td>
                       <td className="py-3 px-4 hidden lg:table-cell">
                         <StatusBadge
                           status={inquiry.priority}
                           variant={
-                            inquiry.priority === "High"
-                              ? "danger"
-                              : inquiry.priority === "Medium"
-                                ? "warning"
-                                : "muted"
+                            inquiry.priority === "High" ? "danger" :
+                            inquiry.priority === "Medium" ? "warning" : "muted"
                           }
                         />
                       </td>
                       <td className="py-3 px-4 hidden lg:table-cell">
                         <span className="text-sm text-muted-foreground">
-                          {inquiry.date}
+                          {inquiry.date ? new Date(inquiry.date).toLocaleDateString() : ""}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Link
-                            href={`/sales/inquiries/${inquiry.id}`}
-                            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Link>
-                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                        <Link
+                          href={`/sales/inquiries/${inquiry.id}`}
+                          className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground inline-flex"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Link>
                       </td>
                     </tr>
                   ))}
@@ -300,19 +222,46 @@ export default function InquiriesListPage() {
 
             <div className="p-4 border-t border-border flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Showing {filteredInquiries.length} of {inquiries.length} inquiries
+                {total > 0 ? `Showing ${(page - 1) * PER_PAGE + 1}–${Math.min(page * PER_PAGE, total)} of ${total}` : "No results"}
               </p>
               <div className="flex items-center gap-2">
-                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <button className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">
-                  1
-                </button>
-                <button className="px-3 py-1 hover:bg-muted rounded-lg text-sm text-muted-foreground transition-colors">
-                  2
-                </button>
-                <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  let pageNum: number;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (page <= 3) {
+                    pageNum = i + 1;
+                  } else if (page >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = page - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                        pageNum === page
+                          ? "bg-primary text-white"
+                          : "hover:bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                >
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
