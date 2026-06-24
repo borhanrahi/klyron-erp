@@ -7,7 +7,6 @@ import { apiGet } from "@/lib/api";
 import {
   Clock,
   Search,
-  Filter,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -133,13 +132,6 @@ export default function AttendancePage() {
               onChange={setSelectedDate}
               className="px-3 py-1.5 bg-muted text-foreground border border-border rounded-lg text-xs focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
             />
-            <button
-              onClick={() => fetchAttendance(1)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-muted border border-border rounded-lg text-xs hover:bg-muted/80 transition-colors"
-            >
-              <Filter className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Search</span>
-            </button>
           </div>
         </div>
 
