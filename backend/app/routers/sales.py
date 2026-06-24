@@ -582,6 +582,7 @@ async def create_quotation(
         subtotal=float(quotation.subtotal or 0),
         tax=float(quotation.tax or 0),
         total=float(quotation.total or 0),
+        notes=quotation.notes,
         converted_to_order_id=quotation.converted_to_order_id,
         company_id=quotation.company_id,
         created_at=quotation.created_at,

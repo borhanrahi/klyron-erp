@@ -25,6 +25,7 @@ export default function CreateQuotationPage() {
     status: "draft",
     date: "",
     expiry: "",
+    notes: "",
   });
   const [items, setItems] = useState<QuotationItemDraft[]>([]);
 
@@ -148,6 +149,18 @@ export default function CreateQuotationPage() {
                 className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-muted-foreground mb-1">
+              Notes
+            </label>
+            <textarea
+              value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              rows={3}
+              className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-none"
+              placeholder="Additional notes (optional)"
+            />
           </div>
         </div>
 

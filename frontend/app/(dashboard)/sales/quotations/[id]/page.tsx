@@ -32,6 +32,7 @@ interface Quotation {
   subtotal: number;
   tax: number;
   total: number;
+  notes: string | null;
   date: string;
   expiry: string | null;
   created_at: string;
@@ -313,6 +314,14 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
           </table>
         </div>
       </div>
+
+      {quotation.notes && (
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <h3 className="text-lg font-semibold mb-2">Notes</h3>
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{quotation.notes}</p>
+        </div>
+      )}
+
       <ConfirmModal
         open={state.open}
         title={state.title}

@@ -197,6 +197,7 @@ class QuotationBase(BaseModel):
     subtotal: float = 0
     tax: float = 0
     total: float = 0
+    notes: Optional[str] = None
     converted_to_order_id: Optional[int] = None
 
 
@@ -214,6 +215,7 @@ class QuotationUpdate(BaseModel):
     subtotal: Optional[float] = None
     tax: Optional[float] = None
     total: Optional[float] = None
+    notes: Optional[str] = None
     converted_to_order_id: Optional[int] = None
     items: Optional[list[QuotationItemCreate]] = None
 

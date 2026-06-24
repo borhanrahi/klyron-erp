@@ -63,15 +63,15 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         const cust = res.data;
         setCustomer(cust);
         setForm({
-          name: cust.name,
-          email: cust.email,
-          phone: cust.phone,
-          tax_id: cust.tax_id,
-          address: cust.address,
-          credit_limit: cust.credit_limit,
-          balance: cust.balance,
-          loyalty_points: cust.loyalty_points,
-          status: cust.status,
+          name: cust.name ?? "",
+          email: cust.email ?? "",
+          phone: cust.phone ?? "",
+          tax_id: cust.tax_id ?? "",
+          address: cust.address ?? "",
+          credit_limit: cust.credit_limit ?? 0,
+          balance: cust.balance ?? 0,
+          loyalty_points: cust.loyalty_points ?? 0,
+          status: cust.status ?? "active",
         });
       } catch (err) {
         console.error("Failed to fetch customer:", err);

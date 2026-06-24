@@ -87,6 +87,7 @@ class Quotation(Base):
     subtotal = Column(Numeric(15, 2), default=0)
     tax = Column(Numeric(15, 2), default=0)
     total = Column(Numeric(15, 2), default=0)
+    notes = Column(Text, nullable=True)
     converted_to_order_id = Column(Integer, ForeignKey("sales_orders.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
