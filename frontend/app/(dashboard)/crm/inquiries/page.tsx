@@ -135,7 +135,7 @@ export default function InquiriesPage() {
 
   async function handleExport() {
     try {
-      const { default: XLSX } = await import("xlsx");
+      const XLSX = await import("xlsx");
       let allItems: any[] = [];
       let pg = 1;
       while (true) {
