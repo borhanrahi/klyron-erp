@@ -1,111 +1,115 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet } from "@/lib/api";
 import {
   Briefcase,
   Search,
   Plus,
-  Eye,
   ChevronRight,
   MapPin,
   Clock,
   Users,
-  Filter,
+  Loader2,
+  CalendarCheck,
+  FileText,
 } from "lucide-react";
+import Link from "next/link";
 
-const candidates = [
-  {
-    id: 1,
-    name: "John Smith",
-    avatar: "JS",
-    role: "Senior Frontend Developer",
-    stage: "Interview",
-    stageVariant: "info" as const,
-    experience: "5 years",
-    location: "San Francisco, CA",
-    appliedDate: "Jun 10, 2024",
-    salary: "$120K - $150K",
-  },
-  {
-    id: 2,
-    name: "Maria Garcia",
-    avatar: "MG",
-    role: "Backend Developer",
-    stage: "Applied",
-    stageVariant: "primary" as const,
-    experience: "3 years",
-    location: "Remote",
-    appliedDate: "Jun 12, 2024",
-    salary: "$90K - $110K",
-  },
-  {
-    id: 3,
-    name: "David Lee",
-    avatar: "DL",
-    role: "DevOps Engineer",
-    stage: "Offer",
-    stageVariant: "warning" as const,
-    experience: "7 years",
-    location: "New York, NY",
-    appliedDate: "May 28, 2024",
-    salary: "$140K - $170K",
-  },
-  {
-    id: 4,
-    name: "Sarah Wilson",
-    avatar: "SW",
-    role: "Product Manager",
-    stage: "Hired",
-    stageVariant: "success" as const,
-    experience: "6 years",
-    location: "Austin, TX",
-    appliedDate: "May 15, 2024",
-    salary: "$130K - $160K",
-  },
-  {
-    id: 5,
-    name: "Alex Chen",
-    avatar: "AC",
-    role: "UI/UX Designer",
-    stage: "Interview",
-    stageVariant: "info" as const,
-    experience: "4 years",
-    location: "Seattle, WA",
-    appliedDate: "Jun 8, 2024",
-    salary: "$100K - $130K",
-  },
-  {
-    id: 6,
-    name: "Emily Brown",
-    avatar: "EB",
-    role: "Data Scientist",
-    stage: "Applied",
-    stageVariant: "primary" as const,
-    experience: "2 years",
-    location: "Boston, MA",
-    appliedDate: "Jun 14, 2024",
-    salary: "$95K - $120K",
-  },
-];
+interface Candidate {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  source: string;
+  stage: string;
+  rating: number | null;
+  applied_date: string;
+  created_at: string;
+}
 
-const pipelineStages = [
-  { name: "Applied", count: 24, color: "bg-primary", candidates: candidates.filter((c) => c.stage === "Applied") },
-  { name: "Interview", count: 12, color: "bg-info", candidates: candidates.filter((c) => c.stage === "Interview") },
-  { name: "Offer", count: 5, color: "bg-warning", candidates: candidates.filter((c) => c.stage === "Offer") },
-  { name: "Hired", count: 8, color: "bg-success", candidates: candidates.filter((c) => c.stage === "Hired") },
-];
+const stageVariantMap: Record<string, "info" | "primary" | "warning" | "success" | "muted"> = {
+  applied: "primary",
+  screening: "info",
+  interview: "info",
+  offer: "warning",
+  hired: "success",
+  rejected: "muted",
+};
 
-const recruitmentStats = [
-  { label: "Open Positions", value: "14", change: "3 urgent" },
-  { label: "Total Candidates", value: "156", change: "+28 this week" },
-  { label: "Interviews Scheduled", value: "12", change: "This week" },
-  { label: "Offers Extended", value: "5", change: "3 pending" },
-];
+const stageOrder = ["applied", "screening", "interview", "offer", "hired"];
+const stageColors: Record<string, string> = {
+  applied: "bg-primary",
+  screening: "bg-info",
+  interview: "bg-info",
+  offer: "bg-warning",
+  hired: "bg-success",
+};
+
+function getInitials(name: string) {
+  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+}
+
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 export default function RecruitmentPage() {
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [totalCandidates, setTotalCandidates] = useState(0);
+  const [scheduledInterviews, setScheduledInterviews] = useState(0);
+  const [pendingOffers, setPendingOffers] = useState(0);
+  const [hiredCount, setHiredCount] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [candRes, intRes, offRes] = await Promise.all([
+        apiGet<any>("/hr/candidates", { page: "1", per_page: "100" }),
+        apiGet<any>("/hr/interviews", { page: "1", per_page: "100" }),
+        apiGet<any>("/hr/offer-letters", { page: "1", per_page: "100" }),
+      ]);
+
+      const allCandidates: Candidate[] = candRes.items ?? [];
+      setCandidates(allCandidates);
+      setTotalCandidates(candRes.total ?? allCandidates.length);
+
+      const allInterviews = intRes.items ?? [];
+      setScheduledInterviews(allInterviews.filter((i: any) => i.status === "scheduled").length);
+
+      const allOffers = offRes.items ?? [];
+      setPendingOffers(allOffers.filter((o: any) => o.status === "sent" || o.status === "draft").length);
+
+      setHiredCount(allCandidates.filter((c) => c.stage === "hired").length);
+    } catch {
+      setCandidates([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const filteredCandidates = candidates.filter((c) =>
+    !searchTerm || c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const grouped = stageOrder.reduce((acc, stage) => {
+    acc[stage] = filteredCandidates.filter((c) => c.stage === stage);
+    return acc;
+  }, {} as Record<string, Candidate[]>);
+
+  const stats = [
+    { label: "Total Candidates", value: totalCandidates, icon: <Users className="h-5 w-5 text-primary" /> },
+    { label: "Scheduled Interviews", value: scheduledInterviews, icon: <CalendarCheck className="h-5 w-5 text-blue-500" /> },
+    { label: "Pending Offers", value: pendingOffers, icon: <FileText className="h-5 w-5 text-amber-500" /> },
+    { label: "Hired", value: hiredCount, icon: <Briefcase className="h-5 w-5 text-emerald-500" /> },
+  ];
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -118,32 +122,25 @@ export default function RecruitmentPage() {
         ]}
         icon={<Briefcase className="h-6 w-6 text-primary" />}
         actions={
-          <div className="flex items-center gap-3">
-            <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Filters
-            </button>
-            <a
-              href="/hr/recruitment/new"
-              className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Post New Job
-            </a>
-          </div>
+          <Link
+            href="/hr/recruitment/new"
+            className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add Candidate
+          </Link>
         }
       />
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {recruitmentStats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-2xl border border-border bg-card p-5 shadow-sm"
-          >
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
-            <p className="text-2xl font-bold mt-1">{stat.value}</p>
-            <p className="text-xs text-success mt-1">{stat.change}</p>
+        {stats.map((stat) => (
+          <div key={stat.label} className="rounded-2xl border border-border bg-card p-5 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">{stat.icon}</div>
+            <div>
+              <p className="text-2xl font-bold">{stat.value}</p>
+              <p className="text-sm text-muted-foreground">{stat.label}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -161,63 +158,61 @@ export default function RecruitmentPage() {
       </div>
 
       {/* Kanban Board */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {pipelineStages.map((stage) => (
-          <div
-            key={stage.name}
-            className="rounded-2xl border border-border bg-card shadow-sm"
-          >
-            <div className="p-4 border-b border-border">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${stage.color}`} />
-                  <h3 className="text-sm font-semibold">{stage.name}</h3>
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {stageOrder.map((stage) => (
+            <div key={stage} className="rounded-2xl border border-border bg-card shadow-sm">
+              <div className="p-4 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${stageColors[stage]}`} />
+                    <h3 className="text-sm font-semibold capitalize">{stage}</h3>
+                  </div>
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                    {grouped[stage]?.length ?? 0}
+                  </span>
                 </div>
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                  {stage.count}
-                </span>
+              </div>
+              <div className="p-3 space-y-3 min-h-[200px] max-h-[400px] overflow-y-auto">
+                {(grouped[stage] ?? []).map((candidate) => (
+                  <Link
+                    key={candidate.id}
+                    href={`/hr/recruitment/${candidate.id}`}
+                    className="block p-3 bg-muted/50 rounded-xl hover:bg-muted transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
+                        {getInitials(candidate.name)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{candidate.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{candidate.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground capitalize">{candidate.source || "Unknown"}</span>
+                      {candidate.rating && (
+                        <div className="flex items-center gap-0.5">
+                          {Array.from({ length: 5 }, (_, i) => (
+                            <div
+                              key={i}
+                              className={`w-1.5 h-1.5 rounded-full ${i < candidate.rating! ? "bg-primary" : "bg-muted"}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                ))}
               </div>
             </div>
-            <div className="p-3 space-y-3 min-h-[200px]">
-              {stage.candidates.map((candidate) => (
-                <a
-                  key={candidate.id}
-                  href={`/hr/recruitment/${candidate.id}`}
-                  className="block p-3 bg-muted/50 rounded-xl hover:bg-muted transition-colors"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
-                      {candidate.avatar}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{candidate.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {candidate.role}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      {candidate.experience}
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <MapPin className="h-3 w-3" />
-                      {candidate.location}
-                    </div>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      {candidate.appliedDate}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </a>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
