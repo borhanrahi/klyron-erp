@@ -136,8 +136,15 @@ export default function InquiriesPage() {
   async function handleExport() {
     try {
       const { default: XLSX } = await import("xlsx");
-      const res = await apiGet<any>("/sales/inquiries", { page: "1", per_page: "9999" });
-      const data = (res.items ?? []).map((i: any) => ({
+      let allItems: any[] = [];
+      let pg = 1;
+      while (true) {
+        const res = await apiGet<any>("/sales/inquiries", { page: String(pg), per_page: "100" });
+        allItems = allItems.concat(res.items ?? []);
+        if (pg >= (res.pages ?? 1)) break;
+        pg++;
+      }
+      const data = allItems.map((i: any) => ({
         ID: i.id,
         Name: i.name,
         Email: i.email,
