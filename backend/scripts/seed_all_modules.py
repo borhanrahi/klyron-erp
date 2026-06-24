@@ -519,12 +519,39 @@ async def seed_sales(session, item_ids):
 
     # Inquiries
     inquiry_count = 0
+    statuses = ["new", "new", "new", "contacted", "contacted", "qualified", "qualified", "resolved", "resolved", "closed"]
+    sources = ["website", "phone", "email", "referral", "social", "walk-in", "partner"]
     inquiries = [
-        ("Ahmed Ali", "ahmed@email.com", "+8801710000001", "Interested in bulk laptop purchase", "website"),
-        ("Fatima Rahman", "fatima@company.com", "+8801810000002", "Need quote for network setup", "phone"),
-        ("Kamal Mia", "kamal@corp.com", "+8801910000003", "Looking for ERP solution", "email"),
-        ("Nadia Khan", "nadia@startup.io", "+8801610000004", "Software license inquiry", "website"),
-        ("Rafiq Uddin", "rafiq@enterprise.com", "+8801510000005", "Server maintenance contract", "referral"),
+        ("Ahmed Ali", "ahmed@email.com", "+8801710000001", "Interested in bulk laptop purchase for office", "website"),
+        ("Fatima Rahman", "fatima@company.com", "+8801810000002", "Need quote for network setup at new branch", "phone"),
+        ("Kamal Mia", "kamal@corp.com", "+8801910000003", "Looking for ERP solution for manufacturing", "email"),
+        ("Nadia Khan", "nadia@startup.io", "+8801610000004", "Software license inquiry for 50 users", "website"),
+        ("Rafiq Uddin", "rafiq@enterprise.com", "+8801510000005", "Server maintenance contract renewal", "referral"),
+        ("Sakib Hasan", "sakib@techco.com", "+8801710000006", "Cloud migration consultation needed", "website"),
+        ("Tasnim Ahmed", "tasnim@retail.com", "+8801810000007", "POS system integration query", "phone"),
+        ("Zara Islam", "zara@design.co", "+8801910000008", "Custom software development quote", "email"),
+        ("Imran Hossain", "imran@logistics.com", "+8801610000009", "Fleet management system pricing", "referral"),
+        ("Maliha Khan", "maliha@health.org", "+8801510000010", "Hospital management software demo", "website"),
+        ("Farhan Rahman", "farhan@edu.bd", "+8801710000011", "Student management system inquiry", "social"),
+        ("Nusrat Jahan", "nusrat@fashion.com", "+8801810000012", "E-commerce platform setup", "website"),
+        ("Rakibul Hasan", "rakib@construction.com", "+8801910000013", "Project management tool for sites", "phone"),
+        ("Sumaiya Akter", "sumaiya@food.com", "+8801610000014", "Inventory management for restaurants", "walk-in"),
+        ("Tanvir Alam", "tanvir@auto.com", "+8801510000015", "CRM implementation for dealership", "partner"),
+        ("Jesmin Ara", "jesmin@textile.com", "+8801710000016", "Supply chain module pricing", "email"),
+        ("Habib Rahman", "habib@pharma.com", "+8801810000017", "Batch tracking software requirements", "website"),
+        ("Ruma Akhtar", "ruma@travel.com", "+8801910000018", "Booking system integration", "referral"),
+        ("Arif Khan", "arif@energy.com", "+8801610000019", "Asset management system quote", "social"),
+        ("Sabrina Mostafa", "sabrina@media.com", "+8801510000020", "Content management system demo", "phone"),
+        ("Wali Ullah", "wali@agri.com", "+8801710000021", "Farm management software inquiry", "walk-in"),
+        ("Tahsin Rahman", "tahsin@bank.com", "+8801810000022", "Core banking integration query", "partner"),
+        ("Maimuna Begum", "maimuna@ngo.org", "+8801910000023", "Donor management system needs", "email"),
+        ("Khalid Hossain", "khalid@realty.com", "+8801610000024", "Property management platform", "website"),
+        ("Nishat Tasnim", "nishat@beauty.com", "+8801510000025", "Salon booking app development", "social"),
+        ("Asif Mahmud", "asif@gov.bd", "+8801710000026", "Government portal modernization RFI", "walk-in"),
+        ("Farzana Yasmin", "farzana@legal.com", "+8801810000027", "Legal case management system", "phone"),
+        ("Mamun Reza", "mamun@shipping.com", "+8801910000028", "Logistics tracking dashboard quote", "partner"),
+        ("Syeda Chowdhury", "syeda@edu.edu", "+8801610000029", "University exam management software", "email"),
+        ("Raihan Uddin", "raihan@telecom.com", "+8801510000030", "Network monitoring tool pricing", "website"),
     ]
     for name, email, phone, msg, source in inquiries:
         existing = await session.execute(select(Inquiry).where(Inquiry.name == name))
@@ -532,7 +559,7 @@ async def seed_sales(session, item_ids):
             session.add(Inquiry(
                 company_id=COMPANY_ID, name=name, email=email, phone=phone,
                 message=msg, source=source,
-                status=random.choice(["new", "contacted", "resolved"]),
+                status=random.choice(statuses),
                 assigned_to=ADMIN_USER_ID,
             ))
             inquiry_count += 1

@@ -10,6 +10,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  MessageSquare,
+  Mail,
+  Phone,
+  Building2,
 } from "lucide-react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
@@ -19,41 +23,39 @@ interface Inquiry {
   name: string;
   email: string;
   phone: string;
-  company: string;
-  subject: string;
   message: string;
   source: string;
   status: string;
   statusVariant: "success" | "warning" | "danger" | "info" | "primary" | "muted";
-  date: string;
-  priority: string;
+  created_at: string;
+}
+
+interface InquiryStats {
+  total: number;
+  by_status: Record<string, number>;
 }
 
 function mapStatusVariant(status: string): Inquiry["statusVariant"] {
   const s = (status || "").toLowerCase();
   if (s === "qualified" || s === "won" || s === "resolved") return "success";
-  if (s === "in progress" || s === "in_progress" || s === "pending") return "warning";
+  if (s === "in progress" || s === "in_progress" || s === "contacted") return "warning";
   if (s === "closed" || s === "rejected" || s === "lost") return "muted";
   if (s === "new" || s === "open") return "info";
   return "primary";
 }
 
 function mapInquiry(raw: any): Inquiry {
-  const status = raw.status ?? raw.inquiry_status ?? "New";
-  const priority = raw.priority ?? raw.priority_level ?? "Medium";
+  const status = raw.status ?? "new";
   return {
-    id: raw.id ?? raw.ID ?? raw.inquiry_number ?? "",
-    name: raw.name ?? raw.contact_name ?? raw.from_name ?? "",
-    email: raw.email ?? raw.contact_email ?? raw.from_email ?? "",
-    phone: raw.phone ?? raw.contact_phone ?? "",
-    company: raw.company ?? raw.company_name ?? raw.organization ?? "",
-    subject: raw.subject ?? raw.topic ?? raw.title ?? "",
-    message: raw.message ?? raw.description ?? raw.body ?? "",
-    source: raw.source ?? raw.inquiry_source ?? "",
+    id: String(raw.id ?? ""),
+    name: raw.name ?? "",
+    email: raw.email ?? "",
+    phone: raw.phone ?? "",
+    message: raw.message ?? "",
+    source: raw.source ?? "",
     status: status,
     statusVariant: mapStatusVariant(status),
-    date: raw.date ?? raw.created_at ?? raw.inquiry_date ?? "",
-    priority: priority,
+    created_at: raw.created_at ?? "",
   };
 }
 
@@ -67,6 +69,7 @@ export default function InquiriesListPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [stats, setStats] = useState<InquiryStats | null>(null);
 
   const fetchInquiries = useCallback(async () => {
     setLoading(true);
@@ -89,6 +92,19 @@ export default function InquiriesListPage() {
     }
   }, [page, searchTerm, selectedStatus]);
 
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await apiGet<InquiryStats>("/sales/inquiries/stats");
+      setStats(res);
+    } catch (err) {
+      console.error("Failed to fetch stats:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
   useEffect(() => {
     fetchInquiries();
   }, [fetchInquiries]);
@@ -96,6 +112,29 @@ export default function InquiriesListPage() {
   useEffect(() => {
     setPage(1);
   }, [searchTerm, selectedStatus]);
+
+  const statCards = [
+    {
+      label: "Total Inquiries",
+      value: stats?.total ?? 0,
+      icon: <HelpCircle className="h-5 w-5 text-primary" />,
+    },
+    {
+      label: "New",
+      value: stats?.by_status?.new ?? 0,
+      icon: <MessageSquare className="h-5 w-5 text-blue-500" />,
+    },
+    {
+      label: "Contacted",
+      value: stats?.by_status?.contacted ?? 0,
+      icon: <Phone className="h-5 w-5 text-amber-500" />,
+    },
+    {
+      label: "Resolved",
+      value: stats?.by_status?.resolved ?? 0,
+      icon: <Mail className="h-5 w-5 text-emerald-500" />,
+    },
+  ];
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -114,6 +153,23 @@ export default function InquiriesListPage() {
         icon={<HelpCircle className="h-6 w-6 text-primary" />}
       />
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statCards.map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-2xl border border-border bg-card p-5 shadow-sm flex items-center gap-4"
+          >
+            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+              {stat.icon}
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{stat.value}</p>
+              <p className="text-sm text-muted-foreground">{stat.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className="rounded-2xl border border-border bg-card shadow-sm">
         <div className="p-4 border-b border-border">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -121,7 +177,7 @@ export default function InquiriesListPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search inquiries..."
+                placeholder="Search by name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
@@ -134,8 +190,9 @@ export default function InquiriesListPage() {
             >
               <option value="All">All Status</option>
               <option value="new">New</option>
-              <option value="in_progress">In Progress</option>
+              <option value="contacted">Contacted</option>
               <option value="qualified">Qualified</option>
+              <option value="resolved">Resolved</option>
               <option value="closed">Closed</option>
             </select>
           </div>
@@ -157,11 +214,10 @@ export default function InquiriesListPage() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Contact</th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">Company</th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Subject</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">Phone</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Message</th>
                     <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">Source</th>
                     <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Status</th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">Priority</th>
                     <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">Date</th>
                     <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Actions</th>
                   </tr>
@@ -181,29 +237,20 @@ export default function InquiriesListPage() {
                         </div>
                       </td>
                       <td className="py-3 px-4 hidden md:table-cell">
-                        <span className="text-sm text-muted-foreground">{inquiry.company}</span>
+                        <span className="text-sm text-muted-foreground">{inquiry.phone}</span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="text-sm font-medium">{inquiry.subject}</span>
+                        <span className="text-sm line-clamp-1 max-w-[200px]">{inquiry.message}</span>
                       </td>
                       <td className="py-3 px-4 hidden lg:table-cell">
-                        <span className="text-sm text-muted-foreground">{inquiry.source}</span>
+                        <span className="text-sm text-muted-foreground capitalize">{inquiry.source}</span>
                       </td>
                       <td className="py-3 px-4">
                         <StatusBadge status={inquiry.status} variant={inquiry.statusVariant} />
                       </td>
                       <td className="py-3 px-4 hidden lg:table-cell">
-                        <StatusBadge
-                          status={inquiry.priority}
-                          variant={
-                            inquiry.priority === "High" ? "danger" :
-                            inquiry.priority === "Medium" ? "warning" : "muted"
-                          }
-                        />
-                      </td>
-                      <td className="py-3 px-4 hidden lg:table-cell">
                         <span className="text-sm text-muted-foreground">
-                          {inquiry.date ? new Date(inquiry.date).toLocaleDateString() : ""}
+                          {inquiry.created_at ? new Date(inquiry.created_at).toLocaleDateString() : ""}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
