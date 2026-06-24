@@ -280,7 +280,7 @@ class InterviewBase(BaseModel):
     round: int = 1
     type: Optional[str] = None
     scheduled_at: Optional[datetime] = None
-    duration_minutes: int = 60
+    duration_minutes: Optional[int] = 60
     status: str = "scheduled"
     feedback: Optional[str] = None
     rating: Optional[int] = None
