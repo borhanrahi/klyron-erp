@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback, useRef } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
@@ -8,6 +8,8 @@ import {
   ArrowLeft,
   Trash2,
   Loader2,
+  AlertCircle,
+  CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -61,8 +63,28 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
     status: "",
     date: "",
     expiry: "",
+    notes: "",
   });
   const { confirm, state, handleClose } = useConfirm();
+  const [quoteNumberStatus, setQuoteNumberStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  const checkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const checkQuoteNumber = useCallback((value: string, currentId: number) => {
+    if (!value.trim()) {
+      setQuoteNumberStatus("idle");
+      return;
+    }
+    if (checkTimeout.current) clearTimeout(checkTimeout.current);
+    setQuoteNumberStatus("checking");
+    checkTimeout.current = setTimeout(async () => {
+      try {
+        const res = await apiGet<{ available: boolean }>(`/sales/quotations/check-quote-number?quote_number=${encodeURIComponent(value)}&exclude_id=${currentId}`);
+        setQuoteNumberStatus(res.available ? "available" : "taken");
+      } catch {
+        setQuoteNumberStatus("idle");
+      }
+    }, 400);
+  }, []);
 
   useEffect(() => {
     async function fetchQuotation() {
@@ -87,11 +109,13 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
   }, [id]);
 
   async function handleSave() {
+    if (quoteNumberStatus === "taken" || quoteNumberStatus === "checking") return;
     setSaving(true);
     try {
       await apiPut(`/sales/quotations/${id}`, form);
       setQuotation((prev) => (prev ? { ...prev, ...form } : prev));
       setEditing(false);
+      setQuoteNumberStatus("idle");
     } catch (err) {
       console.error("Failed to update quotation:", err);
     } finally {
@@ -152,8 +176,8 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
                 </button>
                 <button
                   onClick={handleSave}
-                  disabled={saving}
-                  className="px-4 py-2 bg-primary text-white rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer disabled:opacity-50"
+                  disabled={saving || quoteNumberStatus === "taken" || quoteNumberStatus === "checking"}
+                  className="px-4 py-2 bg-primary text-white rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? "Saving..." : "Save Changes"}
                 </button>
@@ -192,14 +216,43 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
           <div>
             <label className="block text-xs text-muted-foreground mb-1">Quote Number</label>
             {editing ? (
-              <input
-                type="text"
-                value={form.quote_number}
-                onChange={(e) => setForm((f) => ({ ...f, quote_number: e.target.value }))}
-                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={form.quote_number}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, quote_number: e.target.value }));
+                    checkQuoteNumber(e.target.value, quotation.id);
+                  }}
+                  className={`w-full px-3 py-2 bg-muted border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none ${
+                    quoteNumberStatus === "taken"
+                      ? "border-danger focus:border-danger"
+                      : quoteNumberStatus === "available"
+                      ? "border-emerald-500 focus:border-emerald-500"
+                      : "border-border focus:border-primary"
+                  }`}
+                />
+                {quoteNumberStatus === "checking" && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+                {quoteNumberStatus === "taken" && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <AlertCircle className="h-4 w-4 text-danger" />
+                  </div>
+                )}
+                {quoteNumberStatus === "available" && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <CheckCircle className="h-4 w-4 text-emerald-500" />
+                  </div>
+                )}
+              </div>
             ) : (
               <p className="text-sm font-medium">{quotation.quote_number}</p>
+            )}
+            {editing && quoteNumberStatus === "taken" && (
+              <p className="text-xs text-danger mt-1">This quote number already exists</p>
             )}
           </div>
           <div>

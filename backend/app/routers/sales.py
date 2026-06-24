@@ -486,6 +486,24 @@ async def delete_deal(
 
 # ── Quotations (with items) ──
 
+@router.get("/quotations/check-quote-number")
+async def check_quote_number(
+    quote_number: str = Query(...),
+    exclude_id: Optional[int] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    query = select(Quotation).where(
+        Quotation.quote_number == quote_number,
+        Quotation.company_id == current_user.company_id,
+        Quotation.deleted_at.is_(None),
+    )
+    if exclude_id:
+        query = query.where(Quotation.id != exclude_id)
+    exists = (await db.execute(query)).scalar_one_or_none() is not None
+    return {"available": not exists}
+
+
 @router.get("/quotations", response_model=PaginatedResponse)
 async def list_quotations(
     page: int = Query(1, ge=1),

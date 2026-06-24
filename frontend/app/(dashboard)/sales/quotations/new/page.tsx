@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
-import { FileText, Plus, Trash2, ArrowLeft } from "lucide-react";
+import { FileText, Plus, Trash2, ArrowLeft, AlertCircle, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiPost } from "@/lib/api";
+import { apiPost, apiGet } from "@/lib/api";
 import { DatePicker } from "@/components/ui/date-picker";
 
 interface QuotationItemDraft {
@@ -28,6 +28,25 @@ export default function CreateQuotationPage() {
     notes: "",
   });
   const [items, setItems] = useState<QuotationItemDraft[]>([]);
+  const [quoteNumberStatus, setQuoteNumberStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  const checkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const checkQuoteNumber = useCallback((value: string) => {
+    if (!value.trim()) {
+      setQuoteNumberStatus("idle");
+      return;
+    }
+    if (checkTimeout.current) clearTimeout(checkTimeout.current);
+    setQuoteNumberStatus("checking");
+    checkTimeout.current = setTimeout(async () => {
+      try {
+        const res = await apiGet<{ available: boolean }>(`/sales/quotations/check-quote-number?quote_number=${encodeURIComponent(value)}`);
+        setQuoteNumberStatus(res.available ? "available" : "taken");
+      } catch {
+        setQuoteNumberStatus("idle");
+      }
+    }, 400);
+  }, []);
 
   function addItem() {
     setItems((prev) => [...prev, { item_id: 0, qty: 1, price: 0, tax: 0, total: 0 }]);
@@ -52,8 +71,11 @@ export default function CreateQuotationPage() {
   const totalTax = items.reduce((sum, item) => sum + item.tax, 0);
   const total = subtotal + totalTax;
 
+  const canSubmit = form.quote_number.trim() && quoteNumberStatus !== "taken" && quoteNumberStatus !== "checking";
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!canSubmit) return;
     setSaving(true);
     try {
       await apiPost("/sales/quotations", {
@@ -94,13 +116,43 @@ export default function CreateQuotationPage() {
               <label className="block text-sm font-medium text-muted-foreground mb-1">
                 Quote Number <span className="text-danger">*</span>
               </label>
-              <input
-                type="text"
-                required
-                value={form.quote_number}
-                onChange={(e) => setForm((f) => ({ ...f, quote_number: e.target.value }))}
-                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  value={form.quote_number}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, quote_number: e.target.value }));
+                    checkQuoteNumber(e.target.value);
+                  }}
+                  className={`w-full px-3 py-2 bg-muted border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none ${
+                    quoteNumberStatus === "taken"
+                      ? "border-danger focus:border-danger"
+                      : quoteNumberStatus === "available"
+                      ? "border-emerald-500 focus:border-emerald-500"
+                      : "border-border focus:border-primary"
+                  }`}
+                  placeholder="e.g. QTN-2026-001"
+                />
+                {quoteNumberStatus === "checking" && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+                {quoteNumberStatus === "taken" && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <AlertCircle className="h-4 w-4 text-danger" />
+                  </div>
+                )}
+                {quoteNumberStatus === "available" && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <CheckCircle className="h-4 w-4 text-emerald-500" />
+                  </div>
+                )}
+              </div>
+              {quoteNumberStatus === "taken" && (
+                <p className="text-xs text-danger mt-1">This quote number already exists</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-muted-foreground mb-1">
@@ -265,8 +317,8 @@ export default function CreateQuotationPage() {
           </Link>
           <button
             type="submit"
-            disabled={saving}
-            className="px-4 py-2 bg-primary text-white rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-2"
+            disabled={saving || !canSubmit}
+            className="px-4 py-2 bg-primary text-white rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {saving ? "Creating..." : "Create Quotation"}
           </button>
