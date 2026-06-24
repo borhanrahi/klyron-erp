@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
@@ -9,12 +9,21 @@ export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
 
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("remembered_email");
+    if (saved) {
+      setFormData((prev) => ({ ...prev, email: saved }));
+      setRemember(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +48,11 @@ export default function LoginPage() {
       localStorage.setItem("token", data.access_token);
       if (data.refresh_token) {
         localStorage.setItem("refresh_token", data.refresh_token);
+      }
+      if (remember) {
+        localStorage.setItem("remembered_email", formData.email);
+      } else {
+        localStorage.removeItem("remembered_email");
       }
       router.push("/dashboard");
     } catch {
@@ -129,6 +143,8 @@ export default function LoginPage() {
                 <input
                   type="checkbox"
                   id="remember"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
                   className="w-4 h-4 rounded border-border bg-muted text-primary focus:ring-primary focus:ring-2 focus:ring-offset-background"
                 />
                 <label htmlFor="remember" className="ml-2 text-sm text-muted-foreground">
