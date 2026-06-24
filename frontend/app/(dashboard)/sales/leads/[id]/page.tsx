@@ -62,16 +62,17 @@ export default function LeadDetailPage() {
   useEffect(() => {
     async function fetchLead() {
       try {
-        const data = await apiGet<Lead>(`/sales/leads/${id}`);
-        setLead(data);
+        const data = await apiGet<{ data: Lead }>(`/sales/leads/${id}`);
+        const leadData = data.data;
+        setLead(leadData);
         setFormData({
-          name: data.name ?? "",
-          email: data.email ?? "",
-          phone: data.phone ?? "",
-          source: data.source ?? "",
-          status: data.status ?? "",
-          score: data.score ?? 0,
-          notes: data.notes ?? "",
+          name: leadData.name ?? "",
+          email: leadData.email ?? "",
+          phone: leadData.phone ?? "",
+          source: leadData.source ?? "",
+          status: leadData.status ?? "",
+          score: leadData.score ?? 0,
+          notes: leadData.notes ?? "",
         });
       } catch (err) {
         console.error("Failed to fetch lead:", err);

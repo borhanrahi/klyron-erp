@@ -64,14 +64,15 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
   useEffect(() => {
     async function fetchQuotation() {
       try {
-        const res = await apiGet<Quotation>(`/sales/quotations/${id}`);
-        setQuotation(res);
+        const res = await apiGet<{ data: Quotation }>(`/sales/quotations/${id}`);
+        const q = res.data;
+        setQuotation(q);
         setForm({
-          quote_number: res.quote_number,
-          customer_id: res.customer_id,
-          status: res.status,
-          date: res.date,
-          expiry: res.expiry ?? "",
+          quote_number: q.quote_number,
+          customer_id: q.customer_id,
+          status: q.status,
+          date: q.date,
+          expiry: q.expiry ?? "",
         });
       } catch (err) {
         console.error("Failed to fetch quotation:", err);

@@ -57,18 +57,19 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   useEffect(() => {
     async function fetchCustomer() {
       try {
-        const res = await apiGet<Customer>(`/sales/customers/${id}`);
-        setCustomer(res);
+        const res = await apiGet<{ data: Customer }>(`/sales/customers/${id}`);
+        const cust = res.data;
+        setCustomer(cust);
         setForm({
-          name: res.name,
-          email: res.email,
-          phone: res.phone,
-          tax_id: res.tax_id,
-          address: res.address,
-          credit_limit: res.credit_limit,
-          balance: res.balance,
-          loyalty_points: res.loyalty_points,
-          status: res.status,
+          name: cust.name,
+          email: cust.email,
+          phone: cust.phone,
+          tax_id: cust.tax_id,
+          address: cust.address,
+          credit_limit: cust.credit_limit,
+          balance: cust.balance,
+          loyalty_points: cust.loyalty_points,
+          status: cust.status,
         });
       } catch (err) {
         console.error("Failed to fetch customer:", err);

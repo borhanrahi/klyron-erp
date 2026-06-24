@@ -80,11 +80,12 @@ export default function SalesOrderDetailPage({ params }: { params: Promise<{ id:
   async function fetchOrder() {
     try {
       setLoading(true);
-      const data = await apiGet<Order>(`/sales/orders/${id}`);
-      setOrder(data);
-      setEditStatus(data.status);
-      setEditDeliveryDate(data.delivery_date ?? "");
-      setEditShippingAddress(data.shipping_address ?? "");
+      const data = await apiGet<{ data: Order }>(`/sales/orders/${id}`);
+      const orderData = data.data;
+      setOrder(orderData);
+      setEditStatus(orderData.status);
+      setEditDeliveryDate(orderData.delivery_date ?? "");
+      setEditShippingAddress(orderData.shipping_address ?? "");
     } catch (err) {
       console.error("Failed to fetch order:", err);
     } finally {

@@ -76,16 +76,17 @@ export default function DealDetailPage() {
   useEffect(() => {
     async function fetchDeal() {
       try {
-        const data = await apiGet<Deal>(`/sales/deals/${id}`);
-        setDeal(data);
+        const data = await apiGet<{ data: Deal }>(`/sales/deals/${id}`);
+        const dealData = data.data;
+        setDeal(dealData);
         setFormData({
-          title: data.title ?? "",
-          value: data.value ?? 0,
-          currency: data.currency ?? "USD",
-          stage: data.stage ?? "",
-          probability: data.probability ?? 0,
-          expected_close: data.expected_close ?? "",
-          status: data.status ?? "",
+          title: dealData.title ?? "",
+          value: dealData.value ?? 0,
+          currency: dealData.currency ?? "USD",
+          stage: dealData.stage ?? "",
+          probability: dealData.probability ?? 0,
+          expected_close: dealData.expected_close ?? "",
+          status: dealData.status ?? "",
         });
       } catch (err) {
         console.error("Failed to fetch deal:", err);
