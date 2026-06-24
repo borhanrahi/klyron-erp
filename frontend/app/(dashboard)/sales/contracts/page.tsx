@@ -8,11 +8,13 @@ import {
   Search,
   Plus,
   Eye,
+  Trash2,
   ArrowUpDown,
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 
 interface Contract {
   id: number;
@@ -40,6 +42,7 @@ export default function ContractsListPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const { confirm, state, handleClose } = useConfirm();
 
   useEffect(() => {
     async function fetchContracts() {
@@ -63,6 +66,17 @@ export default function ContractsListPage() {
       selectedStatus === "All" || c.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
+
+  async function handleDelete(id: number) {
+    const ok = await confirm("Are you sure you want to delete this contract?");
+    if (!ok) return;
+    try {
+      await apiDelete(`/sales/contracts/${id}`);
+      setContracts((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      console.error("Failed to delete contract:", err);
+    }
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -186,6 +200,12 @@ export default function ContractsListPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </Link>
+                        <button
+                          onClick={() => handleDelete(contract.id)}
+                          className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -200,6 +220,16 @@ export default function ContractsListPage() {
           </div>
         )}
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

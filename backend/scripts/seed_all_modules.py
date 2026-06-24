@@ -35,7 +35,7 @@ from app.models.inventory import (
     ItemCategory, Item, Warehouse, Stock, StockAdjustment, StockTransfer,
 )
 from app.models.sales import (
-    Customer, Lead, Deal, Quotation, QuotationItem, SalesOrder, SalesOrderItem,
+    Customer, CustomerContract, Lead, Deal, Quotation, QuotationItem, SalesOrder, SalesOrderItem,
     Inquiry, SalesCampaign, DeliveryNote,
 )
 from app.models.finance import (
@@ -606,6 +606,42 @@ async def seed_sales(session, item_ids):
             ))
             campaign_count += 1
     log(f"Campaigns: {campaign_count}")
+
+    # Contracts
+    contract_statuses = ["active", "pending", "draft", "expired"]
+    contracts_data = [
+        ("Enterprise Platform License", 1, 120000, "active"),
+        ("Cloud Infrastructure Agreement", 2, 85000, "active"),
+        ("Software Maintenance Contract", 3, 45000, "pending"),
+        ("Annual Support Agreement", 4, 60000, "active"),
+        ("Digital Transformation Project", 5, 250000, "draft"),
+        ("Data Analytics Partnership", 6, 95000, "active"),
+        ("Cybersecurity Audit Contract", 7, 75000, "pending"),
+        ("Mobile App Development", 8, 110000, "active"),
+        ("ERP Implementation Phase 1", 9, 180000, "active"),
+        ("Network Infrastructure Upgrade", 10, 55000, "expired"),
+        ("IT Consulting Retainer", 11, 35000, "active"),
+        ("Server Hosting Agreement", 12, 42000, "active"),
+        ("Software Licensing Agreement", 13, 28000, "pending"),
+        ("Backup & Disaster Recovery", 14, 65000, "active"),
+        ("VoIP System Contract", 15, 38000, "draft"),
+    ]
+    contract_count = 0
+    for title, cust_idx, value, status in contracts_data:
+        existing = await session.execute(select(CustomerContract).where(CustomerContract.title == title))
+        if not existing.scalar_one_or_none():
+            session.add(CustomerContract(
+                company_id=COMPANY_ID,
+                customer_id=cust_idx,
+                title=title,
+                start_date=date.today() - timedelta(days=random.randint(1, 180)),
+                end_date=date.today() + timedelta(days=random.randint(30, 365)),
+                value=value,
+                status=status,
+                renewal_reminder=random.choice([True, False]),
+            ))
+            contract_count += 1
+    log(f"Contracts: {contract_count}")
 
     await session.commit()
     print("  Sales DONE")
