@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { apiGet, apiDelete } from "@/lib/api";
-import { useConfirm } from "@/components/common/ConfirmModal";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 
 interface Campaign {
   id: string;
@@ -64,7 +64,7 @@ export default function CampaignsListPage() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [stats, setStats] = useState({ total: 0, activeCount: 0, draftCount: 0, completedCount: 0 });
-  const confirm = useConfirm();
+  const { confirm, state, handleClose } = useConfirm();
 
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
@@ -111,12 +111,7 @@ export default function CampaignsListPage() {
   useEffect(() => { setPage(1); }, [searchTerm, selectedStatus]);
 
   const handleDelete = async (id: string) => {
-    const ok = await confirm({
-      title: "Delete Campaign",
-      message: "Are you sure you want to delete this campaign?",
-      confirmText: "Delete",
-      variant: "danger",
-    });
+    const ok = await confirm("Are you sure you want to delete this campaign?");
     if (!ok) return;
     try {
       await apiDelete(`/sales/campaigns/${id}`);
@@ -316,6 +311,16 @@ export default function CampaignsListPage() {
           </>
         )}
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }
