@@ -126,7 +126,7 @@ export default function CampaignDetailPage() {
         Back to Campaigns
       </Link>
 
-      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+      <div className="flex flex-col gap-4">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">{campaign.name}</h1>
@@ -140,42 +140,42 @@ export default function CampaignDetailPage() {
             {campaign.end_date}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            View Report
+        <div className="flex flex-wrap items-center gap-2">
+          <button className="border border-border bg-muted text-foreground px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:bg-muted/80 flex items-center gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" />
+            Report
           </button>
-          <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-            <Edit className="h-4 w-4" />
+          <button className="border border-border bg-muted text-foreground px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:bg-muted/80 flex items-center gap-1.5">
+            <Edit className="h-3.5 w-3.5" />
             Edit
           </button>
           {isActive && (
-            <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-              <Pause className="h-4 w-4" />
+            <button className="border border-border bg-muted text-foreground px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:bg-muted/80 flex items-center gap-1.5">
+              <Pause className="h-3.5 w-3.5" />
               Pause
             </button>
           )}
           {isPaused && (
-            <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
-              <Play className="h-4 w-4" />
+            <button className="bg-primary text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-1.5">
+              <Play className="h-3.5 w-3.5" />
               Resume
             </button>
           )}
           {isActive && (
-            <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2">
-              <Send className="h-4 w-4" />
-              Send Next Email
+            <button className="bg-primary text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-1.5">
+              <Send className="h-3.5 w-3.5" />
+              Send Email
             </button>
           )}
           <button
             onClick={handleDelete}
             disabled={deleting}
-            className="border border-danger/30 text-danger px-4 py-2 rounded-lg font-medium transition-all hover:bg-danger/10 flex items-center gap-2 disabled:opacity-50"
+            className="border border-danger/30 text-danger px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:bg-danger/10 flex items-center gap-1.5 disabled:opacity-50"
           >
             {deleting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3.5 w-3.5" />
             )}
             Delete
           </button>
