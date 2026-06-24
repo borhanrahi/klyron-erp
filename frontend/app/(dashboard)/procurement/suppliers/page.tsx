@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 import {
   Search,
   Plus,
@@ -38,6 +39,7 @@ export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const { confirm, state, handleClose } = useConfirm();
 
   const fetchSuppliers = useCallback(async () => {
     try {
@@ -69,7 +71,8 @@ export default function SuppliersPage() {
   }, [fetchSuppliers]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this supplier?")) return;
+    const ok = await confirm("Are you sure you want to delete this supplier?");
+    if (!ok) return;
     setDeleting(id);
     try {
       await apiDelete(`/procurement/suppliers/${id}`);
@@ -276,6 +279,16 @@ export default function SuppliersPage() {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

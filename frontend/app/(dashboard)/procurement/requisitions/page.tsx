@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 import {
   Search,
   Plus,
@@ -34,6 +35,7 @@ export default function RequisitionsPage() {
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, state, handleClose } = useConfirm();
 
   const fetchRequisitions = async () => {
     setLoading(true);
@@ -54,7 +56,8 @@ export default function RequisitionsPage() {
   }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this requisition?")) return;
+    const ok = await confirm("Are you sure you want to delete this requisition?");
+    if (!ok) return;
     try {
       await apiDelete(`/procurement/requisitions/${id}`);
       fetchRequisitions();
@@ -219,6 +222,16 @@ export default function RequisitionsPage() {
           </p>
         </div>
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

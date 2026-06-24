@@ -18,6 +18,7 @@ import Link from "next/link";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPut, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 
 interface OrderItem {
   id: number;
@@ -72,6 +73,7 @@ export default function SalesOrderDetailPage({ params }: { params: Promise<{ id:
   const [editStatus, setEditStatus] = useState("");
   const [editDeliveryDate, setEditDeliveryDate] = useState("");
   const [editShippingAddress, setEditShippingAddress] = useState("");
+  const { confirm, state, handleClose } = useConfirm();
 
   useEffect(() => {
     fetchOrder();
@@ -128,7 +130,8 @@ export default function SalesOrderDetailPage({ params }: { params: Promise<{ id:
   }
 
   async function handleDelete() {
-    if (!confirm("Are you sure you want to delete this order?")) return;
+    const ok = await confirm("Are you sure you want to delete this order?");
+    if (!ok) return;
     try {
       await apiDelete(`/sales/orders/${id}`);
       router.push("/sales/orders");
@@ -361,6 +364,16 @@ export default function SalesOrderDetailPage({ params }: { params: Promise<{ id:
           </div>
         </div>
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

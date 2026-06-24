@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { apiGet, apiPost, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 
 interface Customer {
   id: number;
@@ -54,6 +55,7 @@ export default function CustomersListPage() {
     status: "active",
   });
   const [creating, setCreating] = useState(false);
+  const { confirm, state, handleClose } = useConfirm();
 
   useEffect(() => {
     fetchCustomers();
@@ -94,7 +96,8 @@ export default function CustomersListPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Are you sure you want to delete this customer?")) return;
+    const ok = await confirm("Are you sure you want to delete this customer?");
+    if (!ok) return;
     try {
       await apiDelete(`/sales/customers/${id}`);
       setCustomers((prev) => prev.filter((c) => c.id !== id));
@@ -308,6 +311,16 @@ export default function CustomersListPage() {
           </div>
         )}
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

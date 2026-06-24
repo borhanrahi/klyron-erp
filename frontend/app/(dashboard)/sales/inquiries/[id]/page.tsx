@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet, apiPut, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 import {
   ArrowLeft,
   Mail,
@@ -80,6 +81,7 @@ export default function InquiryDetailPage() {
 
   const [response, setResponse] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("");
+  const { confirm, state, handleClose } = useConfirm();
 
   const fetchInquiry = useCallback(async () => {
     try {
@@ -116,7 +118,8 @@ export default function InquiryDetailPage() {
   }
 
   async function handleDelete() {
-    if (!confirm("Are you sure you want to delete this inquiry?")) return;
+    const ok = await confirm("Are you sure you want to delete this inquiry?");
+    if (!ok) return;
     try {
       setDeleting(true);
       await apiDelete(`/sales/inquiries/${id}`);
@@ -361,6 +364,16 @@ export default function InquiryDetailPage() {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

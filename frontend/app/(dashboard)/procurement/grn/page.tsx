@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 import {
   Search,
   Plus,
@@ -53,6 +54,7 @@ export default function GRNListPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const { confirm, state, handleClose } = useConfirm();
 
   const fetchGRNs = () => {
     setLoading(true);
@@ -78,7 +80,8 @@ export default function GRNListPage() {
   };
 
   async function handleDelete(id: number) {
-    if (!confirm("Delete this GRN?")) return;
+    const ok = await confirm("Delete this GRN?");
+    if (!ok) return;
     try {
       await apiDelete(`/procurement/grn/${id}`);
       fetchGRNs();
@@ -179,6 +182,16 @@ export default function GRNListPage() {
           <p className="text-sm text-muted-foreground">Showing {filtered.length} of {grns.length} GRNs</p>
         </div>
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

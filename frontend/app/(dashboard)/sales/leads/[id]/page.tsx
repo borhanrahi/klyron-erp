@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { apiGet, apiPut, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 
 interface Lead {
   id: number;
@@ -58,6 +59,7 @@ export default function LeadDetailPage() {
     score: 0,
     notes: "",
   });
+  const { confirm, state, handleClose } = useConfirm();
 
   useEffect(() => {
     async function fetchLead() {
@@ -110,7 +112,8 @@ export default function LeadDetailPage() {
   }
 
   async function handleDelete() {
-    if (!confirm("Are you sure you want to delete this lead?")) return;
+    const ok = await confirm("Are you sure you want to delete this lead?");
+    if (!ok) return;
     try {
       await apiDelete(`/sales/leads/${id}`);
       router.push("/sales/leads");
@@ -386,6 +389,16 @@ export default function LeadDetailPage() {
           )}
         </>
       )}
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

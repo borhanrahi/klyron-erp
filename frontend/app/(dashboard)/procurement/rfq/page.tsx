@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 import { FileText, Search, Plus, Eye, Trash2, Loader2 } from "lucide-react";
 
 function fmt(n: number) { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n); }
@@ -34,6 +35,7 @@ export default function RFQListPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const { confirm, state, handleClose } = useConfirm();
 
   const fetchRFQs = () => {
     setLoading(true);
@@ -60,7 +62,8 @@ export default function RFQListPage() {
   };
 
   async function handleDelete(id: number) {
-    if (!confirm("Delete this RFQ?")) return;
+    const ok = await confirm("Delete this RFQ?");
+    if (!ok) return;
     try {
       await apiDelete(`/procurement/rfqs/${id}`);
       fetchRFQs();
@@ -165,6 +168,16 @@ export default function RFQListPage() {
           <p className="text-sm text-muted-foreground">Showing {filtered.length} of {rfqs.length} RFQs</p>
         </div>
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

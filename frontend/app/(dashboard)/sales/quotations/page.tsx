@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { apiGet, apiDelete } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 
 interface QuotationItem {
   id: number;
@@ -54,6 +55,7 @@ export default function QuotationsListPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const { confirm, state, handleClose } = useConfirm();
 
   useEffect(() => {
     async function fetchQuotations() {
@@ -79,7 +81,8 @@ export default function QuotationsListPage() {
   });
 
   async function handleDelete(id: number) {
-    if (!confirm("Are you sure you want to delete this quotation?")) return;
+    const ok = await confirm("Are you sure you want to delete this quotation?");
+    if (!ok) return;
     try {
       await apiDelete(`/sales/quotations/${id}`);
       setQuotations((prev) => prev.filter((q) => q.id !== id));
@@ -226,6 +229,16 @@ export default function QuotationsListPage() {
           </div>
         )}
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

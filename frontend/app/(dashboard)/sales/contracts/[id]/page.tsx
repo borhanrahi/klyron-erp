@@ -19,6 +19,7 @@ import Link from "next/link";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useRouter, useParams } from "next/navigation";
 import { apiGet, apiPut, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 
 interface Contract {
   id: number;
@@ -81,6 +82,7 @@ export default function ContractDetailPage() {
     end_date: "",
     renewal_reminder: false,
   });
+  const { confirm, state, handleClose } = useConfirm();
 
   useEffect(() => {
     async function fetchContract() {
@@ -139,7 +141,8 @@ export default function ContractDetailPage() {
   }
 
   async function handleDelete() {
-    if (!confirm("Are you sure you want to delete this contract?")) return;
+    const ok = await confirm("Are you sure you want to delete this contract?");
+    if (!ok) return;
     try {
       await apiDelete(`/sales/contracts/${id}`);
       router.push("/sales/contracts");
@@ -421,6 +424,16 @@ export default function ContractDetailPage() {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

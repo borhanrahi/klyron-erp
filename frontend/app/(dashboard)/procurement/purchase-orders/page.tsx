@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 import {
   Search,
   Plus,
@@ -33,6 +34,7 @@ export default function PurchaseOrdersPage() {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { confirm, state, handleClose } = useConfirm();
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -53,7 +55,8 @@ export default function PurchaseOrdersPage() {
   }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Delete this purchase order?")) return;
+    const ok = await confirm("Delete this purchase order?");
+    if (!ok) return;
     try {
       await apiDelete(`/procurement/orders/${id}`);
       fetchOrders();
@@ -238,6 +241,16 @@ export default function PurchaseOrdersPage() {
           </p>
         </div>
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

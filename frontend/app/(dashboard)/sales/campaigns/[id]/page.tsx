@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiGet, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
   Megaphone,
@@ -63,6 +64,7 @@ export default function CampaignDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const { confirm, state, handleClose } = useConfirm();
 
   useEffect(() => {
     setLoading(true);
@@ -74,7 +76,8 @@ export default function CampaignDetailPage() {
   }, [id]);
 
   async function handleDelete() {
-    if (!confirm("Are you sure you want to delete this campaign?")) return;
+    const ok = await confirm("Are you sure you want to delete this campaign?");
+    if (!ok) return;
     setDeleting(true);
     try {
       await apiDelete(`/sales/campaigns/${id}`);
@@ -245,6 +248,16 @@ export default function CampaignDetailPage() {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

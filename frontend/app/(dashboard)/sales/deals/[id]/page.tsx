@@ -19,6 +19,7 @@ import Link from "next/link";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useRouter, useParams } from "next/navigation";
 import { apiGet, apiPut, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 
 interface Deal {
   id: number;
@@ -72,6 +73,7 @@ export default function DealDetailPage() {
     expected_close: "",
     status: "",
   });
+  const { confirm, state, handleClose } = useConfirm();
 
   useEffect(() => {
     async function fetchDeal() {
@@ -124,7 +126,8 @@ export default function DealDetailPage() {
   }
 
   async function handleDelete() {
-    if (!confirm("Are you sure you want to delete this deal?")) return;
+    const ok = await confirm("Are you sure you want to delete this deal?");
+    if (!ok) return;
     try {
       await apiDelete(`/sales/deals/${id}`);
       router.push("/sales/deals");
@@ -402,6 +405,16 @@ export default function DealDetailPage() {
           </div>
         </>
       )}
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 import {
   Users,
   Search,
@@ -61,6 +62,7 @@ export default function EmployeeDirectoryPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [loading, setLoading] = useState(true);
+  const { confirm, state, handleClose } = useConfirm();
 
   const fetchEmployees = (p: number, search?: string) => {
     setLoading(true);
@@ -89,7 +91,8 @@ export default function EmployeeDirectoryPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Delete this employee?")) return;
+    const ok = await confirm("Delete this employee?");
+    if (!ok) return;
     await apiDelete(`/hr/employees/${id}`);
     fetchEmployees(page, searchTerm || undefined);
   };
@@ -296,6 +299,16 @@ export default function EmployeeDirectoryPage() {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

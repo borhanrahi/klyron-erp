@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 import {
   Receipt,
   ArrowLeft,
@@ -46,6 +47,7 @@ export default function ExpenseDetailPage() {
   const [expense, setExpense] = useState<Expense | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, state, handleClose } = useConfirm();
 
   useEffect(() => {
     apiGet<{ data: Expense }>(`/finance/expenses/${params.id}`)
@@ -55,7 +57,8 @@ export default function ExpenseDetailPage() {
   }, [params.id]);
 
   async function handleDelete() {
-    if (!confirm("Delete this expense?")) return;
+    const ok = await confirm("Delete this expense?");
+    if (!ok) return;
     try {
       await apiDelete(`/finance/expenses/${params.id}`);
       router.push("/finance/expenses");
@@ -212,6 +215,16 @@ export default function ExpenseDetailPage() {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

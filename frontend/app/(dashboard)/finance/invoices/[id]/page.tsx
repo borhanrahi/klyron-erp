@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 import {
   FileText,
   Download,
@@ -38,6 +39,7 @@ export default function InvoiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"details" | "items">("details");
+  const { confirm, state, handleClose } = useConfirm();
 
   useEffect(() => {
     apiGet<{ data: Invoice }>(`/finance/invoices/${params.id}`)
@@ -47,7 +49,8 @@ export default function InvoiceDetailPage() {
   }, [params.id]);
 
   async function handleDelete() {
-    if (!confirm("Delete this invoice?")) return;
+    const ok = await confirm("Delete this invoice?");
+    if (!ok) return;
     try {
       await apiDelete(`/finance/invoices/${params.id}`);
       router.push("/finance/invoices");
@@ -170,6 +173,16 @@ export default function InvoiceDetailPage() {
           <p className="text-sm text-muted-foreground">{invoice.notes}</p>
         </div>
       )}
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }

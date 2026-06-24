@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPut, apiDelete } from "@/lib/api";
+import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
 
 interface Customer {
   id: number;
@@ -53,6 +54,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     loyalty_points: 0,
     status: "",
   });
+  const { confirm, state, handleClose } = useConfirm();
 
   useEffect(() => {
     async function fetchCustomer() {
@@ -94,7 +96,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   }
 
   async function handleDelete() {
-    if (!confirm("Are you sure you want to delete this customer?")) return;
+    const ok = await confirm("Are you sure you want to delete this customer?");
+    if (!ok) return;
     try {
       await apiDelete(`/sales/customers/${id}`);
       router.push("/sales/customers");
@@ -307,6 +310,16 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        message={state.message}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={() => handleClose(true)}
+        onCancel={() => handleClose(false)}
+      />
     </div>
   );
 }
