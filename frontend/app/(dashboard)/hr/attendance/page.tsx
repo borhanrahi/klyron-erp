@@ -130,7 +130,6 @@ export default function AttendancePage() {
             <DatePicker
               value={selectedDate}
               onChange={setSelectedDate}
-              className="px-3 py-1.5 bg-muted text-foreground border border-border rounded-lg text-xs focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
             />
           </div>
         </div>
