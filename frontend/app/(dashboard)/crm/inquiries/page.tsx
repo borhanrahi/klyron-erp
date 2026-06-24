@@ -35,10 +35,10 @@ interface InquiryItem {
 
 const statusVariantMap: Record<string, InquiryItem["statusVariant"]> = {
   new: "info",
-  in_progress: "warning",
-  replied: "success",
+  contacted: "warning",
+  qualified: "success",
+  resolved: "success",
   closed: "muted",
-  open: "danger",
 };
 
 const priorityVariantMap: Record<string, InquiryItem["priorityVariant"]> = {
@@ -86,7 +86,7 @@ export default function InquiriesPage() {
         per_page: String(PER_PAGE),
       };
       if (searchTerm) params.search = searchTerm;
-      if (selectedStatus !== "All") params.status = selectedStatus.toLowerCase();
+      if (selectedStatus !== "All") params.status = selectedStatus;
       const res = await apiGet<any>("/sales/inquiries", params);
       const items = (res.items ?? []).map((item: any) => ({
         ...item,
@@ -202,10 +202,11 @@ export default function InquiriesPage() {
           className="px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
         >
           <option value="All">All Status</option>
-          <option value="New">New</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Replied">Replied</option>
-          <option value="Closed">Closed</option>
+          <option value="new">New</option>
+          <option value="contacted">Contacted</option>
+          <option value="qualified">Qualified</option>
+          <option value="resolved">Resolved</option>
+          <option value="closed">Closed</option>
         </select>
       </div>
 
