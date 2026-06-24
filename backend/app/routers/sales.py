@@ -1071,19 +1071,6 @@ async def delete_campaign(
 
 # ── Inquiries ──
 
-@router.get("/inquiries/stats")
-async def inquiry_stats(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_company),
-):
-    base = sa_func.count().select_from(Inquiry).where(Inquiry.company_id == current_user.company_id)
-    total = (await db.execute(base)).scalar() or 0
-    rows = (await db.execute(
-        select(Inquiry.status, sa_func.count()).where(Inquiry.company_id == current_user.company_id).group_by(Inquiry.status)
-    )).all()
-    by_status = {r[0]: r[1] for r in rows}
-    return {"total": total, "by_status": by_status}
-
 @router.get("/inquiries", response_model=PaginatedResponse)
 async def list_inquiries(
     page: int = Query(1, ge=1),

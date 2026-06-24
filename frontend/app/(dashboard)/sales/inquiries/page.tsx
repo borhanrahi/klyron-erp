@@ -7,16 +7,17 @@ import {
   HelpCircle,
   Search,
   Eye,
+  Trash2,
   ChevronLeft,
   ChevronRight,
   Loader2,
   MessageSquare,
-  Mail,
   Phone,
-  Building2,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiDelete } from "@/lib/api";
+import { useConfirm } from "@/components/common/ConfirmModal";
 
 interface Inquiry {
   id: string;
@@ -30,15 +31,10 @@ interface Inquiry {
   created_at: string;
 }
 
-interface InquiryStats {
-  total: number;
-  by_status: Record<string, number>;
-}
-
 function mapStatusVariant(status: string): Inquiry["statusVariant"] {
   const s = (status || "").toLowerCase();
   if (s === "qualified" || s === "won" || s === "resolved") return "success";
-  if (s === "in progress" || s === "in_progress" || s === "contacted") return "warning";
+  if (s === "contacted" || s === "in_progress") return "warning";
   if (s === "closed" || s === "rejected" || s === "lost") return "muted";
   if (s === "new" || s === "open") return "info";
   return "primary";
@@ -69,7 +65,8 @@ export default function InquiriesListPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [stats, setStats] = useState<InquiryStats | null>(null);
+  const [stats, setStats] = useState({ total: 0, newCount: 0, contactedCount: 0, resolvedCount: 0 });
+  const confirm = useConfirm();
 
   const fetchInquiries = useCallback(async () => {
     setLoading(true);
@@ -94,8 +91,18 @@ export default function InquiriesListPage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await apiGet<InquiryStats>("/sales/inquiries/stats");
-      setStats(res);
+      const [totalRes, newRes, contactedRes, resolvedRes] = await Promise.all([
+        apiGet<any>("/sales/inquiries", { page: "1", per_page: "1" }),
+        apiGet<any>("/sales/inquiries", { page: "1", per_page: "1", status: "new" }),
+        apiGet<any>("/sales/inquiries", { page: "1", per_page: "1", status: "contacted" }),
+        apiGet<any>("/sales/inquiries", { page: "1", per_page: "1", status: "resolved" }),
+      ]);
+      setStats({
+        total: totalRes.total ?? 0,
+        newCount: newRes.total ?? 0,
+        contactedCount: contactedRes.total ?? 0,
+        resolvedCount: resolvedRes.total ?? 0,
+      });
     } catch (err) {
       console.error("Failed to fetch stats:", err);
     }
@@ -113,38 +120,35 @@ export default function InquiriesListPage() {
     setPage(1);
   }, [searchTerm, selectedStatus]);
 
+  const handleDelete = async (id: string) => {
+    const ok = await confirm({
+      title: "Delete Inquiry",
+      message: "Are you sure you want to delete this inquiry?",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+    if (!ok) return;
+    try {
+      await apiDelete(`/sales/inquiries/${id}`);
+      fetchInquiries();
+      fetchStats();
+    } catch (err) {
+      console.error("Failed to delete:", err);
+    }
+  };
+
   const statCards = [
-    {
-      label: "Total Inquiries",
-      value: stats?.total ?? 0,
-      icon: <HelpCircle className="h-5 w-5 text-primary" />,
-    },
-    {
-      label: "New",
-      value: stats?.by_status?.new ?? 0,
-      icon: <MessageSquare className="h-5 w-5 text-blue-500" />,
-    },
-    {
-      label: "Contacted",
-      value: stats?.by_status?.contacted ?? 0,
-      icon: <Phone className="h-5 w-5 text-amber-500" />,
-    },
-    {
-      label: "Resolved",
-      value: stats?.by_status?.resolved ?? 0,
-      icon: <Mail className="h-5 w-5 text-emerald-500" />,
-    },
+    { label: "Total Inquiries", value: stats.total, icon: <HelpCircle className="h-5 w-5 text-primary" /> },
+    { label: "New", value: stats.newCount, icon: <MessageSquare className="h-5 w-5 text-blue-500" /> },
+    { label: "Contacted", value: stats.contactedCount, icon: <Phone className="h-5 w-5 text-amber-500" /> },
+    { label: "Resolved", value: stats.resolvedCount, icon: <Mail className="h-5 w-5 text-emerald-500" /> },
   ];
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-        <Link href="/sales" className="hover:text-foreground transition-colors">
-          Sales
-        </Link>
-        <span className="text-primary font-bold border-b-2 border-primary pb-0.5">
-          Inquiries
-        </span>
+        <Link href="/sales" className="hover:text-foreground transition-colors">Sales</Link>
+        <span className="text-primary font-bold border-b-2 border-primary pb-0.5">Inquiries</span>
       </div>
 
       <PageHeader
@@ -155,13 +159,8 @@ export default function InquiriesListPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-2xl border border-border bg-card p-5 shadow-sm flex items-center gap-4"
-          >
-            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
-              {stat.icon}
-            </div>
+          <div key={stat.label} className="rounded-2xl border border-border bg-card p-5 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">{stat.icon}</div>
             <div>
               <p className="text-2xl font-bold">{stat.value}</p>
               <p className="text-sm text-muted-foreground">{stat.label}</p>
@@ -204,9 +203,7 @@ export default function InquiriesListPage() {
             <span className="ml-2 text-sm text-muted-foreground">Loading inquiries...</span>
           </div>
         ) : inquiries.length === 0 ? (
-          <div className="py-20 text-center text-muted-foreground text-sm">
-            No inquiries found
-          </div>
+          <div className="py-20 text-center text-muted-foreground text-sm">No inquiries found</div>
         ) : (
           <>
             <div className="overflow-x-auto">
@@ -254,12 +251,20 @@ export default function InquiriesListPage() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <Link
-                          href={`/sales/inquiries/${inquiry.id}`}
-                          className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground inline-flex"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Link>
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            href={`/sales/inquiries/${inquiry.id}`}
+                            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                          <button
+                            onClick={() => handleDelete(inquiry.id)}
+                            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-red-500"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -295,9 +300,7 @@ export default function InquiriesListPage() {
                       key={pageNum}
                       onClick={() => setPage(pageNum)}
                       className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                        pageNum === page
-                          ? "bg-primary text-white"
-                          : "hover:bg-muted text-muted-foreground"
+                        pageNum === page ? "bg-primary text-white" : "hover:bg-muted text-muted-foreground"
                       }`}
                     >
                       {pageNum}
