@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
@@ -10,6 +10,8 @@ import {
   Eye,
   Trash2,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { apiGet, apiDelete } from "@/lib/api";
@@ -48,31 +50,46 @@ function mapStatusVariant(status: string) {
 }
 
 const STATUS_OPTIONS = ["All", "draft", "confirmed", "processing", "shipped", "delivered", "cancelled"];
+const PER_PAGE = 10;
 
 export default function SalesOrderListPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const { confirm, state, handleClose } = useConfirm();
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  async function fetchOrders() {
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await apiGet<{ items: Order[]; total: number }>("/sales/orders");
+      const params: Record<string, string> = {
+        page: String(page),
+        per_page: String(PER_PAGE),
+      };
+      if (searchTerm) params.search = searchTerm;
+      if (selectedStatus !== "All") params.status = selectedStatus;
+      const qs = new URLSearchParams(params).toString();
+      const res = await apiGet<{ items: Order[]; total: number; pages: number }>(`/sales/orders?${qs}`);
       setOrders(res.items ?? []);
       setTotal(res.total ?? 0);
+      setTotalPages(res.pages ?? 1);
     } catch (err) {
       console.error("Failed to fetch orders:", err);
     } finally {
       setLoading(false);
     }
-  }
+  }, [page, searchTerm, selectedStatus]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedStatus]);
 
   async function handleDelete(id: number) {
     const ok = await confirm("Are you sure you want to delete this order?");
@@ -85,15 +102,6 @@ export default function SalesOrderListPage() {
       console.error("Failed to delete order:", err);
     }
   }
-
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch = order.order_number
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      selectedStatus === "All" || order.status === selectedStatus;
-    return matchesSearch && matchesStatus;
-  });
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -172,7 +180,7 @@ export default function SalesOrderListPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
-                  {filteredOrders.map((order) => (
+                  {orders.map((order) => (
                     <tr key={order.id} className="hover:bg-muted/5 transition-colors">
                       <td className="py-3 px-4">
                         <span className="text-sm font-medium text-primary">
@@ -222,10 +230,49 @@ export default function SalesOrderListPage() {
               </table>
             </div>
 
-            <div className="p-4 border-t border-border">
+            <div className="p-4 border-t border-border flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Showing {filteredOrders.length} of {total} orders
+                {total > 0 ? `Showing ${(page - 1) * PER_PAGE + 1}–${Math.min(page * PER_PAGE, total)} of ${total}` : "No results"}
               </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  let pageNum: number;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (page <= 3) {
+                    pageNum = i + 1;
+                  } else if (page >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = page - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                        pageNum === page ? "bg-primary text-white" : "hover:bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </>
         )}

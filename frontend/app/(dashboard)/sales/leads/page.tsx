@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
@@ -11,10 +11,14 @@ import {
   Eye,
   Trash2,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { apiGet, apiDelete } from "@/lib/api";
 import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
+
+const PER_PAGE = 10;
 
 interface Lead {
   id: number;
@@ -56,31 +60,39 @@ export default function LeadsListPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const { confirm, state, handleClose } = useConfirm();
 
-  useEffect(() => {
-    async function fetchLeads() {
-      try {
-        const res = await apiGet<any>("/sales/leads");
-        const items = (res.items ?? res.data ?? []).map(mapLead);
-        setLeads(items);
-      } catch (err) {
-        console.error("Failed to fetch leads:", err);
-      } finally {
-        setLoading(false);
-      }
+  const fetchLeads = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, string> = {
+        page: String(page),
+        per_page: String(PER_PAGE),
+      };
+      if (searchTerm) params.search = searchTerm;
+      if (selectedStatus !== "All") params.status = selectedStatus;
+      const res = await apiGet<any>("/sales/leads", params);
+      const items = (res.items ?? res.data ?? []).map(mapLead);
+      setLeads(items);
+      setTotal(res.total ?? 0);
+      setTotalPages(res.pages ?? 1);
+    } catch (err) {
+      console.error("Failed to fetch leads:", err);
+    } finally {
+      setLoading(false);
     }
-    fetchLeads();
-  }, []);
+  }, [page, searchTerm, selectedStatus]);
 
-  const filteredLeads = leads.filter((lead) => {
-    const matchesSearch =
-      lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      selectedStatus === "All" || lead.status.toLowerCase() === selectedStatus.toLowerCase();
-    return matchesSearch && matchesStatus;
-  });
+  useEffect(() => {
+    fetchLeads();
+  }, [fetchLeads]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedStatus]);
 
   async function handleDelete(id: number) {
     const ok = await confirm("Are you sure you want to delete this lead?");
@@ -195,7 +207,7 @@ export default function LeadsListPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
-                  {filteredLeads.map((lead) => (
+                  {leads.map((lead) => (
                     <tr
                       key={lead.id}
                       className="hover:bg-muted/5 transition-colors"
@@ -266,10 +278,49 @@ export default function LeadsListPage() {
               </table>
             </div>
 
-            <div className="p-4 border-t border-border">
+            <div className="p-4 border-t border-border flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Showing {filteredLeads.length} of {leads.length} leads
+                {total > 0 ? `Showing ${(page - 1) * PER_PAGE + 1}–${Math.min(page * PER_PAGE, total)} of ${total}` : "No results"}
               </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  let pageNum: number;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (page <= 3) {
+                    pageNum = i + 1;
+                  } else if (page >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = page - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                        pageNum === page ? "bg-primary text-white" : "hover:bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </>
         )}
