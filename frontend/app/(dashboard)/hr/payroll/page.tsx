@@ -14,7 +14,6 @@ import {
   Download,
   Play,
   Search,
-  FileDown,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -260,7 +259,7 @@ export default function PayrollOverviewPage() {
                 onClick={handleExportCSV}
                 className="px-3 py-2 border border-border bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors flex items-center gap-1.5"
               >
-                <FileDown className="h-4 w-4" />
+                <Download className="h-4 w-4" />
                 Export CSV
               </button>
               <div className="relative flex-1 sm:flex-initial">

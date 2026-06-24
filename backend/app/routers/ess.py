@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+import base64
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sa_func, cast, Date
 from datetime import datetime, date, timedelta
@@ -182,6 +183,40 @@ async def update_profile(data: ESSProfileUpdate, db: AsyncSession = Depends(get_
     await db.refresh(employee)
     from app.schemas.hr import EmployeeResponse
     return ResponseModel(data=EmployeeResponse.model_validate(employee))
+
+
+@router.post("/profile/signature", response_model=ResponseModel)
+async def upload_signature(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Upload employee signature (PNG/JPG) and store as base64 in DB."""
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image (PNG, JPG)")
+
+    content = await file.read()
+    if len(content) > 2 * 1024 * 1024:  # 2MB limit
+        raise HTTPException(status_code=400, detail="Image must be under 2MB")
+
+    employee = await _get_employee(db, current_user)
+    employee.signature_url = base64.b64encode(content).decode("utf-8")
+    await db.flush()
+    await db.refresh(employee)
+
+    return ResponseModel(message="Signature uploaded successfully")
+
+
+@router.delete("/profile/signature", response_model=ResponseModel)
+async def delete_signature(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Remove employee signature."""
+    employee = await _get_employee(db, current_user)
+    employee.signature_url = None
+    await db.flush()
+    return ResponseModel(message="Signature removed")
 
 
 @router.put("/profile/bank", response_model=ResponseModel)

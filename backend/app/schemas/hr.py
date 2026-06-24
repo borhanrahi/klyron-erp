@@ -135,6 +135,7 @@ class EmployeeBase(BaseModel):
     bank_routing_number: Optional[str] = None
     tax_id: Optional[str] = None
     photo_url: Optional[str] = None
+    signature_url: Optional[str] = None
     reporting_to: Optional[int] = None
     status: str = "active"
 
@@ -173,6 +174,7 @@ class EmployeeUpdate(BaseModel):
     bank_routing_number: Optional[str] = None
     tax_id: Optional[str] = None
     photo_url: Optional[str] = None
+    signature_url: Optional[str] = None
     reporting_to: Optional[int] = None
     status: Optional[str] = None
 

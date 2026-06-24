@@ -98,6 +98,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
           status: q.status,
           date: q.date,
           expiry: q.expiry ?? "",
+          notes: q.notes ?? "",
         });
       } catch (err) {
         console.error("Failed to fetch quotation:", err);

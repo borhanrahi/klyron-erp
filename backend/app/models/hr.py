@@ -86,6 +86,7 @@ class Employee(Base):
     bank_routing_number = Column(String(100))
     tax_id = Column(String(100))
     photo_url = Column(String(500))
+    signature_url = Column(Text)
     reporting_to = Column(Integer, ForeignKey("employees.id"))
     status = Column(String(20), default="active")
     created_at = Column(DateTime(timezone=True), server_default=func.now())

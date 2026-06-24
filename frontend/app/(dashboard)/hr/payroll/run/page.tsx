@@ -6,11 +6,10 @@ import {
   Calculator,
   Play,
   CheckCircle,
-  AlertCircle,
   ArrowRight,
   Search,
 } from "lucide-react";
-import { apiPost, apiGet } from "@/lib/api";
+import { apiFetch, apiGet } from "@/lib/api";
 
 interface Employee {
   id: number;
@@ -23,9 +22,6 @@ interface Employee {
 interface EmployeeListResponse {
   items: Employee[];
   total: number;
-  page: number;
-  per_page: number;
-  pages: number;
 }
 
 const processingSteps = [
@@ -67,18 +63,13 @@ export default function PayrollRunPage() {
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const ids = selectAll ? undefined : selectedEmployees.join(",");
-      const params: Record<string, string> = { month: String(month), year: String(year) };
-      if (ids) params.employee_ids = ids;
-
-      // Build query string
       let url = `/hr/payroll-actions/generate?month=${month}&year=${year}`;
       if (!selectAll && selectedEmployees.length > 0) {
         url += `&employee_ids=${selectedEmployees.join(",")}`;
       }
 
-      const res = await apiPost<{ created: number; updated: number }>(url, {});
-      setResult(res);
+      const res = await apiFetch<{ data: { created: number; updated: number } }>(url, { method: "POST" });
+      setResult(res.data);
       setCurrentStep(4);
     } catch (err) {
       console.error("Payroll generation failed", err);
@@ -342,16 +333,10 @@ export default function PayrollRunPage() {
               </div>
             </div>
             <div className="flex items-center justify-center gap-3">
-              <a
-                href="/hr/payroll"
-                className="px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
-              >
+              <a href="/hr/payroll" className="px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors">
                 View Payroll
               </a>
-              <button
-                onClick={() => { setCurrentStep(1); setResult(null); }}
-                className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors"
-              >
+              <button onClick={() => { setCurrentStep(1); setResult(null); }} className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors">
                 Run Another
               </button>
             </div>

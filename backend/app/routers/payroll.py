@@ -1,5 +1,6 @@
 import csv
 import io
+import base64
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +10,7 @@ from typing import Optional
 
 from app.database import get_db
 from app.dependencies.auth import require_company
-from app.models.auth import User, Department
+from app.models.auth import User, Department, Company
 from app.models.hr import Employee, Payroll, PayrollItem
 from app.schemas.common import ResponseModel
 
@@ -212,3 +213,92 @@ async def generate_payroll(
             created += 1
 
     return ResponseModel(data={"created": created, "updated": updated})
+
+
+@router.get("/{payroll_id}/payslip-pdf")
+async def download_payslip_pdf(
+    payroll_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Generate and download a beautiful payslip PDF."""
+    # Fetch payroll with items
+    result = await db.execute(
+        select(Payroll)
+        .options(selectinload(Payroll.items))
+        .where(Payroll.id == payroll_id, Payroll.company_id == current_user.company_id)
+    )
+    payroll = result.scalar_one_or_none()
+    if not payroll:
+        raise HTTPException(status_code=404, detail="Payroll not found")
+
+    # Fetch employee info
+    emp_result = await db.execute(
+        select(Employee, User.full_name, Department.name.label("dept_name"))
+        .outerjoin(User, Employee.user_id == User.id)
+        .outerjoin(Department, Employee.department_id == Department.id)
+        .where(Employee.id == payroll.employee_id)
+    )
+    emp_row = emp_result.first()
+    if not emp_row:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    employee, full_name, dept_name = emp_row
+
+    # Fetch company info
+    company_result = await db.execute(select(Company).where(Company.id == current_user.company_id))
+    company = company_result.scalar_one_or_none()
+
+    # Build earnings and deductions
+    earnings = []
+    deductions = []
+    if payroll.base_salary and float(payroll.base_salary) > 0:
+        earnings.append({"name": "Base Salary", "amount": float(payroll.base_salary)})
+    if payroll.allowances and float(payroll.allowances) > 0:
+        earnings.append({"name": "Allowances", "amount": float(payroll.allowances)})
+    if payroll.bonus and float(payroll.bonus) > 0:
+        earnings.append({"name": "Bonus", "amount": float(payroll.bonus)})
+    for item in payroll.items:
+        if item.type == "earning" and float(item.amount) > 0:
+            earnings.append({"name": item.name, "amount": float(item.amount)})
+
+    if payroll.deductions and float(payroll.deductions) > 0:
+        deductions.append({"name": "Deductions", "amount": float(payroll.deductions)})
+    if payroll.tax and float(payroll.tax) > 0:
+        deductions.append({"name": "Tax", "amount": float(payroll.tax)})
+    if payroll.loan_deduction and float(payroll.loan_deduction) > 0:
+        deductions.append({"name": "Loan Deduction", "amount": float(payroll.loan_deduction)})
+    for item in payroll.items:
+        if item.type == "deduction" and float(item.amount) > 0:
+            deductions.append({"name": item.name, "amount": float(item.amount)})
+
+    month_names = ["", "January", "February", "March", "April", "May", "June",
+                   "July", "August", "September", "October", "November", "December"]
+    period = f"{month_names[payroll.month]} {payroll.year}"
+    paid_date = payroll.paid_at.strftime("%B %d, %Y") if payroll.paid_at else "N/A"
+
+    from app.utils.payslip_pdf import generate_payslip_pdf
+
+    pdf_bytes = generate_payslip_pdf(
+        company_name=company.name if company else "Company",
+        company_address=company.address or "",
+        company_logo_b64=company.logo,
+        employee_name=full_name or f"Employee #{payroll.employee_id}",
+        employee_code=employee.employee_code or f"#{payroll.employee_id}",
+        department=dept_name or "N/A",
+        designation=employee.designation or "N/A",
+        payslip_id=f"PAY-{str(payroll.id).zfill(3)}",
+        status=payroll.status or "draft",
+        period=period,
+        paid_date=paid_date,
+        earnings=earnings,
+        deductions=deductions,
+        net_pay=float(payroll.net_pay or 0),
+        employee_signature_b64=employee.signature_url,
+    )
+
+    filename = f"payslip_{employee.employee_code or payroll.employee_id}_{payroll.year}_{payroll.month:02d}.pdf"
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )

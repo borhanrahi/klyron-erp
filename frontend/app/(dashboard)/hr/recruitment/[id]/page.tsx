@@ -133,15 +133,15 @@ export default function CandidateDetailPage() {
   };
 
   const handleReject = async () => {
-    if (await confirm("Reject candidate?", "This moves them to Rejected.", "Reject", "danger")) await updateStage("rejected");
+    if (await confirm({ title: "Reject candidate?", message: "This moves them to Rejected.", confirmLabel: "Reject", variant: "danger" })) await updateStage("rejected");
   };
 
   const handleHold = async () => {
-    if (await confirm("Put on hold?", "This moves them to On Hold.", "Hold", "warning")) await updateStage("on_hold");
+    if (await confirm({ title: "Put on hold?", message: "This moves them to On Hold.", confirmLabel: "Hold", variant: "warning" })) await updateStage("on_hold");
   };
 
   const handleDelete = async () => {
-    if (!await confirm("Delete candidate?", "This cannot be undone.", "Delete", "danger")) return;
+    if (!await confirm({ title: "Delete candidate?", message: "This cannot be undone.", confirmLabel: "Delete", variant: "danger" })) return;
     try { await apiDelete(`/hr/candidates/${id}`); router.push("/hr/recruitment"); } catch {}
   };
 
@@ -435,7 +435,7 @@ export default function CandidateDetailPage() {
         </div>
       )}
 
-      <ConfirmModal {...confirmState} onClose={confirmClose} />
+      <ConfirmModal open={confirmState.open} title={confirmState.title} message={confirmState.message} confirmLabel={confirmState.confirmLabel} cancelLabel={confirmState.cancelLabel} variant={confirmState.variant} onConfirm={() => confirmClose(true)} onCancel={() => confirmClose(false)} />
     </div>
   );
 }

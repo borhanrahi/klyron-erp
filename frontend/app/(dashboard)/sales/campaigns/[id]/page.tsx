@@ -76,7 +76,7 @@ export default function CampaignDetailPage() {
     const ok = await confirm({
       title: `${newStatus === "paused" ? "Pause" : "Resume"} Campaign`,
       message: `Are you sure you want to ${newStatus === "paused" ? "pause" : "resume"} this campaign?`,
-      confirmText: newStatus === "paused" ? "Pause" : "Resume",
+      confirmLabel: newStatus === "paused" ? "Pause" : "Resume",
     });
     if (!ok) return;
     setUpdating(true);
@@ -109,7 +109,7 @@ export default function CampaignDetailPage() {
     const ok = await confirm({
       title: "Delete Campaign",
       message: "Are you sure you want to delete this campaign? This cannot be undone.",
-      confirmText: "Delete",
+      confirmLabel: "Delete",
       variant: "danger",
     });
     if (!ok) return;

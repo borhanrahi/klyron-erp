@@ -9,8 +9,6 @@ import {
   DollarSign,
   ArrowLeft,
   Download,
-  Printer,
-  Building2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -65,6 +63,7 @@ export default function PayslipDetailPage() {
   const [payroll, setPayroll] = useState<PayrollDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -76,6 +75,32 @@ export default function PayslipDetailPage() {
   }, [id]);
 
   const fmt = (n: number | null | undefined) => (n != null ? `$${n.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "$0.00");
+
+  const handleDownloadPDF = async () => {
+    if (!id) return;
+    setDownloading(true);
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/hr/payroll-actions/${id}/payslip-pdf`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to download PDF");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `payslip_${payroll?.employee_code || id}_${payroll?.year || ""}_${String(payroll?.month || "").padStart(2, "0")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+    } catch (err) {
+      console.error("PDF download failed", err);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -132,8 +157,17 @@ export default function PayslipDetailPage() {
             <Link href="/hr/payroll" className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" /> Back
             </Link>
-            <button onClick={() => window.print()} className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
-              <Printer className="h-4 w-4" /> Print
+            <button
+              onClick={handleDownloadPDF}
+              disabled={downloading}
+              className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2 disabled:opacity-50"
+            >
+              {downloading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {downloading ? "Generating..." : "Download PDF"}
             </button>
           </div>
         }
