@@ -182,3 +182,36 @@ class Inquiry(Base):
     status = Column(String(20), default="new")
     assigned_to = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    follow_ups = relationship("InquiryFollowUp", back_populates="inquiry")
+    emails = relationship("InquiryEmailLog", back_populates="inquiry")
+
+
+class InquiryFollowUp(Base):
+    __tablename__ = "inquiry_follow_ups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inquiry_id = Column(Integer, ForeignKey("inquiries.id"), nullable=False)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    title = Column(String(255), nullable=False)
+    due_date = Column(DateTime(timezone=True))
+    status = Column(String(20), default="pending")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    inquiry = relationship("Inquiry", back_populates="follow_ups")
+
+
+class InquiryEmailLog(Base):
+    __tablename__ = "inquiry_email_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inquiry_id = Column(Integer, ForeignKey("inquiries.id"), nullable=False)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    to_email = Column(String(255), nullable=False)
+    subject = Column(String(500), nullable=False)
+    body = Column(Text)
+    status = Column(String(20), default="sent")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    inquiry = relationship("Inquiry", back_populates="emails")

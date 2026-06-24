@@ -407,3 +407,43 @@ class InquiryResponse(InquiryBase):
 
     class Config:
         from_attributes = True
+
+
+# ── Inquiry Follow-Up ───────────────────────────────────────────────────────
+
+class InquiryFollowUpCreate(BaseModel):
+    title: str
+    due_date: Optional[datetime] = None
+
+
+class InquiryFollowUpResponse(BaseModel):
+    id: int
+    inquiry_id: int
+    title: str
+    due_date: Optional[datetime] = None
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Inquiry Email Log ──────────────────────────────────────────────────────
+
+class InquiryEmailSend(BaseModel):
+    to_email: str
+    subject: str
+    body: str
+
+
+class InquiryEmailLogResponse(BaseModel):
+    id: int
+    inquiry_id: int
+    to_email: str
+    subject: str
+    body: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

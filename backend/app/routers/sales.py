@@ -26,6 +26,8 @@ from app.schemas.sales import (
     DeliveryNoteCreate, DeliveryNoteUpdate, DeliveryNoteResponse,
     SalesCampaignCreate, SalesCampaignUpdate, SalesCampaignResponse,
     InquiryCreate, InquiryUpdate, InquiryResponse,
+    InquiryFollowUpCreate, InquiryFollowUpResponse,
+    InquiryEmailSend, InquiryEmailLogResponse,
 )
 from app.schemas.common import PaginatedResponse, ResponseModel
 
@@ -1192,3 +1194,143 @@ async def delete_inquiry(
     inquiry.deleted_at = datetime.utcnow()
     await db.flush()
     return ResponseModel(message="Inquiry deleted")
+
+
+# ── Inquiry Follow-Ups ─────────────────────────────────────────────────────
+
+@router.get("/inquiries/{inquiry_id}/follow-ups", response_model=ResponseModel)
+async def list_follow_ups(
+    inquiry_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    from app.models.sales import InquiryFollowUp
+    result = await db.execute(
+        select(InquiryFollowUp).where(
+            InquiryFollowUp.inquiry_id == inquiry_id,
+            InquiryFollowUp.company_id == current_user.company_id,
+        ).order_by(InquiryFollowUp.created_at.desc())
+    )
+    items = result.scalars().all()
+    return ResponseModel(data=[InquiryFollowUpResponse.model_validate(i) for i in items])
+
+
+@router.post("/inquiries/{inquiry_id}/follow-ups", response_model=ResponseModel, status_code=201)
+async def create_follow_up(
+    inquiry_id: int,
+    data: InquiryFollowUpCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    from app.models.sales import InquiryFollowUp
+    inquiry = await db.get(Inquiry, inquiry_id)
+    if not inquiry or inquiry.company_id != current_user.company_id:
+        raise HTTPException(status_code=404, detail="Inquiry not found")
+    fu = InquiryFollowUp(
+        inquiry_id=inquiry_id,
+        company_id=current_user.company_id,
+        title=data.title,
+        due_date=data.due_date,
+    )
+    db.add(fu)
+    await db.flush()
+    await db.refresh(fu)
+    return ResponseModel(data=InquiryFollowUpResponse.model_validate(fu))
+
+
+@router.put("/inquiries/{inquiry_id}/follow-ups/{follow_up_id}", response_model=ResponseModel)
+async def update_follow_up(
+    inquiry_id: int,
+    follow_up_id: int,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    from app.models.sales import InquiryFollowUp
+    result = await db.execute(
+        select(InquiryFollowUp).where(
+            InquiryFollowUp.id == follow_up_id,
+            InquiryFollowUp.inquiry_id == inquiry_id,
+            InquiryFollowUp.company_id == current_user.company_id,
+        )
+    )
+    fu = result.scalar_one_or_none()
+    if not fu:
+        raise HTTPException(status_code=404, detail="Follow-up not found")
+    for k, v in data.items():
+        if hasattr(fu, k):
+            setattr(fu, k, v)
+    await db.flush()
+    await db.refresh(fu)
+    return ResponseModel(data=InquiryFollowUpResponse.model_validate(fu))
+
+
+# ── Inquiry Email Send ─────────────────────────────────────────────────────
+
+@router.post("/inquiries/{inquiry_id}/send-email", response_model=ResponseModel, status_code=201)
+async def send_inquiry_email(
+    inquiry_id: int,
+    data: InquiryEmailSend,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    from app.models.sales import InquiryEmailLog
+    from app.config import settings
+
+    inquiry = await db.get(Inquiry, inquiry_id)
+    if not inquiry or inquiry.company_id != current_user.company_id:
+        raise HTTPException(status_code=404, detail="Inquiry not found")
+
+    email_status = "sent"
+    if not settings.SMTP_HOST:
+        email_status = "queued"
+
+    log = InquiryEmailLog(
+        inquiry_id=inquiry_id,
+        company_id=current_user.company_id,
+        to_email=data.to_email,
+        subject=data.subject,
+        body=data.body,
+        status=email_status,
+    )
+    db.add(log)
+    await db.flush()
+    await db.refresh(log)
+
+    if settings.SMTP_HOST:
+        try:
+            import smtplib
+            from email.mime.text import MIMEText
+            msg = MIMEText(data.body)
+            msg["Subject"] = data.subject
+            msg["From"] = settings.SMTP_FROM
+            msg["To"] = data.to_email
+            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+                server.starttls()
+                if settings.SMTP_USER:
+                    server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                server.sendmail(settings.SMTP_FROM, data.to_email, msg.as_string())
+            log.status = "sent"
+            await db.flush()
+        except Exception:
+            log.status = "failed"
+            await db.flush()
+
+    return ResponseModel(data=InquiryEmailLogResponse.model_validate(log), message="Email sent" if email_status == "sent" else "Email queued (no SMTP configured)")
+
+
+@router.get("/inquiries/{inquiry_id}/emails", response_model=ResponseModel)
+async def list_inquiry_emails(
+    inquiry_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    from app.models.sales import InquiryEmailLog
+    result = await db.execute(
+        select(InquiryEmailLog).where(
+            InquiryEmailLog.inquiry_id == inquiry_id,
+            InquiryEmailLog.company_id == current_user.company_id,
+        ).order_by(InquiryEmailLog.created_at.desc())
+    )
+    items = result.scalars().all()
+    return ResponseModel(data=[InquiryEmailLogResponse.model_validate(i) for i in items])
