@@ -102,7 +102,7 @@ export default function AttendancePage() {
   };
 
   return (
-    <div className="space-y-4 animate-in fade-in-0 duration-200">
+    <div className="space-y-6 animate-in fade-in-0 duration-200">
       <PageHeader
         title="Attendance Tracking"
         description="Monitor daily attendance and work hours."
@@ -114,17 +114,17 @@ export default function AttendancePage() {
       />
 
       <div className="rounded-2xl border border-border bg-card shadow-sm">
-        <div className="p-3 border-b border-border">
-          <div className="flex flex-col sm:flex-row gap-2">
+        <div className="p-4 border-b border-border">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search attendance..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && fetchAttendance(1)}
-                className="w-full pl-9 pr-3 py-1.5 bg-muted border border-border rounded-lg text-xs focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>
             <DatePicker
@@ -135,52 +135,52 @@ export default function AttendancePage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left font-medium text-muted-foreground py-2 px-3">Employee</th>
-                <th className="text-left font-medium text-muted-foreground py-2 px-3">Date</th>
-                <th className="text-left font-medium text-muted-foreground py-2 px-3 hidden md:table-cell">Check In</th>
-                <th className="text-left font-medium text-muted-foreground py-2 px-3 hidden md:table-cell">Check Out</th>
-                <th className="text-left font-medium text-muted-foreground py-2 px-3 hidden lg:table-cell">Hours</th>
-                <th className="text-left font-medium text-muted-foreground py-2 px-3 hidden lg:table-cell">Late</th>
-                <th className="text-left font-medium text-muted-foreground py-2 px-3">Status</th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Employee</th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Date</th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">Check In</th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">Check Out</th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">Hours</th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">Late</th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground text-sm">
                     <Loader2 className="h-4 w-4 animate-spin inline-block mr-2" />
-                    Loading...
+                    Loading attendance...
                   </td>
                 </tr>
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground">No records found.</td>
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground text-sm">No attendance records found.</td>
                 </tr>
               ) : (
                 records.map((rec) => (
                   <tr key={rec.id} className="hover:bg-muted/5 transition-colors">
-                    <td className="py-2 px-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-semibold text-primary shrink-0">
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
                           {getInitials(rec.employee_name, rec.employee_id)}
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{rec.employee_name || `#${rec.employee_id}`}</p>
-                          <p className="text-muted-foreground">{rec.employee_code || ""}</p>
+                        <div>
+                          <p className="text-sm font-medium">{rec.employee_name || `Employee #${rec.employee_id}`}</p>
+                          <p className="text-xs text-muted-foreground">{rec.employee_code || ""}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="py-2 px-3 text-muted-foreground">{rec.date}</td>
-                    <td className="py-2 px-3 text-muted-foreground hidden md:table-cell">{formatTime(rec.check_in)}</td>
-                    <td className="py-2 px-3 text-muted-foreground hidden md:table-cell">{formatTime(rec.check_out)}</td>
-                    <td className="py-2 px-3 text-muted-foreground hidden lg:table-cell">{formatHours(rec.work_hours)}</td>
-                    <td className="py-2 px-3 text-muted-foreground hidden lg:table-cell">
+                    <td className="py-3 px-4 text-sm text-muted-foreground">{rec.date}</td>
+                    <td className="py-3 px-4 text-sm text-muted-foreground hidden md:table-cell">{formatTime(rec.check_in)}</td>
+                    <td className="py-3 px-4 text-sm text-muted-foreground hidden md:table-cell">{formatTime(rec.check_out)}</td>
+                    <td className="py-3 px-4 text-sm text-muted-foreground hidden lg:table-cell">{formatHours(rec.work_hours)}</td>
+                    <td className="py-3 px-4 text-sm text-muted-foreground hidden lg:table-cell">
                       {rec.late_minutes ? `${rec.late_minutes}m` : "—"}
                     </td>
-                    <td className="py-2 px-3">
+                    <td className="py-3 px-4">
                       <StatusBadge status={rec.status} variant={attStatusVariant(rec.status)} />
                     </td>
                   </tr>
@@ -190,18 +190,18 @@ export default function AttendancePage() {
           </table>
         </div>
 
-        <div className="px-3 py-2 border-t border-border flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
+        <div className="p-4 border-t border-border flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
             {total > 0 ? `Showing ${(page - 1) * 10 + 1}–${Math.min(page * 10, total)} of ${total}` : "No results"}
           </p>
-          <div className="flex items-center gap-1">
-            <button onClick={() => fetchAttendance(page - 1)} disabled={page <= 1} className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40">
-              <ChevronLeft className="h-3.5 w-3.5" />
+          <div className="flex items-center gap-2">
+            <button onClick={() => fetchAttendance(page - 1)} disabled={page <= 1} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40">
+              <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="px-2 py-0.5 bg-primary text-white rounded text-xs font-medium">{page}</span>
-            <span className="text-xs text-muted-foreground">of {pages}</span>
-            <button onClick={() => fetchAttendance(page + 1)} disabled={page >= pages} className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40">
-              <ChevronRight className="h-3.5 w-3.5" />
+            <span className="px-3 py-1 bg-primary text-white rounded-lg text-sm font-medium">{page}</span>
+            <span className="text-sm text-muted-foreground">of {pages}</span>
+            <button onClick={() => fetchAttendance(page + 1)} disabled={page >= pages} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40">
+              <ChevronRight className="h-4 w-4" />
             </button>
           </div>
         </div>

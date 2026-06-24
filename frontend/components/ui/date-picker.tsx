@@ -60,7 +60,7 @@ export function DatePicker({
         disabled={disabled}
         onClick={toggle}
         className={cn(
-          "flex w-full items-center justify-between rounded-lg border border-border bg-muted px-3 py-1.5 text-xs",
+          "flex h-10 w-full items-center justify-between rounded-lg border border-border bg-muted px-3 py-2 text-sm",
           "focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none",
           "disabled:opacity-50 disabled:cursor-not-allowed",
           !selected && "text-muted-foreground"
