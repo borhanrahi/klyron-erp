@@ -13,7 +13,7 @@ from reportlab.platypus import (
 )
 
 PAGE_W, PAGE_H = A4
-MARGIN_LR = 20 * mm
+MARGIN_LR = 18 * mm
 MARGIN_TB = 14 * mm
 USABLE_W = PAGE_W - 2 * MARGIN_LR
 
@@ -35,22 +35,22 @@ def _s(name, **kw):
     return ParagraphStyle(name, **defaults)
 
 ST = {
-    "h_name":   _s("HN", fontSize=15, fontName="Helvetica-Bold", textColor=WHITE, leading=18),
+    "h_name":   _s("HN", fontSize=14, fontName="Helvetica-Bold", textColor=WHITE, leading=17),
     "h_addr":   _s("HA", fontSize=7, textColor=colors.HexColor("#B0C4DE"), leading=9),
     "h_label":  _s("HL", fontSize=7, textColor=colors.HexColor("#B0C4DE"), alignment=TA_RIGHT, leading=9),
-    "h_id":     _s("HI", fontSize=14, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_RIGHT, leading=17),
-    "h_status": _s("HS", fontSize=7.5, fontName="Helvetica-Bold", alignment=TA_RIGHT, leading=9),
+    "h_id":     _s("HI", fontSize=12, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_RIGHT, leading=15),
+    "h_status": _s("HS", fontSize=7, fontName="Helvetica-Bold", alignment=TA_RIGHT, leading=9),
     "f_lbl":    _s("FL", fontSize=6.5, textColor=MUTED, leading=8),
-    "f_val":    _s("FV", fontSize=8.5, fontName="Helvetica-Bold", textColor=DARK, leading=11),
+    "f_val":    _s("FV", fontSize=8, fontName="Helvetica-Bold", textColor=DARK, leading=10),
     "c_hdr":    _s("CH", fontSize=7, fontName="Helvetica-Bold", textColor=MUTED, leading=9),
-    "i_name":   _s("IN", fontSize=8.5, textColor=DARK_70, leading=11),
-    "i_amt":    _s("IA", fontSize=8.5, fontName="Helvetica-Bold", textColor=DARK, leading=11, alignment=TA_RIGHT),
-    "total_l":  _s("TL", fontSize=9, fontName="Helvetica-Bold", textColor=DARK_70, leading=12),
-    "total_v":  _s("TV", fontSize=9, fontName="Helvetica-Bold", textColor=DARK, leading=12, alignment=TA_RIGHT),
+    "i_name":   _s("IN", fontSize=8, textColor=DARK_70, leading=10),
+    "i_amt":    _s("IA", fontSize=8, fontName="Helvetica-Bold", textColor=DARK, leading=10, alignment=TA_RIGHT),
+    "total_l":  _s("TL", fontSize=8.5, fontName="Helvetica-Bold", textColor=DARK_70, leading=11),
+    "total_v":  _s("TV", fontSize=8.5, fontName="Helvetica-Bold", textColor=DARK, leading=11, alignment=TA_RIGHT),
     "summary_l":_s("SL", fontSize=7, textColor=MUTED, alignment=TA_CENTER, leading=9),
-    "summary_v":_s("SV", fontSize=16, fontName="Helvetica-Bold", textColor=DARK, alignment=TA_CENTER, leading=19),
-    "summary_n":_s("SN", fontSize=20, fontName="Helvetica-Bold", textColor=NAVY, alignment=TA_CENTER, leading=24),
-    "sig_lbl":  _s("SL", fontSize=7, textColor=MUTED, leading=9),
+    "summary_v":_s("SV", fontSize=14, fontName="Helvetica-Bold", textColor=DARK, alignment=TA_CENTER, leading=17),
+    "summary_n":_s("SN", fontSize=16, fontName="Helvetica-Bold", textColor=NAVY, alignment=TA_CENTER, leading=20),
+    "sig_lbl":  _s("SG", fontSize=7, textColor=MUTED, leading=9),
     "footer":   _s("FT", fontSize=6.5, textColor=colors.HexColor("#9CA3AF"), alignment=TA_CENTER, leading=9),
 }
 
@@ -67,15 +67,14 @@ def _safe_b64_image(b64_str, width, height):
     except Exception:
         return None
 
-def _style_table(ops):
-    def apply(t):
-        t.setStyle(TableStyle(ops))
-        return t
-    return apply
+def _apply(t, ops):
+    t.setStyle(TableStyle(ops))
+    return t
+
 
 def _build_header(company_name, company_address, company_logo_b64, payslip_id, status):
-    logo_img = _safe_b64_image(company_logo_b64, 38, 38)
-    logo_cell = logo_img if logo_img else Paragraph("", ST["h_addr"])
+    logo_img = _safe_b64_image(company_logo_b64, 36, 36)
+    logo_cell = logo_img if logo_img else ""
 
     addr_lines = company_address.split("\n") if company_address else []
     addr_text = "<br/>".join(l.strip() for l in addr_lines if l.strip())
@@ -85,38 +84,42 @@ def _build_header(company_name, company_address, company_logo_b64, payslip_id, s
 
     status_color = {"paid": "#059669", "pending": "#F59E0B", "approved": "#3B82F6"}.get(status, "#DC2626")
 
-    left = Table([[logo_cell, info]], colWidths=[44, USABLE_W - 44 - 145])
-    _style_table([
+    # Left: logo + company info
+    left_inner = Table([[logo_cell, info]], colWidths=[42, USABLE_W - 42 - 130])
+    _apply(left_inner, [
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
         ("TOPPADDING", (0, 0), (-1, -1), 0),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ])(left)
+    ])
 
-    right = Table([
+    # Right: PAYSLIP label, ID, status — all right-aligned in a single column
+    right_inner = Table([
         [Paragraph("PAYSLIP", ST["h_label"])],
         [Paragraph(payslip_id, ST["h_id"])],
         [Paragraph(f'<font color="{status_color}"><b>\u25cf {status.upper()}</b></font>', ST["h_status"])],
-    ], colWidths=[145])
-    _style_table([
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ], colWidths=[130])
+    _apply(right_inner, [
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ])(right)
+        ("TOPPADDING", (0, 0), (-1, -1), 1),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+    ])
 
-    header = Table([[left, right]], colWidths=[USABLE_W - 145, 145])
-    _style_table([
+    header = Table([[left_inner, right_inner]], colWidths=[USABLE_W - 130, 130])
+    _apply(header, [
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 14),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 14),
-        ("TOPPADDING", (0, 0), (-1, -1), 11),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 11),
+        ("LEFTPADDING", (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
         ("BACKGROUND", (0, 0), (-1, -1), NAVY),
-    ])(header)
-    return [header, Spacer(1, 14)]
+        ("ROUNDEDCORNERS", [6, 6, 0, 0]),
+    ])
+    return [header, Spacer(1, 12)]
+
 
 def _build_employee_section(employee_name, employee_code, department,
                              designation, period, paid_date):
@@ -128,19 +131,22 @@ def _build_employee_section(employee_name, employee_code, department,
         ("Pay Period", period or "N/A"),
         ("Paid Date", paid_date or "N/A"),
     ]
+
+    # 2 rows x 3 cols, each col = label(30%) + value(70%)
     col_w = USABLE_W / 3
-    pw = [col_w * 0.33, col_w * 0.67]
+    pw = [col_w * 0.30, col_w * 0.70]
     row_widths = pw * 3
+
     rows = []
     for i in range(0, len(fields), 3):
         row = []
-        for label, value in fields[i:i+3]:
+        for label, value in fields[i:i + 3]:
             row.append(Paragraph(label.upper(), ST["f_lbl"]))
             row.append(Paragraph(str(value), ST["f_val"]))
         rows.append(row)
 
     t = Table(rows, colWidths=row_widths)
-    _style_table([
+    _apply(t, [
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("TOPPADDING", (0, 0), (-1, -1), 5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
@@ -149,24 +155,32 @@ def _build_employee_section(employee_name, employee_code, department,
         ("BACKGROUND", (0, 0), (-1, -1), LIGHT_BG),
         ("BOX", (0, 0), (-1, -1), 0.5, BORDER),
         ("LINEBELOW", (0, 0), (-1, 0), 0.25, BORDER),
-        ("LINEBELOW", (0, 1), (-1, 1), 0.25, BORDER),
-    ])(t)
-    return [t, Spacer(1, 14)]
+    ])
+    return [t, Spacer(1, 12)]
+
 
 def _build_earnings_deductions(earnings, deductions):
     earnings_total = sum(e["amount"] for e in earnings)
     deductions_total = sum(d["amount"] for d in deductions)
 
-    SIDE_W = (USABLE_W - 8) / 2
-    DESC_W = SIDE_W * 0.6
-    AMT_W = SIDE_W * 0.4
+    SIDE_W = (USABLE_W - 6) / 2
+    DESC_W = SIDE_W * 0.60
+    AMT_W = SIDE_W * 0.40
 
-    def make_table(rows):
-        alt = colors.HexColor("#F8F9FB")
+    def make_table(title, rows_data, items, total_label, total_value, negate=False):
+        rows = [[Paragraph(title, ST["c_hdr"]), Paragraph("AMOUNT", ST["c_hdr"])]]
+        for item in items:
+            amt = f"-{_fmt(item['amount'])}" if negate else _fmt(item["amount"])
+            rows.append([Paragraph(item["name"], ST["i_name"]), Paragraph(amt, ST["i_amt"])])
+        rows.append([
+            Paragraph(f"<b>{total_label}</b>", ST["total_l"]),
+            Paragraph(f"<b>{total_value}</b>", ST["total_v"]),
+        ])
+        t = Table(rows, colWidths=[DESC_W, AMT_W])
         style = [
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, -1), 4.5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
             ("LEFTPADDING", (0, 0), (-1, -1), 7),
             ("RIGHTPADDING", (0, 0), (-1, -1), 7),
             ("BACKGROUND", (0, 0), (-1, 0), NAVY_LIGHT),
@@ -175,37 +189,26 @@ def _build_earnings_deductions(earnings, deductions):
         ]
         for i in range(1, len(rows) - 1):
             if i % 2 == 0:
-                style.append(("BACKGROUND", (0, i), (-1, i), alt))
-        t = Table(rows, colWidths=[DESC_W, AMT_W])
-        _style_table(style)(t)
+                style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#F8F9FB")))
+        _apply(t, style)
         return t
 
-    earn_rows = [[Paragraph("EARNINGS", ST["c_hdr"]), Paragraph("AMOUNT", ST["c_hdr"])]]
-    for e in earnings:
-        earn_rows.append([Paragraph(e["name"], ST["i_name"]), Paragraph(_fmt(e["amount"]), ST["i_amt"])])
-    earn_rows.append([Paragraph("<b>Total Earnings</b>", ST["total_l"]), Paragraph(f"<b>{_fmt(earnings_total)}</b>", ST["total_v"])])
-
-    ded_rows = [[Paragraph("DEDUCTIONS", ST["c_hdr"]), Paragraph("AMOUNT", ST["c_hdr"])]]
-    for d in deductions:
-        ded_rows.append([Paragraph(d["name"], ST["i_name"]), Paragraph(f"-{_fmt(d['amount'])}", ST["i_amt"])])
-    ded_rows.append([Paragraph("<b>Total Deductions</b>", ST["total_l"]), Paragraph(f"<b>-{_fmt(deductions_total)}</b>", ST["total_v"])])
-
-    earn_table = make_table(earn_rows)
-    ded_table = make_table(ded_rows)
+    earn_table = make_table("EARNINGS", earnings, earnings, "Total Earnings", _fmt(earnings_total))
+    ded_table = make_table("DEDUCTIONS", deductions, deductions, "Total Deductions", f"-{_fmt(deductions_total)}", negate=True)
 
     wrapper = Table([[earn_table, ded_table]], colWidths=[SIDE_W, SIDE_W])
-    _style_table([
+    _apply(wrapper, [
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
         ("TOPPADDING", (0, 0), (-1, -1), 0),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ])(wrapper)
-    return [wrapper, Spacer(1, 14)]
+    ])
+    return [wrapper, Spacer(1, 12)]
+
 
 def _build_summary(earnings_total, deductions_total, net_pay, period):
     gross = earnings_total
-
     col_w = USABLE_W / 3
     rows = [[
         Paragraph("GROSS PAY", ST["summary_l"]),
@@ -218,7 +221,7 @@ def _build_summary(earnings_total, deductions_total, net_pay, period):
     ]]
 
     t = Table(rows, colWidths=[col_w, col_w, col_w])
-    _style_table([
+    _apply(t, [
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("TOPPADDING", (0, 0), (-1, -1), 8),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
@@ -229,15 +232,16 @@ def _build_summary(earnings_total, deductions_total, net_pay, period):
         ("LINEBELOW", (0, 0), (-1, 0), 0.5, BORDER),
         ("LINEAFTER", (0, 0), (0, -1), 0.5, BORDER),
         ("LINEAFTER", (1, 0), (1, -1), 0.5, BORDER),
-    ])(t)
-    return [t, Spacer(1, 18)]
+    ])
+    return [t, Spacer(1, 14)]
+
 
 def _build_signature_section(employee_signature_b64, company_name):
     sig_lbl = ST["sig_lbl"]
-    emp_sig = _safe_b64_image(employee_signature_b64, 110, 30)
+    emp_sig = _safe_b64_image(employee_signature_b64, 110, 28)
     if not emp_sig:
-        emp_sig = Paragraph("_" * 34, sig_lbl)
-    auth_sig = Paragraph("_" * 34, sig_lbl)
+        emp_sig = Paragraph("_" * 30, sig_lbl)
+    auth_sig = Paragraph("_" * 30, sig_lbl)
     col_w = USABLE_W / 2
     sig_data = [
         [emp_sig, auth_sig],
@@ -245,19 +249,20 @@ def _build_signature_section(employee_signature_b64, company_name):
          Paragraph(f"Authorized by \u2014 {company_name}", sig_lbl)],
     ]
     t = Table(sig_data, colWidths=[col_w, col_w])
-    _style_table([
+    _apply(t, [
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("TOPPADDING", (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-    ])(t)
-    return [t, Spacer(1, 14)]
+    ])
+    return [t, Spacer(1, 10)]
+
 
 def _build_footer(company_name):
     return [
         HRFlowable(width="100%", thickness=0.5, color=BORDER),
-        Spacer(1, 5),
+        Spacer(1, 4),
         Paragraph(
             f"This is a system-generated payslip. For queries, contact HR at {company_name}.",
             ST["footer"],
