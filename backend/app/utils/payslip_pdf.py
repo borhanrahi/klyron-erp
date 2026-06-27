@@ -52,6 +52,7 @@ ST = {
     "net_lbl":   _s("NL", fontSize=9, fontName="Helvetica-Bold", textColor=NAVY, leading=12, alignment=TA_RIGHT),
     "net_val":   _s("NV", fontSize=12, fontName="Helvetica-Bold", textColor=NAVY, leading=15, alignment=TA_RIGHT),
     "sig_lbl":   _s("SG", fontSize=7, textColor=MUTED, leading=9),
+    "sig_lbl_r": _s("SGR", fontSize=7, textColor=MUTED, leading=9, alignment=TA_RIGHT),
     "footer":    _s("FT", fontSize=6.5, textColor=colors.HexColor("#9CA3AF"), alignment=TA_CENTER, leading=9),
 }
 
@@ -251,13 +252,14 @@ def _build_summary(earnings_total, deductions_total, net_pay):
 
 def _build_signatures(employee_signature_b64, company_name):
     sig = ST["sig_lbl"]
+    sig_r = ST["sig_lbl_r"]
     emp = _safe_img(employee_signature_b64, 110, 28) or Paragraph("_" * 30, sig)
     auth = Paragraph("_" * 30, sig)
     col_w = USABLE_W / 2
     t = Table([
         [emp, auth],
         [Paragraph("Employee Signature", sig),
-         Paragraph(f"Authorized by \u2014 {company_name}", sig)],
+         Paragraph(f"Authorized by \u2014 {company_name}", sig_r)],
     ], colWidths=[col_w, col_w])
     _apply(t, [
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
