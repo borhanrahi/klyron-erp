@@ -204,7 +204,7 @@ def _build_earnings_deductions(earnings, deductions):
     return [wrapper, Spacer(1, 14)]
 
 def _build_summary(earnings_total, deductions_total, net_pay, period):
-    gross = sum(e["amount"] for e in earnings_total)
+    gross = earnings_total
 
     col_w = USABLE_W / 3
     rows = [[
