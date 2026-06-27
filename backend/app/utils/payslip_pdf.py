@@ -254,7 +254,7 @@ def _build_signatures(employee_signature_b64, company_name):
     sig = ST["sig_lbl"]
     sig_r = ST["sig_lbl_r"]
     emp = _safe_img(employee_signature_b64, 110, 28) or Paragraph("_" * 30, sig)
-    auth = Paragraph("_" * 30, sig)
+    auth = Paragraph("_" * 30, sig_r)
     col_w = USABLE_W / 2
     t = Table([
         [emp, auth],
