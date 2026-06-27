@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy.sql import func
 from typing import Optional
 
 from app.database import get_db
@@ -193,11 +194,11 @@ async def generate_payroll(
         )
         payroll = existing.scalar_one_or_none()
 
-        base = float(emp.salary or 0)
+        base = emp.salary or 0
 
         if payroll:
             payroll.base_salary = base
-            payroll.net_pay = (base + payroll.allowances + payroll.bonus) - (payroll.deductions + payroll.tax + payroll.loan_deduction)
+            payroll.net_pay = (base + (payroll.allowances or 0) + (payroll.bonus or 0)) - ((payroll.deductions or 0) + (payroll.tax or 0) + (payroll.loan_deduction or 0))
             updated += 1
         else:
             new_payroll = Payroll(
@@ -213,6 +214,74 @@ async def generate_payroll(
             created += 1
 
     return ResponseModel(data={"created": created, "updated": updated})
+
+
+@router.post("/mark-paid")
+async def mark_payroll_paid(
+    payroll_ids: Optional[str] = Query(None, description="Comma-separated payroll IDs. If empty, marks all draft/processed for month/year."),
+    month: int = Query(..., ge=1, le=12),
+    year: int = Query(..., ge=2000, le=2099),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company)
+):
+    query = select(Payroll).where(
+        Payroll.company_id == current_user.company_id,
+        Payroll.month == month,
+        Payroll.year == year,
+    )
+    if payroll_ids:
+        id_list = [int(i.strip()) for i in payroll_ids.split(",") if i.strip().isdigit()]
+        if id_list:
+            query = query.where(Payroll.id.in_(id_list))
+
+    result = await db.execute(query)
+    payrolls = result.scalars().all()
+    marked = 0
+    for p in payrolls:
+        if p.status != "paid":
+            p.status = "paid"
+            p.paid_at = func.now()
+            marked += 1
+
+    return ResponseModel(data={"marked_paid": marked})
+
+
+@router.get("/by-period")
+async def list_payroll_by_period(
+    month: int = Query(..., ge=1, le=12),
+    year: int = Query(..., ge=2000, le=2099),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company)
+):
+    result = await db.execute(
+        select(Payroll, User.full_name, Employee.employee_code)
+        .outerjoin(Employee, Payroll.employee_id == Employee.id)
+        .outerjoin(User, Employee.user_id == User.id)
+        .where(
+            Payroll.company_id == current_user.company_id,
+            Payroll.month == month,
+            Payroll.year == year,
+        )
+        .order_by(Payroll.id)
+    )
+    rows = result.all()
+    items = []
+    for p, full_name, emp_code in rows:
+        items.append({
+            "id": p.id,
+            "employee_id": p.employee_id,
+            "employee_name": full_name,
+            "employee_code": emp_code,
+            "base_salary": float(p.base_salary or 0),
+            "allowances": float(p.allowances or 0),
+            "deductions": float(p.deductions or 0),
+            "tax": float(p.tax or 0),
+            "bonus": float(p.bonus or 0),
+            "net_pay": float(p.net_pay or 0),
+            "status": p.status,
+            "paid_at": str(p.paid_at) if p.paid_at else None,
+        })
+    return ResponseModel(data=items)
 
 
 @router.get("/{payroll_id}/payslip-pdf")

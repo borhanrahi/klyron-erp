@@ -295,7 +295,7 @@ def generate_payslip_pdf(
     elements.extend(_build_earnings_deductions(earnings, deductions))
     earnings_total = sum(e["amount"] for e in earnings)
     deductions_total = sum(d["amount"] for d in deductions)
-    elements.extend(_build_summary(earnings, deductions_total, net_pay, period))
+    elements.extend(_build_summary(earnings_total, deductions_total, net_pay, period))
     elements.extend(_build_signature_section(employee_signature_b64, company_name))
     elements.extend(_build_footer(company_name))
     doc.build(elements)
