@@ -99,7 +99,7 @@ def _build_header(company_name, company_address, company_logo_b64, payslip_id, s
         [Paragraph("PAYSLIP", ST["h_label"])],
         [Paragraph(payslip_id, ST["h_id"])],
         [Paragraph(f'<font color="{sc}"><b>\u25cf {status.upper()}</b></font>', ST["h_status"])],
-    ], colWidths=[140])
+    ], colWidths=[128])
     _apply(right, [
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
