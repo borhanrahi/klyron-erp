@@ -6,8 +6,9 @@ from app.models.finance import (
 )
 from app.models.hr import (
     Employee, Attendance, Leave, LeaveBalance,
-    Payroll, PayrollItem, Recruitment, Training,
-    TrainingEnrollment, PerformanceReview, EmployeeAsset, EmployeeDocument
+    Payroll, PayrollItem, Training,
+    TrainingEnrollment, PerformanceReview, EmployeeAsset, EmployeeDocument,
+    Team, EmployeeDependent, EmployeeLifecycle, employee_teams_table,
 )
 from app.models.inventory import (
     ItemCategory, Item, Stock, Warehouse,

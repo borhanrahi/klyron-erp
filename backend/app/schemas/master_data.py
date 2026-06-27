@@ -232,6 +232,10 @@ class DesignationBase(BaseModel):
     company_id: Optional[int] = None
     name: str
     department_id: Optional[int] = None
+    grade_level: Optional[str] = None
+    min_salary: Optional[float] = None
+    max_salary: Optional[float] = None
+    is_active: bool = True
 
 
 class DesignationCreate(DesignationBase):
@@ -241,6 +245,10 @@ class DesignationCreate(DesignationBase):
 class DesignationUpdate(BaseModel):
     name: Optional[str] = None
     department_id: Optional[int] = None
+    grade_level: Optional[str] = None
+    min_salary: Optional[float] = None
+    max_salary: Optional[float] = None
+    is_active: Optional[bool] = None
 
 
 class DesignationResponse(DesignationBase):

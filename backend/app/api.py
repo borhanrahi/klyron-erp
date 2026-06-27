@@ -18,12 +18,14 @@ from app.routers.ess import router as ess_router
 from app.routers.reports import router as reports_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.payroll import router as payroll_router
+from app.routers.hr_employees import router as hr_employees_router
 
 api_router = APIRouter(prefix="/api/v1")
 
 api_router.include_router(auth_router)
 api_router.include_router(finance_router)
 api_router.include_router(hr_router)
+api_router.include_router(hr_employees_router)
 api_router.include_router(inventory_router)
 api_router.include_router(procurement_router)
 api_router.include_router(sales_router)

@@ -1,8 +1,20 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Numeric, JSON, Date
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Numeric, JSON, Date, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+
+
+# ── Association tables ───────────────────────────────────────────────────────
+
+employee_teams_table = Table(
+    "employee_teams",
+    Base.metadata,
+    Column("employee_id", Integer, ForeignKey("employees.id"), primary_key=True),
+    Column("team_id", Integer, ForeignKey("teams.id"), primary_key=True),
+    Column("role", String(50), default="member"),
+    Column("joined_at", DateTime(timezone=True), server_default=func.now()),
+)
 
 
 # ── Organization Setup ───────────────────────────────────────────────────────
@@ -88,6 +100,8 @@ class Employee(Base):
     photo_url = Column(String(500))
     signature_url = Column(Text)
     reporting_to = Column(Integer, ForeignKey("employees.id"))
+    secondary_supervisor_id = Column(Integer, ForeignKey("employees.id"))
+    skip_level_manager_id = Column(Integer, ForeignKey("employees.id"))
     status = Column(String(20), default="active")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
@@ -95,9 +109,77 @@ class Employee(Base):
     user = relationship("User", foreign_keys=[user_id])
     department = relationship("Department")
     reports_to_emp = relationship("Employee", remote_side=[id], foreign_keys=[reporting_to])
+    secondary_supervisor = relationship("Employee", remote_side=[id], foreign_keys=[secondary_supervisor_id])
+    skip_level_manager = relationship("Employee", remote_side=[id], foreign_keys=[skip_level_manager_id])
     shifts = relationship("Shift", foreign_keys=[shift_id])
     employment_type = relationship("EmploymentType", foreign_keys=[employment_type_id])
     work_location = relationship("WorkLocation", foreign_keys=[work_location_id])
+    designation_rel = relationship("Designation", foreign_keys=[designation_id])
+    teams = relationship("Team", secondary=employee_teams_table, back_populates="members")
+
+
+# ── Teams ──────────────────────────────────────────────────────────────────
+
+class Team(Base):
+    __tablename__ = "teams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    lead_id = Column(Integer, ForeignKey("employees.id"))
+    department_id = Column(Integer, ForeignKey("departments.id"))
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    lead = relationship("Employee", foreign_keys=[lead_id])
+    department = relationship("Department")
+    members = relationship("Employee", secondary=employee_teams_table, back_populates="teams")
+
+
+# ── Employee Dependents ─────────────────────────────────────────────────────
+
+class EmployeeDependent(Base):
+    __tablename__ = "employee_dependents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    relationship_type = Column(String(50), nullable=False)
+    date_of_birth = Column(DateTime(timezone=True))
+    gender = Column(String(20))
+    national_id = Column(String(100))
+    is_beneficiary = Column(Boolean, default=False)
+    is_emergency_contact = Column(Boolean, default=False)
+    phone = Column(String(50))
+    address = Column(Text)
+    occupation = Column(String(100))
+    notes = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    employee = relationship("Employee")
+
+
+# ── Employee Lifecycle (status history) ──────────────────────────────────────
+
+class EmployeeLifecycle(Base):
+    __tablename__ = "employee_lifecycle"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    from_status = Column(String(50))
+    to_status = Column(String(50), nullable=False)
+    reason = Column(Text)
+    effective_date = Column(DateTime(timezone=True))
+    changed_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    employee = relationship("Employee")
+    changed_by_user = relationship("User", foreign_keys=[changed_by])
 
 
 # ── Recruitment ─────────────────────────────────────────────────────────────

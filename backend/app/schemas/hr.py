@@ -137,6 +137,8 @@ class EmployeeBase(BaseModel):
     photo_url: Optional[str] = None
     signature_url: Optional[str] = None
     reporting_to: Optional[int] = None
+    secondary_supervisor_id: Optional[int] = None
+    skip_level_manager_id: Optional[int] = None
     status: str = "active"
 
 
@@ -176,6 +178,8 @@ class EmployeeUpdate(BaseModel):
     photo_url: Optional[str] = None
     signature_url: Optional[str] = None
     reporting_to: Optional[int] = None
+    secondary_supervisor_id: Optional[int] = None
+    skip_level_manager_id: Optional[int] = None
     status: Optional[str] = None
 
 
@@ -187,6 +191,161 @@ class EmployeeResponse(EmployeeBase):
     email: Optional[str] = None
     department_name: Optional[str] = None
     created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── Teams ───────────────────────────────────────────────────────────────────
+
+
+class TeamMemberResponse(BaseModel):
+    employee_id: int
+    employee_name: Optional[str] = None
+    employee_code: Optional[str] = None
+    designation: Optional[str] = None
+    role: str = "member"
+    joined_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TeamBase(BaseModel):
+    company_id: Optional[int] = None
+    name: str
+    description: Optional[str] = None
+    lead_id: Optional[int] = None
+    department_id: Optional[int] = None
+    is_active: bool = True
+
+
+class TeamCreate(TeamBase):
+    member_ids: Optional[List[int]] = None
+    member_roles: Optional[List[str]] = None
+
+
+class TeamUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    lead_id: Optional[int] = None
+    department_id: Optional[int] = None
+    is_active: Optional[bool] = None
+    member_ids: Optional[List[int]] = None
+    member_roles: Optional[List[str]] = None
+
+
+class TeamResponse(TeamBase):
+    id: int
+    lead_name: Optional[str] = None
+    department_name: Optional[str] = None
+    member_count: Optional[int] = 0
+    members: Optional[List[TeamMemberResponse]] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TeamMemberAdd(BaseModel):
+    employee_id: int
+    role: str = "member"
+
+
+# ── Employee Dependents ──────────────────────────────────────────────────────
+
+
+class EmployeeDependentBase(BaseModel):
+    company_id: Optional[int] = None
+    employee_id: int
+    name: str
+    relationship_type: str
+    date_of_birth: Optional[datetime] = None
+    gender: Optional[str] = None
+    national_id: Optional[str] = None
+    is_beneficiary: bool = False
+    is_emergency_contact: bool = False
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    occupation: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class EmployeeDependentCreate(EmployeeDependentBase):
+    pass
+
+
+class EmployeeDependentUpdate(BaseModel):
+    name: Optional[str] = None
+    relationship_type: Optional[str] = None
+    date_of_birth: Optional[datetime] = None
+    gender: Optional[str] = None
+    national_id: Optional[str] = None
+    is_beneficiary: Optional[bool] = None
+    is_emergency_contact: Optional[bool] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    occupation: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class EmployeeDependentResponse(EmployeeDependentBase):
+    id: int
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── Employee Lifecycle (status history) ──────────────────────────────────────
+
+
+class EmployeeLifecycleBase(BaseModel):
+    company_id: Optional[int] = None
+    employee_id: int
+    from_status: Optional[str] = None
+    to_status: str
+    reason: Optional[str] = None
+    effective_date: Optional[datetime] = None
+    changed_by: Optional[int] = None
+
+
+class EmployeeLifecycleCreate(EmployeeLifecycleBase):
+    pass
+
+
+class EmployeeLifecycleUpdate(BaseModel):
+    from_status: Optional[str] = None
+    to_status: Optional[str] = None
+    reason: Optional[str] = None
+    effective_date: Optional[datetime] = None
+    changed_by: Optional[int] = None
+
+
+class EmployeeLifecycleResponse(EmployeeLifecycleBase):
+    id: int
+    changed_by_name: Optional[str] = None
+    employee_name: Optional[str] = None
+    employee_code: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── Org Chart ───────────────────────────────────────────────────────────────
+
+
+class OrgChartNode(BaseModel):
+    id: int
+    employee_id: int
+    employee_name: Optional[str] = None
+    employee_code: Optional[str] = None
+    designation: Optional[str] = None
+    department: Optional[str] = None
+    photo_url: Optional[str] = None
+    reports_to: Optional[int] = None
+    children: List["OrgChartNode"] = []
 
     class Config:
         from_attributes = True

@@ -55,6 +55,9 @@ import {
   Award,
   ClipboardCheck,
   GraduationCap,
+  GitBranch,
+  ChartNetwork,
+  UserCog,
 } from "lucide-react";
 
 interface NavItem {
@@ -126,6 +129,9 @@ const navigationGroups: NavGroup[] = [
     label: "HR",
     items: [
       { name: "Employees", href: "/hr/employees", icon: Users },
+      { name: "Teams", href: "/hr/teams", icon: GitBranch },
+      { name: "Org Chart", href: "/hr/org-chart", icon: ChartNetwork },
+      { name: "My Team (Supervisor)", href: "/hr/my-team", icon: UserCog },
       { name: "Attendance", href: "/hr/attendance", icon: UserCheck },
       { name: "Leave Approvals", href: "/hr/leaves", icon: Calendar },
       { name: "Payroll", href: "/hr/payroll", icon: DollarSign },

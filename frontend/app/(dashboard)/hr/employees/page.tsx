@@ -39,12 +39,14 @@ interface Employee {
   department_id: number | null;
 }
 
-interface EmployeeListResponse {
-  items: Employee[];
-  total: number;
-  page: number;
-  per_page: number;
-  pages: number;
+interface Team {
+  id: number;
+  name: string;
+}
+
+interface Department {
+  id: number;
+  name: string;
 }
 
 const statusVariant = (s: string): "success" | "warning" | "muted" | "danger" => {
@@ -61,14 +63,23 @@ export default function EmployeeDirectoryPage() {
   const [pages, setPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [selectedDepartment, setSelectedDepartment] = useState("All");
+  const [selectedTeam, setSelectedTeam] = useState("All");
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const { confirm, state, handleClose } = useConfirm();
 
   const fetchEmployees = (p: number, search?: string) => {
     setLoading(true);
     const params: Record<string, string> = { page: String(p), per_page: "10" };
     if (search) params.search = search;
-    apiGet<{ items: Employee[]; total: number; page: number; per_page: number; pages: number }>("/hr/employees", params)
+    if (selectedDepartment && selectedDepartment !== "All") params.department_id = selectedDepartment;
+    if (selectedTeam && selectedTeam !== "All") params.team_id = selectedTeam;
+    if (selectedStatus && selectedStatus !== "All") params.status = selectedStatus.toLowerCase();
+    
+    apiGet<{ items: Employee[]; total: number; page: number; per_page: number; pages: number }>("/hr/employee-directory", params)
       .then((res) => {
         setEmployees(res.items);
         setTotal(res.total);
@@ -82,11 +93,27 @@ export default function EmployeeDirectoryPage() {
       .finally(() => setLoading(false));
   };
 
+  const fetchFilters = async () => {
+    try {
+      const [deptRes, teamRes] = await Promise.all([
+        apiGet<{ items: Department[] }>("/master-data/departments", { per_page: "100" }).catch(() => ({ items: [] })),
+        apiGet<{ items: Team[] }>("/hr/teams", { per_page: "50" }).catch(() => ({ items: [] })),
+      ]);
+      setDepartments(deptRes.items || []);
+      setTeams(teamRes.items || []);
+    } catch {}
+  };
+
   useEffect(() => {
     fetchEmployees(1);
+    fetchFilters();
   }, []);
 
   const handleSearch = () => {
+    fetchEmployees(1, searchTerm || undefined);
+  };
+
+  const applyFilters = () => {
     fetchEmployees(1, searchTerm || undefined);
   };
 
@@ -96,10 +123,6 @@ export default function EmployeeDirectoryPage() {
     await apiDelete(`/hr/employees/${id}`);
     fetchEmployees(page, searchTerm || undefined);
   };
-
-  const filteredEmployees = selectedStatus === "All"
-    ? employees
-    : employees.filter((e) => e.status === selectedStatus.toLowerCase());
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-200">
@@ -113,7 +136,7 @@ export default function EmployeeDirectoryPage() {
         icon={<Users className="h-6 w-6 text-primary" />}
         actions={
           <div className="flex items-center gap-3">
-            <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2">
+            <button className="border border-border bg-muted text-foreground px-4 py-2 rounded-lg font-medium transition-all hover:bg-muted/80 flex items-center gap-2 cursor-pointer">
               <Download className="h-4 w-4" />
               Export
             </button>
@@ -135,33 +158,99 @@ export default function EmployeeDirectoryPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search employees..."
+                placeholder="Search by name, email, code, or designation..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 px-3 py-2 border border-border rounded-lg text-sm hover:bg-muted/80 transition-colors ${
+                  showFilters ? "bg-primary/10 border-primary/30 text-primary" : "bg-muted"
+                }`}
+              >
+                <Filter className="h-4 w-4" />
+                <span className="hidden sm:inline">Filters</span>
+              </button>
               <select
                 value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
+                onChange={(e) => {
+                  setSelectedStatus(e.target.value);
+                  // Trigger fetch with new status on next render
+                  setLoading(true);
+                  const params: Record<string, string> = { page: "1", per_page: "10" };
+                  if (searchTerm) params.search = searchTerm;
+                  if (selectedDepartment && selectedDepartment !== "All") params.department_id = selectedDepartment;
+                  if (selectedTeam && selectedTeam !== "All") params.team_id = selectedTeam;
+                  const statusVal = e.target.value;
+                  if (statusVal && statusVal !== "All") params.status = statusVal.toLowerCase();
+                  apiGet<{ items: Employee[]; total: number; page: number; per_page: number; pages: number }>("/hr/employee-directory", params)
+                    .then((res) => {
+                      setEmployees(res.items); setTotal(res.total); setPage(res.page); setPages(res.pages);
+                    })
+                    .catch(() => { setEmployees([]); setTotal(0); })
+                    .finally(() => setLoading(false));
+                }}
                 className="px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               >
-                <option value="All">Status: All</option>
-                <option value="Active">Active</option>
-                <option value="On Leave">On Leave</option>
-                <option value="Inactive">Inactive</option>
+                <option value="All">All Status</option>
+                <option value="active">Active</option>
+                <option value="on_leave">On Leave</option>
+                <option value="inactive">Inactive</option>
+                <option value="terminated">Terminated</option>
               </select>
               <button
                 onClick={handleSearch}
-                className="flex items-center gap-2 px-3 py-2 bg-muted border border-border rounded-lg text-sm hover:bg-muted/80 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 bg-primary text-white border border-primary rounded-lg text-sm hover:bg-primary-hover transition-colors cursor-pointer"
               >
-                <Filter className="h-4 w-4" />
+                <Search className="h-4 w-4" />
                 <span className="hidden sm:inline">Search</span>
               </button>
             </div>
           </div>
+
+          {/* Advanced Filters */}
+          {showFilters && (
+            <div className="flex flex-col sm:flex-row gap-3 mt-3 pt-3 border-t border-border">
+              <div className="flex-1">
+                <label className="block text-xs text-muted-foreground mb-1">Department</label>
+                <select
+                  value={selectedDepartment}
+                  onChange={(e) => setSelectedDepartment(e.target.value)}
+                  className="w-full px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                >
+                  <option value="All">All Departments</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>{dept.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs text-muted-foreground mb-1">Team</label>
+                <select
+                  value={selectedTeam}
+                  onChange={(e) => setSelectedTeam(e.target.value)}
+                  className="w-full px-3 py-2 bg-muted text-foreground border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                >
+                  <option value="All">All Teams</option>
+                  {teams.map((team) => (
+                    <option key={team.id} value={team.id}>{team.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={applyFilters}
+                  className="px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-hover transition-colors cursor-pointer"
+                >
+                  Apply Filters
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -204,14 +293,17 @@ export default function EmployeeDirectoryPage() {
                     Loading employees...
                   </td>
                 </tr>
-              ) : filteredEmployees.length === 0 ? (
+              ) : employees.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-muted-foreground text-sm">
-                    No employees found.
+                    <div className="flex flex-col items-center gap-2">
+                      <Users className="h-8 w-8 text-muted-foreground/40" />
+                      <p>No employees found. Try adjusting your filters.</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
-                filteredEmployees.map((emp) => (
+                employees.map((emp) => (
                   <tr key={emp.id} className="hover:bg-muted/5 transition-colors">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
@@ -255,12 +347,12 @@ export default function EmployeeDirectoryPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </Link>
-                        <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                        <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground cursor-pointer">
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(emp.id)}
-                          className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger"
+                          className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-danger cursor-pointer"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -281,7 +373,7 @@ export default function EmployeeDirectoryPage() {
             <button
               onClick={() => fetchEmployees(page - 1, searchTerm || undefined)}
               disabled={page <= 1}
-              className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+              className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40 cursor-pointer"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -292,7 +384,7 @@ export default function EmployeeDirectoryPage() {
             <button
               onClick={() => fetchEmployees(page + 1, searchTerm || undefined)}
               disabled={page >= pages}
-              className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+              className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40 cursor-pointer"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
