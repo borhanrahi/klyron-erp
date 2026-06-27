@@ -342,8 +342,13 @@ async def download_payslip_pdf(
 
     month_names = ["", "January", "February", "March", "April", "May", "June",
                    "July", "August", "September", "October", "November", "December"]
+    month_abbr = ["", "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+                  "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
     period = f"{month_names[payroll.month]} {payroll.year}"
     paid_date = payroll.paid_at.strftime("%B %d, %Y") if payroll.paid_at else "N/A"
+
+    emp_code = (employee.employee_code or str(payroll.employee_id)).replace(" ", "").upper()
+    payslip_id = f"PAY-{emp_code}-{month_abbr[payroll.month]}{payroll.year}"
 
     from app.utils.payslip_pdf import generate_payslip_pdf
 
@@ -352,10 +357,10 @@ async def download_payslip_pdf(
         company_address=company.address or "",
         company_logo_b64=company.logo,
         employee_name=full_name or f"Employee #{payroll.employee_id}",
-        employee_code=employee.employee_code or f"#{payroll.employee_id}",
+        employee_code=emp_code,
         department=dept_name or "N/A",
         designation=employee.designation or "N/A",
-        payslip_id=f"PAY-{str(payroll.id).zfill(3)}",
+        payslip_id=payslip_id,
         status=payroll.status or "draft",
         period=period,
         paid_date=paid_date,
