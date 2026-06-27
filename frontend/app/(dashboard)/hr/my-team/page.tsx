@@ -8,17 +8,13 @@ import {
   UserCog,
   Users,
   Calendar,
-  TrendingUp,
   ClipboardList,
   Mail,
-  Phone,
   Building2,
   Briefcase,
-  Clock,
   CheckCircle,
   AlertCircle,
   ChevronRight,
-  ArrowUpDown,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -33,6 +29,7 @@ interface Employee {
   status: string;
   joining_date: string | null;
   reporting_to: number | null;
+  user_id: number | null;
 }
 
 interface Team {
@@ -43,6 +40,13 @@ interface Team {
   lead_name: string | null;
 }
 
+interface CurrentUser {
+  id: number;
+  email: string;
+  full_name: string;
+  company_id: number | null;
+}
+
 const statusVariant = (s: string): "success" | "warning" | "muted" | "danger" => {
   if (s === "active") return "success";
   if (s === "on_leave") return "warning";
@@ -50,18 +54,10 @@ const statusVariant = (s: string): "success" | "warning" | "muted" | "danger" =>
   return "muted";
 };
 
-// Mock data as fallback if API not available
-const mockTeamMembers: Employee[] = [
-  { id: 2, full_name: "Alex Johnson", employee_code: "EMP-002", email: "alex.j@klyron.com", phone: "+1 (555) 345-6789", designation: "Senior Developer", department_name: "Engineering", status: "active", joining_date: "2023-03-10", reporting_to: 1 },
-  { id: 3, full_name: "Maria Garcia", employee_code: "EMP-003", email: "maria.g@klyron.com", phone: "+1 (555) 456-7890", designation: "Frontend Developer", department_name: "Engineering", status: "active", joining_date: "2023-06-15", reporting_to: 1 },
-  { id: 4, full_name: "James Wilson", employee_code: "EMP-004", email: "james.w@klyron.com", phone: "+1 (555) 567-8901", designation: "Backend Developer", department_name: "Engineering", status: "active", joining_date: "2023-09-01", reporting_to: 1 },
-  { id: 5, full_name: "Sarah Lee", employee_code: "EMP-005", email: "sarah.l@klyron.com", phone: "+1 (555) 678-9012", designation: "Junior Developer", department_name: "Engineering", status: "on_leave", joining_date: "2024-01-20", reporting_to: 1 },
-  { id: 6, full_name: "David Kim", employee_code: "EMP-006", email: "david.k@klyron.com", phone: "+1 (555) 789-0123", designation: "QA Engineer", department_name: "Engineering", status: "active", joining_date: "2024-02-10", reporting_to: 1 },
-];
-
 export default function MyTeamPage() {
   const [directReports, setDirectReports] = useState<Employee[]>([]);
   const [managingTeams, setManagingTeams] = useState<Team[]>([]);
+  const [myEmployeeId, setMyEmployeeId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("members");
   const [error, setError] = useState<string | null>(null);
@@ -70,26 +66,43 @@ export default function MyTeamPage() {
     setLoading(true);
     setError(null);
     try {
-      // Try to get employee directory and filter by current user's reports
-      const res = await apiGet<{ items: Employee[] }>("/hr/employee-directory", { per_page: "200", status: "active" });
-      const allEmployees = res.items || [];
-      // For demo, assume current user is employee 1 and show direct reports
-      // In production, this would filter by the current user's employee ID
-      const myReports = allEmployees.filter((e) => e.reporting_to === 1);
-      setDirectReports(myReports.length > 0 ? myReports : mockTeamMembers);
+      // Step 1: Get current user info
+      const authUser = await apiGet<CurrentUser>("/auth/me");
+      const userId = authUser.id;
 
-      // Try to get teams
-      try {
-        const teamsRes = await apiGet<{ items: Team[] }>("/hr/teams", { per_page: "50" });
-        const teams = teamsRes.items || [];
-        // Filter teams where current user is lead (for demo, teams where lead_id is 1)
-        setManagingTeams(teams.filter((t) => t.lead_id === 1));
-      } catch {
+      // Step 2: Get all employees to find the one linked to current user
+      const empRes = await apiGet<{ items: Employee[]; total: number }>(
+        "/hr/employee-directory",
+        { per_page: "100", status: "active" }
+      );
+      const allEmployees = empRes.items || [];
+
+      // Step 3: Find this user's employee record (Employee.user_id === User.id)
+      const myEmployee = allEmployees.find((e) => e.user_id === userId);
+      if (myEmployee) {
+        setMyEmployeeId(myEmployee.id);
+
+        // Step 4: Get direct reports (employees where reporting_to === myEmployee.id)
+        const myReports = allEmployees.filter((e) => e.reporting_to === myEmployee.id);
+        setDirectReports(myReports);
+
+        // Step 5: Get teams where current user is the lead
+        try {
+          const teamsRes = await apiGet<{ items: Team[] }>("/hr/teams", { per_page: "50" });
+          const teams = teamsRes.items || [];
+          setManagingTeams(teams.filter((t) => t.lead_id === myEmployee.id));
+        } catch {
+          setManagingTeams([]);
+        }
+      } else {
+        // User has no employee record — they may be an admin
+        setDirectReports([]);
         setManagingTeams([]);
+        setError("No employee record found for your account. Contact an HR admin.");
       }
-    } catch {
-      setError("Could not load from API. Showing sample data.");
-      setDirectReports(mockTeamMembers);
+    } catch (err) {
+      setError("Could not load from API. Ensure the backend server is running and you're logged in.");
+      setDirectReports([]);
       setManagingTeams([]);
     } finally {
       setLoading(false);
@@ -190,7 +203,11 @@ export default function MyTeamPage() {
             <div className="py-12 text-center">
               <Users className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
               <p className="text-sm text-muted-foreground">No direct reports found.</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Assign yourself as a reporting manager to see your team.</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">
+                {myEmployeeId
+                  ? "You don't have anyone reporting to you yet. Assign employees to report to you from their profile."
+                  : "Link your user account to an employee record to view your team."}
+              </p>
             </div>
           ) : (
             <>
