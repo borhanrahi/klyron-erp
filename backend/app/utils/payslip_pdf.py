@@ -37,9 +37,9 @@ def _s(name, **kw):
 ST = {
     "h_name":    _s("HN", fontSize=13, fontName="Helvetica-Bold", textColor=WHITE, leading=16),
     "h_addr":    _s("HA", fontSize=6.5, textColor=colors.HexColor("#B0C4DE"), leading=8),
-    "h_label":   _s("HL", fontSize=7, textColor=colors.HexColor("#B0C4DE"), alignment=TA_RIGHT, leading=9),
-    "h_id":      _s("HI", fontSize=11, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_RIGHT, leading=14),
-    "h_status":  _s("HS", fontSize=7, fontName="Helvetica-Bold", alignment=TA_RIGHT, leading=9),
+    "h_label":   _s("HL", fontSize=7, textColor=colors.HexColor("#B0C4DE"), alignment=TA_CENTER, leading=9),
+    "h_id":      _s("HI", fontSize=11, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_CENTER, leading=14),
+    "h_status":  _s("HS", fontSize=7, fontName="Helvetica-Bold", alignment=TA_CENTER, leading=9),
     "f_lbl":     _s("FL", fontSize=6.5, textColor=MUTED, leading=8),
     "f_val":     _s("FV", fontSize=8, fontName="Helvetica-Bold", textColor=DARK, leading=10),
     "tbl_hdr":   _s("TH", fontSize=7.5, fontName="Helvetica-Bold", textColor=WHITE, leading=10),
