@@ -171,7 +171,7 @@ export default function OrgChartPage() {
           { label: "HRM", href: "/hr" },
           { label: "Org Chart" },
         ]}
-        icon={<Organization className="h-6 w-6 text-primary" />}
+        icon={<ChartNetwork className="h-6 w-6 text-primary" />}
         actions={
           <button
             onClick={fetchOrgChart}
@@ -225,13 +225,13 @@ export default function OrgChartPage() {
             </div>
           ) : error ? (
             <div className="py-16 text-center">
-              <Organization className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+              <ChartNetwork className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
               <p className="text-sm text-muted-foreground mb-2">{error}</p>
               <p className="text-xs text-muted-foreground/60">Seed employee data with reporting_to values to see the org chart.</p>
             </div>
           ) : orgTree.length === 0 ? (
             <div className="py-16 text-center">
-              <Organization className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+              <ChartNetwork className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
               <p className="text-sm text-muted-foreground">No organization hierarchy found.</p>
               <p className="text-xs text-muted-foreground/60 mt-1">
                 Assign reporting managers to employees to build the org chart.
