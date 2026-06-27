@@ -86,7 +86,7 @@ def _build_header(company_name, company_address, company_logo_b64, payslip_id, s
 
     sc = {"paid": "#059669", "pending": "#F59E0B", "approved": "#3B82F6"}.get(status, "#DC2626")
 
-    left = Table([[logo_cell, info]], colWidths=[40, USABLE_W - 40 - 125])
+    left = Table([[logo_cell, info]], colWidths=[40, USABLE_W - 40 - 140])
     _apply(left, [
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
@@ -99,7 +99,7 @@ def _build_header(company_name, company_address, company_logo_b64, payslip_id, s
         [Paragraph("PAYSLIP", ST["h_label"])],
         [Paragraph(payslip_id, ST["h_id"])],
         [Paragraph(f'<font color="{sc}"><b>\u25cf {status.upper()}</b></font>', ST["h_status"])],
-    ], colWidths=[125])
+    ], colWidths=[140])
     _apply(right, [
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
@@ -108,7 +108,7 @@ def _build_header(company_name, company_address, company_logo_b64, payslip_id, s
         ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
     ])
 
-    header = Table([[left, right]], colWidths=[USABLE_W - 125, 125])
+    header = Table([[left, right]], colWidths=[USABLE_W - 140, 140])
     _apply(header, [
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 12),
