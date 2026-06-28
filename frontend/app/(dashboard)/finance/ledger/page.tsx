@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet } from "@/lib/api";
+import { RequirePermission } from "@/components/common/RequirePermission";
 import {
   BookOpen,
   Search,
@@ -85,6 +86,7 @@ export default function LedgerPage() {
   });
 
   return (
+    <RequirePermission module="finance.ledger">
     <div className="space-y-6 animate-in fade-in-0 duration-200">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
         <span>Finance</span>
@@ -285,5 +287,6 @@ export default function LedgerPage() {
         </div>
       </div>
     </div>
+    </RequirePermission>
   );
 }

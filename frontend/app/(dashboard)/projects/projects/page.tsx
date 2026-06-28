@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet } from "@/lib/api";
+import { RequirePermission } from "@/components/common/RequirePermission";
 import {
   FolderKanban,
   Search,
@@ -66,6 +67,7 @@ export default function ProjectsListPage() {
   }
 
   return (
+    <RequirePermission module="projects.projects">
     <div className="space-y-6 animate-in fade-in-0 duration-200">
       <PageHeader
         title="Projects"
@@ -251,5 +253,6 @@ export default function ProjectsListPage() {
         </div>
       </div>
     </div>
+    </RequirePermission>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { apiGet } from "@/lib/api";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   BarChart3,
   TrendingUp,
@@ -10,18 +11,13 @@ import {
   Package,
   ShoppingCart,
   Download,
-  Clock,
-  Eye,
   ChevronRight,
   FileText,
   Activity,
   DollarSign,
-  Calendar,
   Briefcase,
   CheckCircle,
   Wrench,
-  Receipt,
-  Building2,
 } from "lucide-react";
 
 interface DashboardData {
@@ -35,7 +31,19 @@ interface DashboardData {
   pos: { sales: number };
 }
 
-const moduleCards: {
+/** Module ID prefixes that map each card to its permission check */
+const CARD_PERMISSION_PREFIXES: Record<string, string[]> = {
+  sales: ["sales.orders"],
+  finance: ["finance.ledger"],
+  inventory: ["inventory.items"],
+  procurement: ["procurement.requisitions"],
+  projects: ["projects.projects"],
+  support: ["support.tickets"],
+  hr: ["hr.employees"],
+  pos: ["pos.terminal"],
+};
+
+interface ModuleCardDef {
   id: string;
   title: string;
   description: string;
@@ -45,7 +53,9 @@ const moduleCards: {
   href: string;
   getCount: (data: DashboardData) => number;
   countLabel: string;
-}[] = [
+}
+
+const ALL_MODULE_CARDS: ModuleCardDef[] = [
   {
     id: "sales",
     title: "Sales",
@@ -141,6 +151,7 @@ function formatCurrency(value: number): string {
 }
 
 export default function ReportsPage() {
+  const { canViewAny } = usePermissions();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -151,6 +162,12 @@ export default function ReportsPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  // Filter module cards based on user permissions
+  const visibleCards = ALL_MODULE_CARDS.filter((card) => {
+    const prefixes = CARD_PERMISSION_PREFIXES[card.id];
+    return prefixes ? canViewAny(prefixes) : false;
+  });
 
   if (loading) {
     return (
@@ -226,13 +243,13 @@ export default function ReportsPage() {
         }
       />
 
-      {/* Overall Stats */}
+      {/* Overall Stats - filtered by permissions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Revenue", value: formatCurrency(data.finance.revenue), change: `${data.finance.invoices} invoices`, icon: DollarSign },
-          { label: "Net Profit", value: formatCurrency(data.finance.profit), change: `${formatCurrency(data.finance.expenses)} expenses`, icon: TrendingUp },
-          { label: "Total Employees", value: String(data.hr.employees), change: "Active headcount", icon: Users },
-          { label: "Open Support Tickets", value: String(data.support.open_tickets), change: `of ${data.support.tickets} total`, icon: Activity },
+          ...(canViewAny(["finance.ledger"]) ? [{ label: "Total Revenue", value: formatCurrency(data.finance.revenue), change: `${data.finance.invoices} invoices`, icon: DollarSign }] : []),
+          ...(canViewAny(["finance.ledger"]) ? [{ label: "Net Profit", value: formatCurrency(data.finance.profit), change: `${formatCurrency(data.finance.expenses)} expenses`, icon: TrendingUp }] : []),
+          ...(canViewAny(["hr.employees"]) ? [{ label: "Total Employees", value: String(data.hr.employees), change: "Active headcount", icon: Users }] : []),
+          ...(canViewAny(["support.tickets"]) ? [{ label: "Open Support Tickets", value: String(data.support.open_tickets), change: `of ${data.support.tickets} total`, icon: Activity }] : []),
         ].map((stat) => (
           <div key={stat.label} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <div className="flex items-center justify-between">
@@ -245,11 +262,11 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      {/* Module Cards Grid */}
+      {/* Module Cards Grid - filtered by permissions */}
       <div>
         <h2 className="text-lg font-semibold mb-4">Module Overview</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {moduleCards.map((mod) => {
+          {visibleCards.map((mod) => {
             const Icon = mod.icon;
             const count = mod.getCount(data);
             return (
@@ -287,12 +304,14 @@ export default function ReportsPage() {
         <h3 className="text-lg font-semibold mb-4">Quick Facts</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {[
-            { label: "Customers", value: data.sales.customers },
-            { label: "Leads", value: data.sales.leads },
-            { label: "Deals", value: data.sales.deals },
-            { label: "Orders", value: data.sales.orders },
-            { label: "Warehouses", value: data.inventory.warehouses },
-            { label: "Projects", value: data.projects.projects },
+            ...(canViewAny(["sales.orders"]) ? [
+              { label: "Customers", value: data.sales.customers },
+              { label: "Leads", value: data.sales.leads },
+              { label: "Deals", value: data.sales.deals },
+              { label: "Orders", value: data.sales.orders },
+            ] : []),
+            ...(canViewAny(["inventory.items"]) ? [{ label: "Warehouses", value: data.inventory.warehouses }] : []),
+            ...(canViewAny(["projects.projects"]) ? [{ label: "Projects", value: data.projects.projects }] : []),
           ].map((item) => (
             <div key={item.label} className="text-center p-3 rounded-xl bg-muted/30">
               <p className="text-2xl font-bold">{item.value}</p>

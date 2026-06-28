@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet, apiDelete } from "@/lib/api";
 import { useConfirm, ConfirmModal } from "@/components/common/ConfirmModal";
+import { RequirePermission } from "@/components/common/RequirePermission";
 import {
   Search,
   Plus,
@@ -93,6 +94,7 @@ export default function RequisitionsPage() {
   }
 
   return (
+    <RequirePermission module="procurement.requisitions">
     <div className="space-y-6">
       <PageHeader
         title="Purchase Requisitions"
@@ -233,5 +235,6 @@ export default function RequisitionsPage() {
         onCancel={() => handleClose(false)}
       />
     </div>
+    </RequirePermission>
   );
 }

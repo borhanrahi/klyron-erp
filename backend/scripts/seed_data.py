@@ -432,6 +432,57 @@ async def seed():
         await db.commit()
         print("  [OK] reporting_to relationships set for all employees")
 
+        # ── 3c. Create Teams with Supervisors as leads ───────────────────
+        print("Creating teams with supervisors as team leads...")
+        # Team definitions: (name, description, lead_emp_idx, dept_name, member_emp_indices)
+        teams_data = [
+            ("Engineering Team", "Software development and infrastructure", 2, "Engineering",
+             [1, 3, 4, 19, 20]),  # Fatima, Nusrat, Arif, Ayesha, Badrul
+            ("Support Team", "Customer support and ticket resolution", 17, "Customer Support",
+             []),  # Ruma leads but no other support team members
+            ("Product Team", "Product strategy and roadmapping", 5, "Product",
+             [21]),  # Sumaiya leads, Shirin is member
+            ("Design Team", "UI/UX and graphic design", 7, "Design",
+             [6]),  # Sabrina leads, Tanvir is member
+            ("Marketing Team", "Brand, content and campaigns", 8, "Marketing",
+             [9]),  # Karim leads, Tasnim is member
+            ("Sales Team", "Revenue and client acquisition", 10, "Sales",
+             [11, 22]),  # Jubayer leads, Farhana, Rakibul
+            ("Finance Team", "Accounting and financial operations", 12, "Finance",
+             [13, 23]),  # Imran leads, Nadia, Jahanara
+            ("HR Team", "Human resources and employee relations", 14, "Human Resources",
+             [15]),  # Anisur leads, Mst is member
+            ("Operations Team", "Logistics and daily operations", 16, "Operations",
+             []),  # Zahid leads
+            ("QA Team", "Quality assurance and testing", 18, "Quality Assurance",
+             []),  # Sohel leads
+        ]
+        team_ids = []
+        for team_name, team_desc, lead_idx, dept_name, member_indices in teams_data:
+            lead_id = emp_ids[lead_idx]
+            dept_id = dept_ids.get(dept_name)
+            r = await db.execute(
+                text("INSERT INTO teams (company_id, name, description, lead_id, department_id, is_active) VALUES (1, :n, :d, :lid, :did, true) RETURNING id"),
+                {"n": team_name, "d": team_desc, "lid": lead_id, "did": dept_id},
+            )
+            team_id = r.scalar_one()
+            team_ids.append(team_id)
+
+            # Add team members to employee_teams association table
+            for member_idx in member_indices:
+                member_id = emp_ids[member_idx]
+                await db.execute(
+                    text("INSERT INTO employee_teams (employee_id, team_id, role) VALUES (:eid, :tid, 'member')"),
+                    {"eid": member_id, "tid": team_id},
+                )
+            # Add team lead as a member too (with role 'lead')
+            await db.execute(
+                text("INSERT INTO employee_teams (employee_id, team_id, role) VALUES (:eid, :tid, 'lead')"),
+                {"eid": lead_id, "tid": team_id},
+            )
+        await db.commit()
+        print(f"  [OK] {len(teams_data)} teams created with leads and members")
+
         admin_user_id = user_ids[0]  # admin user for approved_by references
 
         # ── 4. Leave Types ──────────────────────────────────────────────

@@ -19,6 +19,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
+import { RequirePermission } from "@/components/common/RequirePermission";
 
 interface DashboardData {
   total_employees: number;
@@ -93,6 +94,7 @@ export default function HRDashboardPage() {
   ];
 
   return (
+    <RequirePermission module="hr.employees">
     <div className="space-y-6 animate-in fade-in-0 duration-200">
       <PageHeader
         title="HR Dashboard"
@@ -192,5 +194,6 @@ export default function HRDashboardPage() {
         </div>
       </div>
     </div>
+    </RequirePermission>
   );
 }

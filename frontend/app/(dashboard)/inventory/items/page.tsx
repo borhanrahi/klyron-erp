@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { apiGet } from "@/lib/api";
+import { RequirePermission } from "@/components/common/RequirePermission";
 import {
   Package,
   Search,
@@ -151,6 +152,7 @@ export default function InventoryItemsPage() {
   }
 
   return (
+    <RequirePermission module="inventory.items">
     <div className="space-y-6 animate-in fade-in-0 duration-200">
       <PageHeader
         title="Inventory Items"
@@ -351,5 +353,6 @@ export default function InventoryItemsPage() {
         </div>
       </div>
     </div>
+    </RequirePermission>
   );
 }
