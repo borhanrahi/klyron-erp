@@ -14,6 +14,7 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy import text
+import json
 
 DATABASE_URL = "postgresql+asyncpg://klyron_borhan:klyron123@localhost:5433/klyron_erp"
 
@@ -131,23 +132,71 @@ async def seed():
         print("Seeding Klyron ERP database...")
         print("=" * 60)
 
-        # ── 0. Clean existing data ───────────────────────────────────────
+        # ── 0. Clean existing data (TRUNCATE CASCADE handles FK dependencies) ─
         print("Cleaning existing data...")
-        tables_to_clean = [
-            # Dependent tables first (FK -> employees)
-            "appraisals", "certifications", "disciplinary_incidents",
-            "offer_letters", "onboarding_checklists", "overtime_requests",
-            "resignations", "loans", "loan_installments",
-            # Then employee-owned tables
+        # Use TRUNCATE CASCADE to clean all tables regardless of FK dependencies
+        all_tables = [
+            # Workflow
+            "workflow_history", "workflow_approvals", "workflow_instances", "workflow_steps", "workflows",
+            # HR
+            "appraisals", "certifications", "disciplinary_incidents", "disciplinary_actions",
+            "offer_letters", "onboarding_checklists", "onboarding_tasks", "overtime_requests",
+            "resignations", "clearance_checklists", "loans", "loan_installments",
             "training_enrollments", "trainings", "employee_benefits", "benefit_plans",
-            "payroll_items", "payroll", "salary_components", "leave_balances", "leaves",
-            "leave_types", "attendance", "employee_documents", "employee_assets",
-            "kpis", "performance_reviews", "holidays", "tickets",
-            # Then employees and users
-            "employees", "users", "departments",
+            "payroll_items", "payroll", "salary_structures", "salary_structure_components",
+            "salary_components", "leave_balances", "leaves", "leave_policies",
+            "leave_types", "attendance_policies", "payroll_policies",
+            "attendance", "employee_documents", "employee_assets",
+            "kpis", "performance_reviews", "employee_lifecycle", "employee_dependents",
+            "holidays",
+            "job_requisitions", "candidates", "interviews",
+            "employment_types", "work_locations", "shifts",
+            # Support
+            "ticket_comments", "meetings", "tickets",
+            # Sales
+            "sales_order_items", "sales_orders", "delivery_notes",
+            "quotation_items", "quotations", "deals",
+            "inquiry_follow_ups", "inquiry_email_logs", "inquiries",
+            "sales_campaigns", "customer_contracts", "leads",
+            "customers",
+            # Finance
+            "invoice_items", "invoices", "credit_notes", "debit_notes",
+            "estimate_items", "estimates", "expenses", "budgets",
+            "transactions", "chart_of_accounts", "bank_transfers", "bank_accounts",
+            "tax_rates",
+            # Procurement
+            "pr_items", "purchase_requisitions",
+            "po_items", "purchase_orders",
+            "grn_items", "grn",
+            "supplier_payments", "requests_for_quotation", "suppliers",
+            # Inventory
+            "stock_take_items", "stock_takes",
+            "stock_adjustments", "stock_transfers", "stock",
+            "items", "item_categories", "warehouses",
+            # POS
+            "pos_receipts", "pos_sale_items", "pos_sales",
+            "pos_sessions", "cash_registers",
+            # Projects
+            "project_notes", "project_expenses", "timesheets",
+            "project_bugs", "project_tasks", "project_milestones", "projects",
+            # Master data
+            "currencies", "countries", "states", "cities", "units",
+            "tax_codes", "payment_terms", "shipping_methods", "designations",
+            # Portal
+            "portal_sessions", "portal_users",
+            # Subscription
+            "payments", "subscriptions", "gateways",
+            # Auth / System
+            "audit_logs", "notifications",
+            "branches",
+            # Employees and users last
+            "employees", "users", "departments", "roles",
         ]
-        for t in tables_to_clean:
-            await db.execute(text(f"DELETE FROM {t}"))
+        for t in all_tables:
+            try:
+                await db.execute(text(f"DELETE FROM {t}"))
+            except Exception:
+                pass  # Skip tables that don't exist
         await db.commit()
         print("  [OK] Cleaned existing data")
 
@@ -163,17 +212,115 @@ async def seed():
         await db.commit()
         print(f"  [OK] {len(DEPARTMENTS)} departments created")
 
-        # ── 2. Users ────────────────────────────────────────────────────
+        # ── 2. Roles ────────────────────────────────────────────────────
+        print("Creating default roles...")
+        from app.schemas.admin import get_default_permissions, PERMISSION_MODULES
+        default_roles = [
+            ("Admin", "Full system access within the company", True),
+            ("Manager", "Department/team level management access", True),
+            ("Supervisor", "Can view and approve team members' requests", True),
+            ("HR Manager", "HR module management including payroll and loans", True),
+            ("Finance Manager", "Financial operations and payment approvals", True),
+            ("Employee", "Self-service access to own records", True),
+            ("Viewer", "Read-only access to reports and dashboards", True),
+        ]
+        role_ids_map = {}
+        for role_name, role_desc, is_sys in default_roles:
+            perms = get_default_permissions(full_access=(role_name == "Admin"))
+            # Set specific permissions per role
+            if role_name == "Manager":
+                for mid in ["hr.employees", "hr.my_team", "hr.leaves", "hr.attendance", "hr.loans"]:
+                    if mid in perms:
+                        perms[mid]["view"] = True
+                        perms[mid]["approve"] = True
+                for mid in ["ess.*", "dashboard.*"]:
+                    if mid in perms:
+                        perms[mid] = {a: True for a in ["view"]}
+            elif role_name == "Supervisor":
+                for mid in ["hr.my_team", "hr.employees"]:
+                    if mid in perms:
+                        perms[mid]["view"] = True
+                        perms[mid]["approve"] = True
+                for mid in ["ess.loans", "ess.leave", "ess.attendance"]:
+                    if mid in perms:
+                        perms[mid]["view"] = True
+            elif role_name == "HR Manager":
+                for mid in perms:
+                    if mid.startswith("hr.") or mid.startswith("ess."):
+                        perms[mid] = {a: True for a in ["view", "create", "edit", "approve"]}
+            elif role_name == "Finance Manager":
+                for mid in perms:
+                    if mid.startswith("finance.") or mid == "hr.loans" or mid == "hr.payroll":
+                        perms[mid] = {a: True for a in ["view", "create", "edit", "approve"]}
+            elif role_name == "Employee":
+                for mid in perms:
+                    if mid.startswith("ess."):
+                        perms[mid] = {a: True for a in ["view", "create"]}
+                    elif mid.startswith("dashboard."):
+                        perms[mid]["view"] = True
+            elif role_name == "Viewer":
+                for mid in perms:
+                    perms[mid]["view"] = True
+
+            import json
+            r = await db.execute(
+                text("INSERT INTO roles (name, description, permissions_json, is_system, company_id) VALUES (:n, :d, :p, :s, 1) RETURNING id"),
+                {
+                    "n": role_name,
+                    "d": role_desc,
+                    "p": json.dumps(perms),
+                    "s": is_sys,
+                },
+            )
+            role_id = r.scalar_one()
+            role_ids_map[role_name] = role_id
+        await db.commit()
+        print(f"  [OK] {len(default_roles)} default roles created")
+
+        # ── 3. Default Workflows ───────────────────────────────────────
+        print("Creating default workflows...")
+        hr_role_id = role_ids_map.get("HR Manager")
+        fin_role_id = role_ids_map.get("Finance Manager")
+        wf_result = await db.execute(
+            text("INSERT INTO workflows (company_id, name, entity_type, is_active) VALUES (1, 'Loan Approval', 'loan', true) RETURNING id")
+        )
+        loan_wf_id = wf_result.scalar_one()
+
+        # Workflow steps: Supervisor -> HR -> Finance
+        steps_data = [
+            (loan_wf_id, 1, 'Supervisor Approval', 'supervisor', None, None, None, 'approve'),
+            (loan_wf_id, 2, 'HR Review', 'role', hr_role_id, None, None, 'approve'),
+            (loan_wf_id, 3, 'Finance Approval', 'role', fin_role_id, None, None, 'approve'),
+        ]
+        for wf_id, step_order, name, app_type, app_id, min_amt, max_amt, action in steps_data:
+            await db.execute(
+                text("INSERT INTO workflow_steps (workflow_id, step_order, name, approver_type, approver_id, min_amount, max_amount, action) VALUES (:wf, :so, :n, :at, :ai, :mina, :maxa, :act)"),
+                {"wf": wf_id, "so": step_order, "n": name, "at": app_type, "ai": app_id, "mina": min_amt, "maxa": max_amt, "act": action},
+            )
+        await db.commit()
+        print(f"  [OK] 'Loan Approval' workflow created with 3 steps (Supervisor → HR → Finance)")
+
+        # ── 4. Users ────────────────────────────────────────────────────
         print("Creating users...")
         user_ids = []
+        # Assign roles: first user is Admin, then distribute
+        user_role_assignments = [
+            "Admin", "Manager", "Employee", "Manager", "Employee", "Employee",
+            "Manager", "Employee", "Manager", "Employee",
+            "Manager", "Employee", "Finance Manager", "Employee",
+            "HR Manager", "Employee", "Manager", "Supervisor",
+            "Manager", "Employee", "Employee", "Employee", "Employee", "Employee",
+        ]
         for i, (email, full_name, password) in enumerate(USERS_DATA):
+            role_name = user_role_assignments[i] if i < len(user_role_assignments) else "Employee"
+            role_id = role_ids_map.get(role_name)
             r = await db.execute(
-                text("INSERT INTO users (email, full_name, password_hash, company_id, status) VALUES (:e, :f, :p, 1, 'active') RETURNING id"),
-                {"e": email, "f": full_name, "p": hash_password(password)},
+                text("INSERT INTO users (email, full_name, password_hash, role_id, company_id, status) VALUES (:e, :f, :p, :rid, 1, 'active') RETURNING id"),
+                {"e": email, "f": full_name, "p": hash_password(password), "rid": role_id},
             )
             user_ids.append(r.scalar_one())
         await db.commit()
-        print(f"  [OK] {len(USERS_DATA)} users created (passwords: Admin@123456 for admin, password123 for others)")
+        print(f"  [OK] {len(USERS_DATA)} users created with role assignments")
 
         # ── 3. Employees ────────────────────────────────────────────────
         print("Creating employees...")
@@ -225,6 +372,50 @@ async def seed():
             emp_ids.append(r.scalar_one())
         await db.commit()
         print(f"  [OK] {len(EMPLOYEES)} employees created")
+
+        # ── 3b. Set reporting_to relationships ───────────────────────────
+        print("Setting reporting_to relationships...")
+        # Reporting structure:
+        #   emp_ids[0] (Rahim/EMP001, admin user) -> top-level manager
+        #   Department heads report to Rahim, team members report to department heads
+        reporting_map = {
+            # Rahim (Engineering Lead) - linked to admin user, direct reports:
+            0: None,  # Rahim - top level, no supervisor
+            # People reporting to Rahim (emp_ids[0]):
+            2: 0,  # Kamal (Tech Lead) -> Rahim
+            1: 0,  # Fatima (SWE) -> Rahim
+            3: 0,  # Nusrat (DevOps) -> Rahim
+            4: 0,  # Arif (QA) -> Rahim
+            19: 0, # Ayesha (SWE) -> Rahim
+            20: 0, # Badrul (SWE) -> Rahim
+            17: 0, # Ruma (Support Lead) -> Rahim
+            18: 0, # Sohel (QA Manager) -> Rahim
+            # Department heads (no supervisor):
+            5: None,  # Sumaiya (Product Manager)
+            7: None,  # Sabrina (Design Lead)
+            8: None,  # Karim (Marketing Manager)
+            10: None, # Jubayer (Sales Manager)
+            12: None, # Imran (Finance Manager)
+            14: None, # Anisur (HR Manager)
+            16: None, # Zahid (Operations Manager)
+            # Team members reporting to department heads:
+            21: 5,  # Shirin (Product Analyst) -> Sumaiya
+            6: 7,   # Tanvir (Designer) -> Sabrina
+            9: 8,   # Tasnim (Content Writer) -> Karim
+            11: 10, # Farhana (Account Exec) -> Jubayer
+            22: 10, # Rakibul (Sales Exec) -> Jubayer
+            13: 12, # Nadia (Accountant) -> Imran
+            23: 12, # Jahanara (Sr. Accountant) -> Imran
+            15: 14, # Mst (HR Exec) -> Anisur
+        }
+        for emp_idx, reports_to_idx in reporting_map.items():
+            rt = emp_ids[reports_to_idx] if reports_to_idx is not None else None
+            await db.execute(
+                text("UPDATE employees SET reporting_to = :rt WHERE id = :eid"),
+                {"rt": rt, "eid": emp_ids[emp_idx]},
+            )
+        await db.commit()
+        print("  [OK] reporting_to relationships set for all employees")
 
         admin_user_id = user_ids[0]  # admin user for approved_by references
 

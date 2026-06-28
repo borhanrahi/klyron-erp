@@ -1,45 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { apiGet, apiDelete } from "@/lib/api";
 import {
   Shield,
   Search,
   Plus,
-  Eye,
   Edit,
   Trash2,
-  ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
   Users,
+  ArrowUpDown,
   Lock,
-  Check,
+  AlertCircle,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-const roles = [
-  { id: "ROLE-001", name: "Super Admin", users: 2, permissions: "Full Access", description: "Complete system access with all permissions", status: "System", statusVariant: "primary" as const },
-  { id: "ROLE-002", name: "Admin", users: 5, permissions: "24 permissions", description: "Administrative access to most modules", status: "Active", statusVariant: "success" as const },
-  { id: "ROLE-003", name: "Manager", users: 12, permissions: "18 permissions", description: "Manager-level access for team leads", status: "Active", statusVariant: "success" as const },
-  { id: "ROLE-004", name: "Accountant", users: 8, permissions: "12 permissions", description: "Finance and accounting module access", status: "Active", statusVariant: "success" as const },
-  { id: "ROLE-005", name: "HR Specialist", users: 4, permissions: "14 permissions", description: "HR module and employee management access", status: "Active", statusVariant: "success" as const },
-  { id: "ROLE-006", name: "Sales Rep", users: 15, permissions: "10 permissions", description: "Sales pipeline and CRM access", status: "Active", statusVariant: "success" as const },
-  { id: "ROLE-007", name: "Viewer", users: 23, permissions: "6 permissions", description: "Read-only access to all modules", status: "Active", statusVariant: "success" as const },
-];
-
-const roleStats = [
-  { label: "Total Roles", value: "7", change: "2 system, 5 custom" },
-  { label: "Total Users Assigned", value: "69", change: "Across all roles" },
-  { label: "Custom Roles", value: "5", change: "Created by admins" },
-  { label: "Permission Groups", value: "8", change: "Module categories" },
-];
+interface RoleItem {
+  id: number;
+  name: string;
+  description: string;
+  is_system: boolean;
+  user_count: number;
+  permissions_json: Record<string, Record<string, boolean>>;
+  created_at: string;
+}
 
 export default function RolesPage() {
+  const router = useRouter();
+  const [roles, setRoles] = useState<RoleItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchRoles = () => {
+    setLoading(true);
+    apiGet<{ items: RoleItem[]; total: number }>("/admin/roles", { per_page: "100" })
+      .then((res) => {
+        setRoles(res.items || []);
+        setError(null);
+      })
+      .catch(() => setError("Failed to load roles. Is the backend running?"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchRoles();
+  }, []);
+
+  const handleDelete = async (roleId: number, roleName: string) => {
+    if (!confirm(`Delete role "${roleName}"? This action cannot be undone.`)) return;
+    try {
+      await apiDelete(`/admin/roles/${roleId}`);
+      fetchRoles();
+    } catch {
+      alert("Failed to delete role. System roles cannot be deleted.");
+    }
+  };
+
+  const totalUsers = roles.reduce((s, r) => s + r.user_count, 0);
+  const systemRoles = roles.filter((r) => r.is_system).length;
+  const customRoles = roles.filter((r) => !r.is_system).length;
+  const permCount = (role: RoleItem) => {
+    return Object.values(role.permissions_json || {}).filter((actions) =>
+      Object.values(actions).some(Boolean)
+    ).length;
+  };
 
   const filteredRoles = roles.filter((r) =>
-    r.name.toLowerCase().includes(searchTerm.toLowerCase())
+    r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -53,26 +85,54 @@ export default function RolesPage() {
           { label: "Roles" },
         ]}
         actions={
-          <a
+          <Link
             href="/admin/roles/new"
-            className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 cursor-pointer flex items-center gap-2"
+            className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2"
           >
-            <Plus className="h-4 w-4" />
-            Create Role
-          </a>
+            <Plus className="h-4 w-4" /> Create Role
+          </Link>
         }
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {roleStats.map((stat) => (
-          <div key={stat.label} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
-            <p className="text-2xl font-bold mt-1">{stat.value}</p>
-            <p className="text-xs text-success mt-1">{stat.change}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <p className="text-sm text-muted-foreground">Total Roles</p>
+          <p className="text-2xl font-bold mt-1">{roles.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">{systemRoles} system, {customRoles} custom</p>
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary" />
+            <p className="text-sm text-muted-foreground">Users Assigned</p>
           </div>
-        ))}
+          <p className="text-2xl font-bold mt-1">{totalUsers}</p>
+          <p className="text-xs text-muted-foreground mt-1">Across all roles</p>
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Lock className="h-4 w-4 text-warning" />
+            <p className="text-sm text-muted-foreground">System Roles</p>
+          </div>
+          <p className="text-2xl font-bold mt-1">{systemRoles}</p>
+          <p className="text-xs text-muted-foreground mt-1">Cannot be deleted</p>
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-success" />
+            <p className="text-sm text-muted-foreground">Custom Roles</p>
+          </div>
+          <p className="text-2xl font-bold mt-1">{customRoles}</p>
+          <p className="text-xs text-muted-foreground mt-1">Created by admins</p>
+        </div>
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-warning/10 border border-warning/30 rounded-xl px-4 py-3 text-sm text-warning flex items-center gap-2">
+          <AlertCircle className="h-4 w-4" /> {error}
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative max-w-md">
@@ -88,70 +148,86 @@ export default function RolesPage() {
 
       {/* Roles Table */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  <button className="flex items-center gap-1 hover:text-foreground transition-colors">
-                    Role
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">
-                  Users
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">
-                  Permissions
-                </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Status
-                </th>
-                <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/50">
-              {filteredRoles.map((role) => (
-                <tr key={role.id} className="hover:bg-muted/5 transition-colors">
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Shield className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{role.name}</p>
-                        <p className="text-xs text-muted-foreground">{role.description}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 hidden md:table-cell">
-                    <div className="flex items-center gap-1">
-                      <Users className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">{role.users}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 hidden lg:table-cell">
-                    <StatusBadge status={role.permissions} variant="muted" />
-                  </td>
-                  <td className="py-3 px-4">
-                    <StatusBadge status={role.status} variant={role.statusVariant} />
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <a href={`/admin/roles/${role.id}`} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                        <Eye className="h-4 w-4" />
-                      </a>
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                        <Edit className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
+        {loading ? (
+          <div className="py-12 text-center text-muted-foreground text-sm">Loading roles...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Role</th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden md:table-cell">Users</th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 hidden lg:table-cell">Permissions</th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Type</th>
+                  <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {filteredRoles.length === 0 ? (
+                  <tr><td colSpan={5} className="py-12 text-center text-muted-foreground text-sm">No roles found.</td></tr>
+                ) : filteredRoles.map((role) => (
+                  <tr key={role.id} className="hover:bg-muted/5 transition-colors">
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          {role.is_system ? (
+                            <Lock className="h-5 w-5 text-primary" />
+                          ) : (
+                            <Shield className="h-5 w-5 text-primary" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{role.name}</p>
+                          <p className="text-xs text-muted-foreground max-w-[250px] truncate">
+                            {role.description || "No description"}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 hidden md:table-cell">
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">{role.user_count}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 hidden lg:table-cell">
+                      <span className="text-sm text-muted-foreground">{permCount(role)} modules</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      {role.is_system ? (
+                        <StatusBadge status="System" variant="primary" />
+                      ) : (
+                        <StatusBadge status="Custom" variant="success" />
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Link
+                          href={`/admin/roles/${role.id}`}
+                          className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+                        >
+                          <Shield className="h-4 w-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(role.id, role.name)}
+                          disabled={role.is_system}
+                          className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={role.is_system ? "System roles cannot be deleted" : "Delete role"}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="p-4 border-t border-border">
+          <p className="text-sm text-muted-foreground">
+            Showing {filteredRoles.length} of {roles.length} roles
+          </p>
         </div>
       </div>
     </div>

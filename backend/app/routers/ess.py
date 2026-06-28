@@ -2,13 +2,14 @@ import base64
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sa_func, cast, Date
+from sqlalchemy.orm import selectinload
 from datetime import datetime, date, timedelta
 from typing import Optional
 
 from app.database import get_db
 from app.routers.auth import get_current_user
 from app.dependencies.auth import require_company
-from app.models.auth import User, Department
+from app.models.auth import User, Department, Role
 from app.models.hr import (
     Employee, Attendance, Leave, LeaveBalance, LeaveType, Holiday,
     Payroll, PayrollItem, SalaryComponent, BenefitPlan, EmployeeBenefit,
@@ -760,8 +761,114 @@ async def request_loan(data: ESSLoanRequest, db: AsyncSession = Depends(get_db),
     db.add(loan)
     await db.flush()
     await db.refresh(loan)
+
+    # Create workflow instance for approval chain
+    from app.models.workflow import Workflow, WorkflowStep, WorkflowInstance, WorkflowApproval
+    # Find active workflow for loan entity type
+    wf_result = await db.execute(
+        select(Workflow)
+        .options(selectinload(Workflow.steps))
+        .where(
+            Workflow.company_id == current_user.company_id,
+            Workflow.entity_type == "loan",
+            Workflow.is_active == True,
+            Workflow.deleted_at.is_(None),
+        )
+        .order_by(Workflow.created_at.desc())
+        .limit(1)
+    )
+    workflow = wf_result.scalars().unique().first()
+
+    if workflow and workflow.steps:
+        # Create workflow instance
+        instance = WorkflowInstance(
+            company_id=current_user.company_id,
+            workflow_id=workflow.id,
+            entity_type="loan",
+            entity_id=loan.id,
+            status="pending",
+            created_by=current_user.id,
+        )
+        db.add(instance)
+        await db.flush()
+        await db.refresh(instance)
+
+        # Create approval steps
+        sorted_steps = sorted(workflow.steps, key=lambda s: s.step_order)
+        for step in sorted_steps:
+            # Determine approver_id based on step.approver_type
+            approver_id = None
+            if step.approver_type == "supervisor" and employee.reporting_to:
+                # Find user linked to the supervisor employee
+                sup_result = await db.execute(
+                    select(User.id).where(User.id == select(Employee.user_id).where(
+                        Employee.id == employee.reporting_to
+                    ).scalar_subquery())
+                )
+                approver_id = sup_result.scalar_one_or_none()
+            elif step.approver_type == "role" and step.approver_id:
+                # Find users with this role
+                role_user_result = await db.execute(
+                    select(User.id).where(
+                        User.role_id == step.approver_id,
+                        User.company_id == current_user.company_id,
+                        User.deleted_at.is_(None),
+                    ).limit(1)
+                )
+                approver_id = role_user_result.scalar_one_or_none()
+            elif step.approver_type == "hr":
+                role_result = await db.execute(
+                    select(Role.id).where(Role.name == "HR Manager", Role.company_id == current_user.company_id).limit(1)
+                )
+                hr_role_id = role_result.scalar_one_or_none()
+                if hr_role_id:
+                    hr_user_result = await db.execute(
+                        select(User.id).where(
+                            User.role_id == hr_role_id,
+                            User.company_id == current_user.company_id,
+                            User.deleted_at.is_(None),
+                        ).limit(1)
+                    )
+                    approver_id = hr_user_result.scalar_one_or_none()
+            elif step.approver_type == "finance":
+                role_result = await db.execute(
+                    select(Role.id).where(Role.name == "Finance Manager", Role.company_id == current_user.company_id).limit(1)
+                )
+                fin_role_id = role_result.scalar_one_or_none()
+                if fin_role_id:
+                    fin_user_result = await db.execute(
+                        select(User.id).where(
+                            User.role_id == fin_role_id,
+                            User.company_id == current_user.company_id,
+                            User.deleted_at.is_(None),
+                        ).limit(1)
+                    )
+                    approver_id = fin_user_result.scalar_one_or_none()
+            elif step.approver_type == "manager":
+                # Find the employee's department manager
+                if employee.department_id:
+                    mgr_result = await db.execute(
+                        select(User.id).join(Employee, Employee.user_id == User.id).where(
+                            Employee.department_id == employee.department_id,
+                            Employee.id != employee.id,
+                            Employee.company_id == current_user.company_id,
+                            Employee.deleted_at.is_(None),
+                        ).limit(1)
+                    )
+                    approver_id = mgr_result.scalar_one_or_none()
+
+            approval = WorkflowApproval(
+                instance_id=instance.id,
+                step_id=step.id,
+                approver_id=approver_id,
+                status="pending",
+            )
+            db.add(approval)
+        await db.flush()
+
     from app.schemas.hr import LoanResponse
-    return ResponseModel(data=LoanResponse.model_validate(loan), message="Loan request submitted")
+    from app.models.auth import Role
+    return ResponseModel(data=LoanResponse.model_validate(loan), message="Loan request submitted for approval")
 
 
 @router.get("/requests/history", response_model=ResponseModel)

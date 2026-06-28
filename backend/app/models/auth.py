@@ -44,7 +44,9 @@ class Role(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), unique=True, nullable=False)
+    description = Column(String(500), default="")
     permissions_json = Column(JSON, default={})
+    is_system = Column(Boolean, default=False)
     company_id = Column(Integer, ForeignKey("companies.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)

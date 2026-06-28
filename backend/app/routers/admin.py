@@ -12,13 +12,31 @@ from app.schemas.admin import (
     RoleCreate, RoleUpdate, RoleResponse,
     CompanyUpdate, CompanyResponse,
     DepartmentCreate, DepartmentUpdate, DepartmentResponse,
-    AuditLogResponse,
-    NotificationResponse,
+    AuditLogResponse, NotificationResponse,
+    PermissionsConfigResponse, PermissionGroupInfo, PermissionModuleInfo,
+    PERMISSION_MODULES, PERMISSION_ACTIONS,
 )
 from app.schemas.auth import UserResponse
 from app.schemas.common import PaginatedResponse, ResponseModel
 
 router = APIRouter(prefix="/admin", tags=["Administration"])
+
+
+# ── Permissions Config ───────────────────────────────────────────
+
+@router.get("/permissions-config", response_model=ResponseModel)
+async def get_permissions_config():
+    """Return the full list of permission modules/groups and available actions."""
+    groups = []
+    for group_name, modules in PERMISSION_MODULES.items():
+        groups.append(PermissionGroupInfo(
+            group=group_name,
+            modules=[PermissionModuleInfo(id=m["id"], label=m["label"]) for m in modules],
+        ))
+    return ResponseModel(data=PermissionsConfigResponse(
+        groups=groups,
+        actions=PERMISSION_ACTIONS,
+    ))
 
 
 # ── Roles ────────────────────────────────────────────────────────
@@ -45,12 +63,23 @@ async def list_roles(
         count_query = count_query.where(Role.name.ilike(f"%{search}%"))
 
     total = (await db.execute(count_query)).scalar() or 0
-    query = query.offset((page - 1) * per_page).limit(per_page)
+    query = query.order_by(Role.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
     items = result.scalars().all()
 
+    enriched = []
+    for role in items:
+        d = RoleResponse.model_validate(role)
+        user_count_q = select(sa_func.count()).select_from(User).where(
+            User.role_id == role.id,
+            User.company_id == current_user.company_id,
+            User.deleted_at.is_(None),
+        )
+        d.user_count = (await db.execute(user_count_q)).scalar() or 0
+        enriched.append(d)
+
     return PaginatedResponse(
-        items=[RoleResponse.model_validate(i) for i in items],
+        items=enriched,
         total=total,
         page=page,
         per_page=per_page,
@@ -72,7 +101,14 @@ async def get_role(
     role = result.scalar_one_or_none()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
-    return ResponseModel(data=RoleResponse.model_validate(role))
+    d = RoleResponse.model_validate(role)
+    user_count_q = select(sa_func.count()).select_from(User).where(
+        User.role_id == role.id,
+        User.company_id == current_user.company_id,
+        User.deleted_at.is_(None),
+    )
+    d.user_count = (await db.execute(user_count_q)).scalar() or 0
+    return ResponseModel(data=d)
 
 
 @router.post("/roles", response_model=ResponseModel, status_code=201)
@@ -107,7 +143,13 @@ async def update_role(
         setattr(role, k, v)
     await db.flush()
     await db.refresh(role)
-    return ResponseModel(data=RoleResponse.model_validate(role))
+    d = RoleResponse.model_validate(role)
+    user_count_q = select(sa_func.count()).select_from(User).where(
+        User.role_id == role.id,
+        User.company_id == current_user.company_id,
+    )
+    d.user_count = (await db.execute(user_count_q)).scalar() or 0
+    return ResponseModel(data=d)
 
 
 @router.delete("/roles/{role_id}", response_model=ResponseModel)
@@ -124,6 +166,8 @@ async def delete_role(
     role = result.scalar_one_or_none()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
+    if role.is_system:
+        raise HTTPException(status_code=400, detail="System roles cannot be deleted")
     role.deleted_at = datetime.utcnow()
     await db.flush()
     return ResponseModel(message="Role deleted")
@@ -394,9 +438,13 @@ async def list_users(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_company),
 ):
-    query = select(User).where(
-        User.company_id == current_user.company_id,
-        User.deleted_at.is_(None),
+    query = (
+        select(User, Role.name.label("role_name"))
+        .outerjoin(Role, User.role_id == Role.id)
+        .where(
+            User.company_id == current_user.company_id,
+            User.deleted_at.is_(None),
+        )
     )
     count_query = select(sa_func.count()).select_from(User).where(
         User.company_id == current_user.company_id,
@@ -408,14 +456,53 @@ async def list_users(
         count_query = count_query.where(User.full_name.ilike(f"%{search}%"))
 
     total = (await db.execute(count_query)).scalar() or 0
-    query = query.offset((page - 1) * per_page).limit(per_page)
+    query = query.order_by(User.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
-    items = result.scalars().all()
+    rows = result.all()
+
+    items = []
+    for user, role_name in rows:
+        d = UserResponse.model_validate(user)
+        # Add role_name dynamically
+        d_dict = d.model_dump()
+        d_dict["role_name"] = role_name
+        items.append(d_dict)
 
     return PaginatedResponse(
-        items=[UserResponse.model_validate(i) for i in items],
+        items=items,
         total=total,
         page=page,
         per_page=per_page,
         pages=(total + per_page - 1) // per_page,
     )
+
+
+@router.put("/users/{user_id}/role", response_model=ResponseModel)
+async def update_user_role(
+    user_id: int,
+    role_id: int = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    result = await db.execute(select(User).where(
+        User.id == user_id,
+        User.company_id == current_user.company_id,
+        User.deleted_at.is_(None),
+    ))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    role_result = await db.execute(select(Role).where(
+        Role.id == role_id,
+        Role.company_id == current_user.company_id,
+        Role.deleted_at.is_(None),
+    ))
+    role = role_result.scalar_one_or_none()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    
+    user.role_id = role_id
+    await db.flush()
+    await db.refresh(user)
+    return ResponseModel(data=UserResponse.model_validate(user), message="User role updated")

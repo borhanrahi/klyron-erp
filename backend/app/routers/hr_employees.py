@@ -381,6 +381,7 @@ async def employee_directory(
     search: Optional[str] = None,
     department_id: Optional[int] = None,
     team_id: Optional[int] = None,
+    reporting_to: Optional[int] = None,
     status: Optional[str] = "active",
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_company),
@@ -403,6 +404,9 @@ async def employee_directory(
     if department_id:
         base = base.where(Employee.department_id == department_id)
         count_q = count_q.where(Employee.department_id == department_id)
+    if reporting_to is not None:
+        base = base.where(Employee.reporting_to == reporting_to)
+        count_q = count_q.where(Employee.reporting_to == reporting_to)
     if team_id:
         base = base.join(employee_teams_table, Employee.id == employee_teams_table.c.employee_id).where(employee_teams_table.c.team_id == team_id)
         count_q = count_q.join(employee_teams_table, Employee.id == employee_teams_table.c.employee_id).where(employee_teams_table.c.team_id == team_id)

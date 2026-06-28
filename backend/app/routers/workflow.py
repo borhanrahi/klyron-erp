@@ -496,6 +496,78 @@ async def update_workflow_approval(
     return ResponseModel(data=WorkflowApprovalResponse.model_validate(approval))
 
 
+@router.post("/approvals/{approval_id}/action", response_model=ResponseModel)
+async def process_workflow_approval(
+    approval_id: int,
+    data: WorkflowApprovalUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Approve or reject a workflow approval step."""
+    result = await db.execute(
+        select(WorkflowApproval)
+        .join(WorkflowInstance, WorkflowApproval.instance_id == WorkflowInstance.id)
+        .where(
+            WorkflowApproval.id == approval_id,
+            WorkflowInstance.company_id == current_user.company_id,
+        )
+    )
+    approval = result.scalar_one_or_none()
+    if not approval:
+        raise HTTPException(status_code=404, detail="Workflow approval not found")
+    if approval.status != "pending":
+        raise HTTPException(status_code=400, detail="Approval already processed")
+
+    new_status = data.status
+    if new_status not in ("approved", "rejected"):
+        raise HTTPException(status_code=400, detail="Status must be 'approved' or 'rejected'")
+
+    approval.status = new_status
+    approval.approved_at = datetime.utcnow()
+    approval.approver_id = current_user.id
+    if data.comment:
+        approval.comment = data.comment
+    await db.flush()
+
+    # Update the parent workflow instance status
+    instance_result = await db.execute(
+        select(WorkflowInstance).where(WorkflowInstance.id == approval.instance_id)
+    )
+    instance = instance_result.scalar_one_or_none()
+    if instance:
+        if new_status == "rejected":
+            instance.status = "rejected"
+            instance.completed_at = datetime.utcnow()
+        else:
+            # Check if all steps are approved
+            all_approvals = await db.execute(
+                select(WorkflowApproval).where(
+                    WorkflowApproval.instance_id == instance.id,
+                    WorkflowApproval.status == "pending",
+                )
+            )
+            pending_count = len(all_approvals.scalars().all())
+            if pending_count == 0:
+                instance.status = "approved"
+                instance.completed_at = datetime.utcnow()
+        await db.flush()
+
+    # Add history entry
+    history = WorkflowHistory(
+        instance_id=approval.instance_id,
+        action=f"approval_{new_status}",
+        user_id=current_user.id,
+        comment=data.comment,
+    )
+    db.add(history)
+    await db.flush()
+
+    return ResponseModel(
+        data=WorkflowApprovalResponse.model_validate(approval),
+        message=f"Approval {new_status} successfully",
+    )
+
+
 @router.delete("/approvals/{approval_id}", response_model=ResponseModel)
 async def delete_workflow_approval(
     approval_id: int,

@@ -58,6 +58,7 @@ import {
   GitBranch,
   ChartNetwork,
   UserCog,
+  HandCoins,
 } from "lucide-react";
 
 interface NavItem {
@@ -154,6 +155,8 @@ const navigationGroups: NavGroup[] = [
       { name: "Assets", href: "/ess/assets", icon: Package },
       { name: "Training", href: "/ess/training", icon: GraduationCap },
       { name: "Performance", href: "/ess/performance", icon: TrendingUp },
+      { name: "Apply for Loan", href: "/ess/loans", icon: HandCoins },
+      { name: "My Approvals", href: "/ess/approvals", icon: ClipboardCheck },
       { name: "Requests", href: "/ess/requests", icon: ClipboardList },
       { name: "Support", href: "/ess/support", icon: HeadphonesIcon },
     ],
@@ -204,6 +207,7 @@ const navigationGroups: NavGroup[] = [
       { name: "Roles & Permissions", href: "/admin/roles", icon: Shield },
       { name: "User Management", href: "/admin/users", icon: Users },
       { name: "Audit Logs", href: "/admin/audit-logs", icon: ClipboardList },
+      { name: "Workflow Builder", href: "/admin/workflows", icon: GitBranch },
       { name: "Form Builder", href: "/admin/form-builder", icon: Wrench },
       { name: "Integrations", href: "/admin/integrations", icon: Globe },
       { name: "System Settings", href: "/admin/settings", icon: Settings },
