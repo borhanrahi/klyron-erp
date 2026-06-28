@@ -91,6 +91,96 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
+## Demo Credentials
+
+The seed script populates the database with 25 users across 7 roles.
+
+> **All non-admin users use password:** `password123`
+
+### Admin Access
+
+| Email | Password | Role | Employee |
+|-------|----------|------|----------|
+| borhanuddin.bd2026@gmail.com | `Admin@123456` | **Admin** | Borhan Uddin (EMP001) |
+
+### Department Managers
+
+| Email | Password | Name | Role | Department |
+|-------|----------|------|------|------------|
+| kamal@klyron.com | `password123` | Kamal Hossain | **Manager** | Engineering (Tech Lead) |
+| sumaiya@klyron.com | `password123` | Sumaiya Rahman | **Manager** | Product (Product Manager) |
+| sabrina@klyron.com | `password123` | Sabrina Islam | **Manager** | Design (Senior Designer) |
+| tasnim@klyron.com | `password123` | Tasnim Fahmida | **Manager** | Marketing (Content Writer) |
+| mst@klyron.com | `password123` | Mst Khatun | **Manager** | HR (HR Executive) |
+| ruma@klyron.com | `password123` | Ruma Akhter | **Manager** | Support (Support Lead) |
+
+### Supervisor
+
+| Email | Password | Name | Role | Department |
+|-------|----------|------|------|------------|
+| zahid@klyron.com | `password123` | Zahid Hassan | **Supervisor** | Operations |
+
+### Finance Manager
+
+| Email | Password | Name | Role | Department |
+|-------|----------|------|------|------------|
+| farhana@klyron.com | `password123` | Farhana Parveen | **Finance Manager** | Sales (Account Executive) |
+
+### HR Manager
+
+| Email | Password | Name | Role | Department |
+|-------|----------|------|------|------------|
+| nadia@klyron.com | `password123` | Nadia Sultana | **HR Manager** | Finance (Accountant) |
+
+### Regular Employees
+
+| Email | Password | Name | Employee Code | Department |
+|-------|----------|------|---------------|------------|
+| rahim@klyron.com | `password123` | Rahim Uddin | EMP002 | Engineering |
+| fatima@klyron.com | `password123` | Fatima Akter | EMP003 | Engineering |
+| nusrat@klyron.com | `password123` | Nusrat Jahan | EMP005 | Engineering |
+| arif@klyron.com | `password123` | Arif Hasan | EMP006 | Engineering |
+| tanvir@klyron.com | `password123` | Tanvir Ahmed | EMP008 | Design |
+| karim@klyron.com | `password123` | Md Karim | EMP010 | Marketing |
+| jubayer@klyron.com | `password123` | Jubayer Hossain | EMP012 | Sales |
+| imran@klyron.com | `password123` | Imran Khan | EMP014 | Finance |
+| anisur@klyron.com | `password123` | Anisur Rahman | EMP016 | HR |
+| sohel@klyron.com | `password123` | Sohel Rana | EMP020 | QA |
+| ayesha@klyron.com | `password123` | Ayesha Khanam | EMP021 | Engineering |
+| badrul@klyron.com | `password123` | Badrul Alam | EMP022 | Engineering |
+| shirin@klyron.com | `password123` | Shirin Sultana | EMP023 | Product |
+| rakibul@klyron.com | `password123` | Rakibul Islam | EMP024 | Sales |
+| jahanara@klyron.com | `password123` | Jahanara Begum | (no employee record) | N/A |
+
+### Role Permissions Summary
+
+| Role | Key Permissions |
+|------|----------------|
+| **Admin** | Full access to all modules and actions |
+| **Manager** | View/approve for HR employees, leaves, attendance; view dashboard |
+| **Supervisor** | View/approve for team members; view ESS loans, leave, attendance |
+| **HR Manager** | View/create/edit/approve for all HR and ESS modules |
+| **Finance Manager** | View/create/edit/approve for finance, loans, payroll |
+| **Employee** | Self-service view/create for ESS; view dashboard |
+| **Viewer** | Read-only access to reports and dashboards |
+
+## Seeding the Database
+
+To populate the database with demo data:
+
+```bash
+cd backend
+
+# Seed HR data (users, employees, roles, payroll, leaves, attendance, etc.)
+uv run python scripts/seed_data.py
+
+# Seed all other modules (sales, finance, inventory, procurement, etc.)
+uv run python scripts/seed_all_modules.py
+
+# Seed activity logs and notifications
+uv run python scripts/seed_activity.py
+```
+
 ## Available Scripts
 
 ### Backend
@@ -101,6 +191,7 @@ npm run dev
 | `alembic upgrade head` | Run migrations |
 | `alembic revision --autogenerate -m "msg"` | Create migration |
 | `celery -A app.jobs.scheduler worker -l info` | Start Celery worker |
+| `uv run python scripts/seed_data.py` | Seed HR + roles data |
 
 ### Frontend
 
@@ -150,7 +241,7 @@ klyron-erp/
 ### Backend (.env)
 
 ```env
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/erp_db
+DATABASE_URL=postgresql+asyncpg://klyron_borhan:klyron123@localhost:5433/klyron_erp
 REDIS_URL=redis://localhost:6379/0
 JWT_SECRET_KEY=your-secret-key
 DEBUG=true

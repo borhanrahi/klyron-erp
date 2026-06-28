@@ -9,8 +9,17 @@ Usage:
 
 import asyncio
 import random
+import sys
+import os
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+
+# Add backend dir to path so app.schemas.admin is importable
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Windows encoding fix
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy import text
@@ -135,10 +144,11 @@ async def seed():
         # ── 0. Clean existing data (TRUNCATE CASCADE handles FK dependencies) ─
         print("Cleaning existing data...")
         # Use TRUNCATE CASCADE to clean all tables regardless of FK dependencies
-        all_tables = [
+        # We specify tables in multiple groups to handle missing tables gracefully
+        for table_group in [
             # Workflow
             "workflow_history", "workflow_approvals", "workflow_instances", "workflow_steps", "workflows",
-            # HR
+            # HR child tables
             "appraisals", "certifications", "disciplinary_incidents", "disciplinary_actions",
             "offer_letters", "onboarding_checklists", "onboarding_tasks", "overtime_requests",
             "resignations", "clearance_checklists", "loans", "loan_installments",
@@ -148,8 +158,7 @@ async def seed():
             "leave_types", "attendance_policies", "payroll_policies",
             "attendance", "employee_documents", "employee_assets",
             "kpis", "performance_reviews", "employee_lifecycle", "employee_dependents",
-            "holidays",
-            "job_requisitions", "candidates", "interviews",
+            "holidays", "job_requisitions", "candidates", "interviews",
             "employment_types", "work_locations", "shifts",
             # Support
             "ticket_comments", "meetings", "tickets",
@@ -186,15 +195,13 @@ async def seed():
             "portal_sessions", "portal_users",
             # Subscription
             "payments", "subscriptions", "gateways",
-            # Auth / System
+            # Auth / System (these may be referenced by FK, so truncate cascade)
             "audit_logs", "notifications",
             "branches",
-            # Employees and users last
             "employees", "users", "departments", "roles",
-        ]
-        for t in all_tables:
+        ]:
             try:
-                await db.execute(text(f"DELETE FROM {t}"))
+                await db.execute(text(f"TRUNCATE TABLE {table_group} CASCADE"))
             except Exception:
                 pass  # Skip tables that don't exist
         await db.commit()
@@ -262,7 +269,6 @@ async def seed():
                 for mid in perms:
                     perms[mid]["view"] = True
 
-            import json
             r = await db.execute(
                 text("INSERT INTO roles (name, description, permissions_json, is_system, company_id) VALUES (:n, :d, :p, :s, 1) RETURNING id"),
                 {
