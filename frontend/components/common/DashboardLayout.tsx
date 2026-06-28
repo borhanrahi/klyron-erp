@@ -4,11 +4,13 @@ import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { TopNav } from "./TopNav";
 import { ThemeProvider } from "./ThemeProvider";
+import { PermissionsProvider } from "@/hooks/usePermissions";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
+    <PermissionsProvider>
     <ThemeProvider>
       <div className="flex min-h-screen bg-background">
         {/* Desktop Sidebar */}
@@ -36,5 +38,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     </ThemeProvider>
+    </PermissionsProvider>
   );
 }

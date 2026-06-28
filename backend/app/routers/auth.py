@@ -7,7 +7,7 @@ from datetime import datetime
 from app.database import get_db
 from app.models.auth import User
 from app.schemas.auth import (
-    UserCreate, UserResponse, Token, LoginRequest, RegisterRequest
+    UserCreate, UserResponse, UserProfileResponse, Token, LoginRequest, RegisterRequest
 )
 from app.utils.jwt import (
     verify_password, get_password_hash,
@@ -70,9 +70,48 @@ async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db))
     await db.refresh(user)
     return user
 
-@router.get("/me", response_model=UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+@router.get("/me", response_model=UserProfileResponse)
+async def get_me(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Return current user profile with role name and permissions."""
+    from app.models.auth import Role
+    role_name = None
+    role_permissions = None
+    if current_user.role_id:
+        result = await db.execute(select(Role).where(Role.id == current_user.role_id))
+        role = result.scalar_one_or_none()
+        if role:
+            role_name = role.name
+            role_permissions = role.permissions_json
+    
+    # Query employee id for this user
+    from app.models.hr import Employee
+    emp_result = await db.execute(
+        select(Employee.id).where(
+            Employee.user_id == current_user.id,
+            Employee.company_id == current_user.company_id,
+            Employee.deleted_at.is_(None),
+        )
+    )
+    employee_id = emp_result.scalar_one_or_none()
+
+    profile = UserProfileResponse(
+        id=current_user.id,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        role_id=current_user.role_id,
+        branch_id=current_user.branch_id,
+        company_id=current_user.company_id,
+        status=current_user.status,
+        last_login=current_user.last_login,
+        created_at=current_user.created_at,
+        role_name=role_name,
+        role_permissions=role_permissions,
+        employee_id=employee_id,
+    )
+    return profile
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(refresh_token: str, db: AsyncSession = Depends(get_db)):

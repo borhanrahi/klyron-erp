@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   LayoutDashboard,
   Users,
@@ -132,13 +133,24 @@ const navigationGroups: NavGroup[] = [
       { name: "Employees", href: "/hr/employees", icon: Users },
       { name: "Teams", href: "/hr/teams", icon: GitBranch },
       { name: "Org Chart", href: "/hr/org-chart", icon: ChartNetwork },
-      { name: "My Team (Supervisor)", href: "/hr/my-team", icon: UserCog },
       { name: "Attendance", href: "/hr/attendance", icon: UserCheck },
       { name: "Leave Approvals", href: "/hr/leaves", icon: Calendar },
       { name: "Payroll", href: "/hr/payroll", icon: DollarSign },
       { name: "Recruitment", href: "/hr/recruitment", icon: Briefcase },
       { name: "Training", href: "/hr/training", icon: BookOpen },
       { name: "Performance", href: "/hr/performance", icon: TrendingUp },
+    ],
+  },
+  {
+    label: "Management",
+    items: [
+      { name: "Dashboard", href: "/management", icon: LayoutDashboard },
+      { name: "My Team", href: "/management/my-team", icon: UserCog },
+      { name: "Leave Approvals", href: "/management/leaves", icon: Calendar },
+      { name: "Loan Approvals", href: "/management/loans", icon: HandCoins },
+      { name: "Team Attendance", href: "/management/attendance", icon: UserCheck },
+      { name: "Tasks", href: "/management/tasks", icon: ClipboardList },
+      { name: "Performance", href: "/management/performance", icon: TrendingUp },
     ],
   },
   {
@@ -225,6 +237,25 @@ const navigationGroups: NavGroup[] = [
   },
 ];
 
+/** Module permissions prefix for each sidebar group */
+const GROUP_PERMISSION_PREFIXES: Record<string, string[]> = {
+  "Dashboard": ["dashboard.executive", "dashboard.team", "dashboard.reports"],
+  "Sales": ["sales.orders", "sales.leads", "sales.deals", "sales.quotations", "sales.customers", "sales.contracts", "sales.campaigns"],
+  "Finance": ["finance.ledger", "finance.invoices", "finance.journal", "finance.credit_notes", "finance.banking", "finance.estimates"],
+  "Procurement": ["procurement.requisitions", "procurement.purchase_orders", "procurement.suppliers"],
+  "Inventory": ["inventory.items", "inventory.stock", "inventory.warehouses", "inventory.adjustments"],
+  "Management": ["mgmt.dashboard", "mgmt.my_team", "mgmt.leave_approvals", "mgmt.loan_approvals", "mgmt.attendance", "mgmt.tasks", "mgmt.performance"],
+  "HR": ["hr.employees", "hr.payroll", "hr.recruitment", "hr.training", "hr.performance"],
+  "Employee": ["ess.profile", "ess.attendance", "ess.leave", "ess.payroll", "ess.loans", "ess.benefits", "ess.documents", "ess.support"],
+  "CRM": ["crm.inquiries", "crm.campaigns"],
+  "POS": ["pos.terminal", "pos.history", "pos.reports"],
+  "Projects": ["projects.projects", "projects.tasks", "projects.bugs", "projects.timesheets"],
+  "Support": ["support.tickets", "support.knowledge_base"],
+  "Reports": ["dashboard.reports"],
+  "Admin": ["admin.company", "admin.branches", "admin.roles", "admin.users", "admin.settings", "admin.workflows"],
+  "Settings": ["settings.profile", "settings.billing", "settings.theme", "settings.notifications"],
+};
+
 function CollapsibleGroup({
   group,
   pathname,
@@ -282,6 +313,7 @@ function CollapsibleGroup({
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { canViewAny, loading } = usePermissions();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     navigationGroups.forEach((group) => {
@@ -300,6 +332,15 @@ export function Sidebar() {
     setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
   };
 
+  // Filter groups based on permissions (show empty during loading to avoid flash)
+  const visibleGroups = loading
+    ? []
+    : navigationGroups.filter((group) => {
+        const prefixes = GROUP_PERMISSION_PREFIXES[group.label];
+        if (!prefixes) return true; // show groups without permission mappings
+        return canViewAny(prefixes);
+      });
+
   return (
     <aside className="bg-card/80 backdrop-blur-md w-[280px] h-screen sticky left-0 top-0 border-r border-border shadow-lg flex flex-col z-40 hidden md:flex shrink-0">
       {/* Header */}
@@ -313,9 +354,9 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
+      {/* Navigation - filtered by permissions */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
-        {navigationGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <CollapsibleGroup
             key={group.label}
             group={group}

@@ -234,40 +234,34 @@ async def seed():
         role_ids_map = {}
         for role_name, role_desc, is_sys in default_roles:
             perms = get_default_permissions(full_access=(role_name == "Admin"))
-            # Set specific permissions per role
+            # EVERY non-Admin role gets Dashboard + Employee (ESS) as BASELINE
+            # Admin already has everything via get_default_permissions(True)
+            # Then role-specific extra modules are added on top
+            if role_name != "Admin":
+                for mid in perms:
+                    if mid.startswith("dashboard."):
+                        perms[mid]["view"] = True
+                    if mid.startswith("ess."):
+                        perms[mid] = {a: True for a in ["view", "create"]}
+            # Role-specific extras on top of baseline
             if role_name == "Manager":
-                for mid in ["hr.employees", "hr.my_team", "hr.leaves", "hr.attendance", "hr.loans"]:
-                    if mid in perms:
-                        perms[mid]["view"] = True
-                        perms[mid]["approve"] = True
-                for mid in ["ess.*", "dashboard.*"]:
-                    if mid in perms:
-                        perms[mid] = {a: True for a in ["view"]}
+                for mid in perms:
+                    if mid.startswith("mgmt."):
+                        perms[mid] = {a: True for a in ["view", "create", "edit", "approve"]}
             elif role_name == "Supervisor":
-                for mid in ["hr.my_team", "hr.employees"]:
-                    if mid in perms:
+                for mid in perms:
+                    if mid.startswith("mgmt."):
                         perms[mid]["view"] = True
                         perms[mid]["approve"] = True
-                for mid in ["ess.loans", "ess.leave", "ess.attendance"]:
-                    if mid in perms:
-                        perms[mid]["view"] = True
             elif role_name == "HR Manager":
                 for mid in perms:
-                    if mid.startswith("hr.") or mid.startswith("ess."):
+                    if mid.startswith("hr."):
                         perms[mid] = {a: True for a in ["view", "create", "edit", "approve"]}
             elif role_name == "Finance Manager":
                 for mid in perms:
-                    if mid.startswith("finance.") or mid == "hr.loans" or mid == "hr.payroll":
+                    if mid.startswith("finance."):
                         perms[mid] = {a: True for a in ["view", "create", "edit", "approve"]}
-            elif role_name == "Employee":
-                for mid in perms:
-                    if mid.startswith("ess."):
-                        perms[mid] = {a: True for a in ["view", "create"]}
-                    elif mid.startswith("dashboard."):
-                        perms[mid]["view"] = True
-            elif role_name == "Viewer":
-                for mid in perms:
-                    perms[mid]["view"] = True
+            # Employee and Viewer roles fall through — baseline only
 
             r = await db.execute(
                 text("INSERT INTO roles (name, description, permissions_json, is_system, company_id) VALUES (:n, :d, :p, :s, 1) RETURNING id"),
@@ -309,13 +303,24 @@ async def seed():
         # ── 4. Users ────────────────────────────────────────────────────
         print("Creating users...")
         user_ids = []
-        # Assign roles: first user is Admin, then distribute
+        # Assign roles based on actual job designations:
+        #   borhanuddin (linked to EMP001/Rahim) -> Admin
+        #   Department heads (Sumaiya, Sabrina, Karim, Jubayer, Anisur, Zahid, Sohel) -> Manager
+        #   Team leads (Kamal/Tech Lead, Ruma/Support Lead) -> Supervisor
+        #   Finance specialists (Imran/Finance Manager) -> Finance Manager
+        #   HR lead -> HR Manager
+        #   Everyone else -> Employee
         user_role_assignments = [
-            "Admin", "Manager", "Employee", "Manager", "Employee", "Employee",
-            "Manager", "Employee", "Manager", "Employee",
-            "Manager", "Employee", "Finance Manager", "Employee",
-            "HR Manager", "Employee", "Manager", "Supervisor",
-            "Manager", "Employee", "Employee", "Employee", "Employee", "Employee",
+            #0=Admin      1=Emp       2=Emp       3=Supervisor 4=Emp     5=Emp
+            "Admin",      "Employee", "Employee", "Supervisor", "Employee", "Employee",
+            #6=Manager    7=Emp       8=Manager  9=Manager    10=Emp
+            "Manager",    "Employee", "Manager", "Manager",    "Employee",
+            #11=Manager   12=Emp      13=FinMgr  14=Emp        15=HRMgr
+            "Manager",    "Employee", "Finance Manager", "Employee", "HR Manager",
+            #16=Emp       17=Manager  18=Sup     19=Manager    20=Emp
+            "Employee",   "Manager", "Supervisor", "Manager", "Employee",
+            #21=Emp       22=Emp      23=Emp     24=Emp
+            "Employee",   "Employee", "Employee", "Employee",
         ]
         for i, (email, full_name, password) in enumerate(USERS_DATA):
             role_name = user_role_assignments[i] if i < len(user_role_assignments) else "Employee"

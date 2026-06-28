@@ -93,85 +93,95 @@ npm run dev
 
 ## Demo Credentials
 
-The seed script populates the database with 25 users across 7 roles.
+The seed script populates the database with **25 users across 7 roles**.
 
 > **All non-admin users use password:** `password123`
+>
+> The sidebar dynamically shows/hides modules based on your role & permissions.
 
-### Admin Access
+### Single Admin
 
-| Email | Password | Role | Employee |
-|-------|----------|------|----------|
-| borhanuddin.bd2026@gmail.com | `Admin@123456` | **Admin** | Borhan Uddin (EMP001) |
+| Email | Password | Name | Role | Employee |
+|-------|----------|------|------|----------|
+| borhanuddin.bd2026@gmail.com | `Admin@123456` | Borhan Uddin | **Admin** | Rahim Uddin (EMP001) |
 
 ### Department Managers
 
-| Email | Password | Name | Role | Department |
-|-------|----------|------|------|------------|
-| kamal@klyron.com | `password123` | Kamal Hossain | **Manager** | Engineering (Tech Lead) |
-| sumaiya@klyron.com | `password123` | Sumaiya Rahman | **Manager** | Product (Product Manager) |
-| sabrina@klyron.com | `password123` | Sabrina Islam | **Manager** | Design (Senior Designer) |
-| tasnim@klyron.com | `password123` | Tasnim Fahmida | **Manager** | Marketing (Content Writer) |
-| mst@klyron.com | `password123` | Mst Khatun | **Manager** | HR (HR Executive) |
-| ruma@klyron.com | `password123` | Ruma Akhter | **Manager** | Support (Support Lead) |
+These users see **Dashboard, HR management (employees/attendance/leaves/performance), Employee approvals, and Reports**.
 
-### Supervisor
+| Email | Password | Name | Department |
+|-------|----------|------|------------|
+| sumaiya@klyron.com | `password123` | Sumaiya Rahman | Product (Product Manager) |
+| sabrina@klyron.com | `password123` | Sabrina Islam | Design (Senior Designer / Design Lead) |
+| karim@klyron.com | `password123` | Md Karim | Marketing (Marketing Manager) |
+| jubayer@klyron.com | `password123` | Jubayer Hossain | Sales (Sales Manager) |
+| zahid@klyron.com | `password123` | Zahid Hassan | Operations (Operations Manager) |
+| sohel@klyron.com | `password123` | Sohel Rana | QA (QA Manager) |
 
-| Email | Password | Name | Role | Department |
-|-------|----------|------|------|------------|
-| zahid@klyron.com | `password123` | Zahid Hassan | **Supervisor** | Operations |
+### Supervisors
 
-### Finance Manager
+These users see **Dashboard, My Team (approve requests), Employee ESS (leave/loans/attendance)**.
 
-| Email | Password | Name | Role | Department |
-|-------|----------|------|------|------------|
-| farhana@klyron.com | `password123` | Farhana Parveen | **Finance Manager** | Sales (Account Executive) |
+| Email | Password | Name | Department |
+|-------|----------|------|------------|
+| kamal@klyron.com | `password123` | Kamal Hossain | Engineering (Tech Lead) |
+| ruma@klyron.com | `password123` | Ruma Akhter | Customer Support (Support Lead) |
 
 ### HR Manager
 
-| Email | Password | Name | Role | Department |
-|-------|----------|------|------|------------|
-| nadia@klyron.com | `password123` | Nadia Sultana | **HR Manager** | Finance (Accountant) |
+Full **HR module + ESS** access.
+
+| Email | Password | Name |
+|-------|----------|------|
+| anisur@klyron.com | `password123` | Anisur Rahman |
+
+### Finance Manager
+
+Full **Finance module + Payroll + Loans** access.
+
+| Email | Password | Name |
+|-------|----------|------|
+| imran@klyron.com | `password123` | Imran Khan |
 
 ### Regular Employees
 
-| Email | Password | Name | Employee Code | Department |
-|-------|----------|------|---------------|------------|
-| rahim@klyron.com | `password123` | Rahim Uddin | EMP002 | Engineering |
-| fatima@klyron.com | `password123` | Fatima Akter | EMP003 | Engineering |
-| nusrat@klyron.com | `password123` | Nusrat Jahan | EMP005 | Engineering |
-| arif@klyron.com | `password123` | Arif Hasan | EMP006 | Engineering |
-| tanvir@klyron.com | `password123` | Tanvir Ahmed | EMP008 | Design |
-| karim@klyron.com | `password123` | Md Karim | EMP010 | Marketing |
-| jubayer@klyron.com | `password123` | Jubayer Hossain | EMP012 | Sales |
-| imran@klyron.com | `password123` | Imran Khan | EMP014 | Finance |
-| anisur@klyron.com | `password123` | Anisur Rahman | EMP016 | HR |
-| sohel@klyron.com | `password123` | Sohel Rana | EMP020 | QA |
-| ayesha@klyron.com | `password123` | Ayesha Khanam | EMP021 | Engineering |
-| badrul@klyron.com | `password123` | Badrul Alam | EMP022 | Engineering |
-| shirin@klyron.com | `password123` | Shirin Sultana | EMP023 | Product |
-| rakibul@klyron.com | `password123` | Rakibul Islam | EMP024 | Sales |
-| jahanara@klyron.com | `password123` | Jahanara Begum | (no employee record) | N/A |
+These users see only **Employee Self-Service (ESS)** modules — their own profile, attendance, leave, payroll, loans, benefits, documents, and support tickets.
+
+| Email | Password | Name | Department |
+|-------|----------|------|------------|
+| rahim@klyron.com | `password123` | Rahim Uddin | Engineering (SWE) |
+| fatima@klyron.com | `password123` | Fatima Akter | Engineering (SWE) |
+| nusrat@klyron.com | `password123` | Nusrat Jahan | Engineering (DevOps) |
+| arif@klyron.com | `password123` | Arif Hasan | Engineering (QA) |
+| tanvir@klyron.com | `password123` | Tanvir Ahmed | Design (UI/UX Designer) |
+| tasnim@klyron.com | `password123` | Tasnim Fahmida | Marketing (Content Writer) |
+| farhana@klyron.com | `password123` | Farhana Parveen | Sales (Account Executive) |
+| nadia@klyron.com | `password123` | Nadia Sultana | Finance (Accountant) |
+| mst@klyron.com | `password123` | Mst Khatun | HR (HR Executive) |
+| ayesha@klyron.com | `password123` | Ayesha Khanam | Engineering (SWE) |
+| badrul@klyron.com | `password123` | Badrul Alam | Engineering (SWE) |
+| shirin@klyron.com | `password123` | Shirin Sultana | Product (Product Analyst) |
+| rakibul@klyron.com | `password123` | Rakibul Islam | Sales (Sales Executive) |
+| jahanara@klyron.com | `password123` | Jahanara Begum | Finance (Sr. Accountant) |
 
 ### Role Permissions Summary
 
-| Role | Key Permissions |
-|------|----------------|
-| **Admin** | Full access to all modules and actions |
-| **Manager** | View/approve for HR employees, leaves, attendance; view dashboard |
-| **Supervisor** | View/approve for team members; view ESS loans, leave, attendance |
-| **HR Manager** | View/create/edit/approve for all HR and ESS modules |
-| **Finance Manager** | View/create/edit/approve for finance, loans, payroll |
-| **Employee** | Self-service view/create for ESS; view dashboard |
-| **Viewer** | Read-only access to reports and dashboards |
+| Role | Groups Visible in Sidebar | Key Actions |
+|------|--------------------------|-------------|
+| **Admin** | All modules | Full CRUD + approve on everything |
+| **Manager** | Dashboard, HR, Employee, Reports | Manage team, approve leaves/loans, view reports |
+| **Supervisor** | Dashboard, HR → My Team, Employee | Approve team requests, ESS self-service |
+| **HR Manager** | Dashboard, HR, Employee | Full HR management (employees, payroll, training) |
+| **Finance Manager** | Dashboard, Finance, HR → Payroll/Loans | Full finance operations + approvals |
+| **Employee** | Dashboard, Employee | ESS self-service (own profile, leave, loans) |
+| **Viewer** | Dashboard, Reports | Read-only |
 
 ## Seeding the Database
-
-To populate the database with demo data:
 
 ```bash
 cd backend
 
-# Seed HR data (users, employees, roles, payroll, leaves, attendance, etc.)
+# Seed HR data + roles (25 users, 7 roles, permissions, payroll, etc.)
 uv run python scripts/seed_data.py
 
 # Seed all other modules (sales, finance, inventory, procurement, etc.)

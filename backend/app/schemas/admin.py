@@ -57,6 +57,15 @@ PERMISSION_MODULES: Dict[str, List[Dict[str, str]]] = {
         {"id": "hr.training", "label": "Training"},
         {"id": "hr.performance", "label": "Performance"},
     ],
+    "Management": [
+        {"id": "mgmt.dashboard", "label": "Management Dashboard"},
+        {"id": "mgmt.my_team", "label": "My Team"},
+        {"id": "mgmt.leave_approvals", "label": "Leave Approvals"},
+        {"id": "mgmt.loan_approvals", "label": "Loan Approvals"},
+        {"id": "mgmt.attendance", "label": "Team Attendance"},
+        {"id": "mgmt.tasks", "label": "Task Management"},
+        {"id": "mgmt.performance", "label": "Performance Reviews"},
+    ],
     "Employee Self-Service": [
         {"id": "ess.profile", "label": "My Profile"},
         {"id": "ess.attendance", "label": "Attendance"},

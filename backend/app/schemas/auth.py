@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any
 from pydantic import BaseModel, EmailStr
 
 class UserBase(BaseModel):
@@ -26,6 +26,14 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
+
+
+class UserProfileResponse(UserResponse):
+    """Extended user response with role name and permissions for frontend."""
+    role_name: Optional[str] = None
+    role_permissions: Optional[Dict[str, Any]] = None
+    employee_id: Optional[int] = None
+
 
 class Token(BaseModel):
     access_token: str
