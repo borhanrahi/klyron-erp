@@ -11,7 +11,11 @@ import {
   ChevronRight,
   Clock,
   Users,
+  X,
 } from "lucide-react";
+
+type Priority = "high" | "medium" | "low";
+type Status = "todo" | "in_progress" | "review" | "done";
 
 interface Task {
   id: number;
@@ -20,39 +24,67 @@ interface Task {
   assigned_to: string;
   assigned_to_avatar: string;
   department: string;
-  priority: "high" | "medium" | "low";
-  status: "todo" | "in_progress" | "review" | "done";
+  priority: Priority;
+  status: Status;
   due_date: string;
   created_at: string;
 }
 
-const priorityColors: Record<string, "danger" | "warning" | "info"> = {
+const priorityColors: Record<Priority, "danger" | "warning" | "info"> = {
   high: "danger",
   medium: "warning",
   low: "info",
 };
 
-const statusColors: Record<string, "muted" | "info" | "warning" | "success"> = {
+const statusColors: Record<Status, "muted" | "info" | "warning" | "success"> = {
   todo: "muted",
   in_progress: "info",
   review: "warning",
   done: "success",
 };
 
-const tasks: Task[] = [
-  { id: 1, title: "Design system audit", description: "Review all components for consistency", assigned_to: "Sarah Chen", assigned_to_avatar: "SC", department: "Engineering", priority: "high", status: "in_progress", due_date: "2024-03-20", created_at: "2024-03-10" },
-  { id: 2, title: "API documentation", description: "Write docs for new endpoints", assigned_to: "Mike Johnson", assigned_to_avatar: "MJ", department: "Engineering", priority: "high", status: "todo", due_date: "2024-03-25", created_at: "2024-03-12" },
-  { id: 3, title: "User testing sessions", description: "Schedule and run usability tests", assigned_to: "Emily Davis", assigned_to_avatar: "ED", department: "Product", priority: "medium", status: "in_progress", due_date: "2024-03-22", created_at: "2024-03-11" },
-  { id: 4, title: "Q1 performance reviews", description: "Complete Q1 review cycles", assigned_to: "Rachel Martinez", assigned_to_avatar: "RM", department: "HR", priority: "medium", status: "review", due_date: "2024-03-30", created_at: "2024-03-01" },
-  { id: 5, title: "Database migration", description: "Migrate user data to new schema", assigned_to: "David Park", assigned_to_avatar: "DP", department: "DevOps", priority: "high", status: "done", due_date: "2024-03-15", created_at: "2024-02-28" },
-  { id: 6, title: "Marketing materials update", description: "Update Q2 collateral", assigned_to: "Lisa Thompson", assigned_to_avatar: "LT", department: "Design", priority: "low", status: "todo", due_date: "2024-04-05", created_at: "2024-03-14" },
-  { id: 7, title: "Server maintenance", description: "Apply security patches to staging", assigned_to: "Alex Kim", assigned_to_avatar: "AK", department: "DevOps", priority: "high", status: "in_progress", due_date: "2024-03-18", created_at: "2024-03-13" },
-  { id: 8, title: "Budget planning", description: "Prepare Q2 budget projections", assigned_to: "James Wilson", assigned_to_avatar: "JW", department: "Finance", priority: "medium", status: "todo", due_date: "2024-03-28", created_at: "2024-03-10" },
+const TEAM_MEMBERS = [
+  { name: "Sumaiya Rahman", initials: "SR", department: "Product" },
+  { name: "Tanvir Ahmed", initials: "TA", department: "Design" },
+  { name: "Sabrina Islam", initials: "SI", department: "Design" },
+  { name: "Md Karim", initials: "MK", department: "Marketing" },
+  { name: "Tasnim Fahmida", initials: "TF", department: "Marketing" },
+  { name: "Jubayer Hossain", initials: "JH", department: "Sales" },
+  { name: "Farhana Parveen", initials: "FP", department: "Sales" },
+  { name: "Nadia Sultana", initials: "NS", department: "Finance" },
+  { name: "Mst Khatun", initials: "MK", department: "HR" },
+  { name: "Zahid Hassan", initials: "ZH", department: "Operations" },
+  { name: "Ruma Akhter", initials: "RA", department: "Support" },
+  { name: "Sohel Rana", initials: "SR", department: "QA" },
+  { name: "Shirin Sultana", initials: "SS", department: "Product" },
+  { name: "Rakibul Islam", initials: "RI", department: "Sales" },
+  { name: "Jahanara Begum", initials: "JB", department: "Finance" },
+];
+
+const initialTasks: Task[] = [
+  { id: 1, title: "Design system audit", description: "Review all components for consistency", assigned_to: "Sarah Chen", assigned_to_avatar: "SC", department: "Engineering", priority: "high", status: "in_progress", due_date: "2026-07-20", created_at: "2026-07-10" },
+  { id: 2, title: "API documentation", description: "Write docs for new endpoints", assigned_to: "Mike Johnson", assigned_to_avatar: "MJ", department: "Engineering", priority: "high", status: "todo", due_date: "2026-07-25", created_at: "2026-07-12" },
+  { id: 3, title: "User testing sessions", description: "Schedule and run usability tests", assigned_to: "Emily Davis", assigned_to_avatar: "ED", department: "Product", priority: "medium", status: "in_progress", due_date: "2026-07-22", created_at: "2026-07-11" },
+  { id: 4, title: "Q3 performance reviews", description: "Complete Q3 review cycles", assigned_to: "Rachel Martinez", assigned_to_avatar: "RM", department: "HR", priority: "medium", status: "review", due_date: "2026-07-30", created_at: "2026-07-01" },
+  { id: 5, title: "Database migration", description: "Migrate user data to new schema", assigned_to: "David Park", assigned_to_avatar: "DP", department: "DevOps", priority: "high", status: "done", due_date: "2026-07-15", created_at: "2026-06-28" },
+  { id: 6, title: "Marketing materials update", description: "Update Q3 collateral", assigned_to: "Lisa Thompson", assigned_to_avatar: "LT", department: "Design", priority: "low", status: "todo", due_date: "2026-08-05", created_at: "2026-07-14" },
+  { id: 7, title: "Server maintenance", description: "Apply security patches to staging", assigned_to: "Alex Kim", assigned_to_avatar: "AK", department: "DevOps", priority: "high", status: "in_progress", due_date: "2026-07-18", created_at: "2026-07-13" },
+  { id: 8, title: "Budget planning", description: "Prepare Q4 budget projections", assigned_to: "James Wilson", assigned_to_avatar: "JW", department: "Finance", priority: "medium", status: "todo", due_date: "2026-07-28", created_at: "2026-07-10" },
 ];
 
 export default function TeamTasks() {
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [searchTerm, setSearchTerm] = useState("");
   const [view, setView] = useState<"list" | "kanban">("list");
+  const [showModal, setShowModal] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: "",
+    description: "",
+    assigned_to: "",
+    priority: "medium" as Priority,
+    due_date: "",
+  });
+  const [nextId, setNextId] = useState(9);
 
   const filtered = tasks.filter((t) =>
     t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -64,13 +96,37 @@ export default function TeamTasks() {
   const inProgress = filtered.filter((t) => t.status === "in_progress" || t.status === "review");
   const done = filtered.filter((t) => t.status === "done");
 
+  function handleCreateTask() {
+    if (!newTask.title.trim() || !newTask.assigned_to) return;
+    const member = TEAM_MEMBERS.find((m) => m.name === newTask.assigned_to);
+    const task: Task = {
+      id: nextId,
+      title: newTask.title.trim(),
+      description: newTask.description.trim(),
+      assigned_to: newTask.assigned_to,
+      assigned_to_avatar: member?.initials || "NA",
+      department: member?.department || "General",
+      priority: newTask.priority,
+      status: "todo",
+      due_date: newTask.due_date || new Date().toISOString().split("T")[0],
+      created_at: new Date().toISOString().split("T")[0],
+    };
+    setTasks((prev) => [task, ...prev]);
+    setNextId((id) => id + 1);
+    setShowModal(false);
+    setNewTask({ title: "", description: "", assigned_to: "", priority: "medium", due_date: "" });
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Team Tasks"
         description="Track and manage tasks across your team"
         actions={
-          <button className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2 text-sm">
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-primary text-white px-4 py-2 rounded-lg font-medium transition-all hover:bg-primary-hover active:scale-95 flex items-center gap-2 text-sm cursor-pointer"
+          >
             <Plus className="h-4 w-4" />
             New Task
           </button>
@@ -275,6 +331,104 @@ export default function TeamTasks() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── New Task Modal ── */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-card rounded-2xl border border-border shadow-2xl w-full max-w-lg mx-4 p-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold">Create New Task</h2>
+              <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Title */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Task Title *</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Design system audit"
+                  value={newTask.title}
+                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                  autoFocus
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+                <textarea
+                  placeholder="Describe what needs to be done..."
+                  value={newTask.description}
+                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-none"
+                />
+              </div>
+
+              {/* Assignee + Priority row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">Assign To *</label>
+                  <select
+                    value={newTask.assigned_to}
+                    onChange={(e) => setNewTask({ ...newTask, assigned_to: e.target.value })}
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                  >
+                    <option value="">Select member...</option>
+                    {TEAM_MEMBERS.map((m) => (
+                      <option key={m.name} value={m.name}>{m.name} ({m.department})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">Priority</label>
+                  <select
+                    value={newTask.priority}
+                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as Priority })}
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                  >
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Due Date */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Due Date</label>
+                <input
+                  type="date"
+                  value={newTask.due_date}
+                  onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-border">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateTask}
+                disabled={!newTask.title.trim() || !newTask.assigned_to}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                Create Task
+              </button>
             </div>
           </div>
         </div>

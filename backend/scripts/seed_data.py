@@ -248,11 +248,15 @@ async def seed():
                 for mid in perms:
                     if mid.startswith("mgmt."):
                         perms[mid] = {a: True for a in ["view", "create", "edit", "approve"]}
+                    if mid.startswith("sales.") or mid.startswith("projects.") or mid.startswith("support."):
+                        perms[mid]["view"] = True
             elif role_name == "Supervisor":
                 for mid in perms:
                     if mid.startswith("mgmt."):
                         perms[mid]["view"] = True
                         perms[mid]["approve"] = True
+                    if mid.startswith("projects."):
+                        perms[mid]["view"] = True
             elif role_name == "HR Manager":
                 for mid in perms:
                     if mid.startswith("hr."):
