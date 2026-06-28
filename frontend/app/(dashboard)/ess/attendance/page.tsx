@@ -83,8 +83,9 @@ export default function ESSAttendancePage() {
       await apiPost("/ess/attendance/check-out", {});
       setMessage("Checked out successfully");
       loadData();
-    } catch {
-      setMessage("Check-out failed");
+    } catch (e: unknown) {
+      const err = e as Error;
+      setMessage(err.message ? err.message.replace("API 400: ", "") : "Check-out failed");
     } finally {
       setActionLoading(false);
     }

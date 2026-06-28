@@ -995,6 +995,18 @@ async def get_leave(item_id: int, db: AsyncSession = Depends(get_db), current_us
 
 @router.post("/leaves", response_model=ResponseModel, status_code=201)
 async def create_leave(data: LeaveCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_company)):
+    # Check gender restriction on leave type
+    if data.leave_type_id:
+        lt_result = await db.execute(select(LeaveType).where(LeaveType.id == data.leave_type_id, LeaveType.deleted_at.is_(None)))
+        leave_type = lt_result.scalar_one_or_none()
+        if leave_type and leave_type.gender_restriction:
+            emp_result = await db.execute(select(Employee).where(Employee.id == data.employee_id, Employee.deleted_at.is_(None)))
+            employee = emp_result.scalar_one_or_none()
+            if employee and employee.gender != leave_type.gender_restriction:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{leave_type.name} is only available for {leave_type.gender_restriction} employees"
+                )
     item = Leave(**data.model_dump(exclude={"company_id"}), company_id=current_user.company_id)
     db.add(item)
     await db.flush()

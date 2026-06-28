@@ -349,6 +349,7 @@ class LeaveType(Base):
     is_paid = Column(Boolean, default=True)
     is_carry_forward = Column(Boolean, default=False)
     max_carry_forward = Column(Integer, default=0)
+    gender_restriction = Column(String(20), nullable=True)  # "male", "female", or null for all
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)

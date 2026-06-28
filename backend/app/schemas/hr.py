@@ -671,6 +671,7 @@ class LeaveTypeBase(BaseModel):
     is_paid: bool = True
     is_carry_forward: bool = False
     max_carry_forward: int = 0
+    gender_restriction: Optional[str] = None
     is_active: bool = True
 
 
@@ -684,6 +685,7 @@ class LeaveTypeUpdate(BaseModel):
     is_paid: Optional[bool] = None
     is_carry_forward: Optional[bool] = None
     max_carry_forward: Optional[int] = None
+    gender_restriction: Optional[str] = None
     is_active: Optional[bool] = None
 
 

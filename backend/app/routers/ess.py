@@ -423,6 +423,15 @@ async def leave_types(db: AsyncSession = Depends(get_db), current_user: User = D
 @router.post("/leave/apply", response_model=ResponseModel, status_code=201)
 async def apply_leave(data: ESSLeaveApply, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_company)):
     employee = await _get_employee(db, current_user)
+    # Check gender restriction on leave type
+    lt_result = await db.execute(select(LeaveType).where(LeaveType.id == data.leave_type_id, LeaveType.deleted_at.is_(None)))
+    leave_type = lt_result.scalar_one_or_none()
+    if leave_type and leave_type.gender_restriction:
+        if employee.gender != leave_type.gender_restriction:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{leave_type.name} is only available for {leave_type.gender_restriction} employees"
+            )
     leave = Leave(
         employee_id=employee.id,
         company_id=current_user.company_id,

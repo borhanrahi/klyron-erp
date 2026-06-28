@@ -488,20 +488,20 @@ async def seed():
         # ── 4. Leave Types ──────────────────────────────────────────────
         print("Creating leave types...")
         leave_type_data = [
-            ("Annual Leave", 20, True, True, 5),
-            ("Sick Leave", 12, True, False, 0),
-            ("Casual Leave", 7, True, False, 0),
-            ("Maternity Leave", 90, True, False, 0),
-            ("Paternity Leave", 10, True, False, 0),
-            ("Unpaid Leave", 0, False, False, 0),
-            ("Bereavement Leave", 5, True, False, 0),
-            ("Study Leave", 10, True, False, 0),
+            ("Annual Leave", 20, True, True, 5, None),
+            ("Sick Leave", 12, True, False, 0, None),
+            ("Casual Leave", 7, True, False, 0, None),
+            ("Maternity Leave", 180, True, False, 0, "female"),
+            ("Paternity Leave", 15, True, False, 0, "male"),
+            ("Unpaid Leave", 0, False, False, 0, None),
+            ("Bereavement Leave", 5, True, False, 0, None),
+            ("Study Leave", 10, True, False, 0, None),
         ]
         lt_ids = []
-        for name, days, paid, cf, max_cf in leave_type_data:
+        for name, days, paid, cf, max_cf, gender_res in leave_type_data:
             r = await db.execute(
-                text("INSERT INTO leave_types (company_id, name, days_per_year, is_paid, is_carry_forward, max_carry_forward, is_active) VALUES (1, :n, :d, :p, :cf, :mf, true) RETURNING id"),
-                {"n": name, "d": days, "p": paid, "cf": cf, "mf": max_cf},
+                text("INSERT INTO leave_types (company_id, name, days_per_year, is_paid, is_carry_forward, max_carry_forward, gender_restriction, is_active) VALUES (1, :n, :d, :p, :cf, :mf, :gr, true) RETURNING id"),
+                {"n": name, "d": days, "p": paid, "cf": cf, "mf": max_cf, "gr": gender_res},
             )
             lt_ids.append(r.scalar_one())
         await db.commit()
@@ -511,7 +511,7 @@ async def seed():
         print("Creating leave balances...")
         current_year = date.today().year
         for emp_id in emp_ids:
-            for lt_id, (_, days, _, _, _) in zip(lt_ids, leave_type_data):
+            for lt_id, (_, days, _, _, _, _) in zip(lt_ids, leave_type_data):
                 if days > 0:
                     used = random.randint(0, min(days, 8))
                     await db.execute(
@@ -595,11 +595,12 @@ async def seed():
                 sd = today + timedelta(days=start_off)
                 ed = today + timedelta(days=end_off)
                 days = (ed - sd).days + 1
+                lt_name = leave_type_data[lt_idx][0]  # Get leave type name
                 await db.execute(
                     text("""INSERT INTO leaves
                         (company_id, employee_id, leave_type_id, start_date, end_date,
-                         days, reason, status, approved_by)
-                    VALUES (1, :eid, :ltid, :sd, :ed, :days, :reason, :st, :ab)"""),
+                         days, reason, type, status, approved_by)
+                    VALUES (1, :eid, :ltid, :sd, :ed, :days, :reason, :ltname, :st, :ab)"""),
                     {
                         "eid": emp_id,
                         "ltid": lt_ids[lt_idx],
@@ -607,6 +608,7 @@ async def seed():
                         "ed": ed,
                         "days": days,
                         "reason": reason,
+                        "ltname": lt_name,
                         "st": status,
                         "ab": admin_user_id if status in ("approved", "rejected") else None,
                     },
