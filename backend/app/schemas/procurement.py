@@ -12,7 +12,7 @@ class SupplierBase(BaseModel):
     address: Optional[str] = None
     tax_id: Optional[str] = None
     status: str = "active"
-    rating: int = 0
+    rating: Optional[int] = 0
     credit_limit: float = 0
     balance: float = 0
 

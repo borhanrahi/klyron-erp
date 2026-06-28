@@ -13,7 +13,7 @@ class CustomerBase(BaseModel):
     address: Optional[str] = None
     credit_limit: float = 0
     balance: float = 0
-    loyalty_points: int = 0
+    loyalty_points: Optional[int] = 0
     status: str = "active"
 
 
@@ -121,7 +121,7 @@ class LeadResponse(LeadBase):
 class DealBase(BaseModel):
     title: str
     value: float = 0
-    currency: str = "USD"
+    currency: Optional[str] = "USD"
     stage: Optional[str] = None
     probability: int = 0
     expected_close: Optional[datetime] = None

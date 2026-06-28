@@ -37,7 +37,7 @@ class ItemBase(BaseModel):
     unit: Optional[str] = None
     cost_price: float = 0
     sell_price: float = 0
-    tax_rate: float = 0
+    tax_rate: Optional[float] = 0
     barcode: Optional[str] = None
     weight: Optional[float] = None
     description: Optional[str] = None

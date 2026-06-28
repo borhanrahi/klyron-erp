@@ -12,8 +12,8 @@ class ProjectBase(BaseModel):
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     status: str = "planning"
-    priority: str = "medium"
-    progress_pct: int = 0
+    priority: Optional[str] = "medium"
+    progress_pct: Optional[int] = 0
     billing_type: Optional[str] = None
 
 

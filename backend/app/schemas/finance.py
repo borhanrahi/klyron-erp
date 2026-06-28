@@ -143,10 +143,10 @@ class TransactionResponse(TransactionBase):
 class InvoiceItemBase(BaseModel):
     item_id: Optional[int] = None
     description: Optional[str] = None
-    quantity: float = 1
-    unit_price: float = 0
-    tax: float = 0
-    total: float = 0
+    quantity: Optional[float] = 1
+    unit_price: Optional[float] = 0
+    tax: Optional[float] = 0
+    total: Optional[float] = 0
 
 
 class InvoiceItemCreate(InvoiceItemBase):
