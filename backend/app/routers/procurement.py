@@ -9,11 +9,14 @@ from app.database import get_db
 from app.routers.auth import get_current_user
 from app.dependencies.auth import require_company
 from app.models.auth import User
+from app.models.inventory import Warehouse
 from app.models.procurement import (
     Supplier, PurchaseRequisition, PRItem,
     PurchaseOrder, POItem, GRN, GRNItem, SupplierPayment,
     RequestForQuotation,
 )
+from app.services.inventory_service import increment_stock
+from app.services.event_bus import event_bus
 
 
 def _pr_item_dict(i):
@@ -60,6 +63,8 @@ def _grn_dict(grn, items):
             "status": grn.status, "warehouse_id": grn.warehouse_id,
             "notes": grn.notes, "created_at": str(grn.created_at) if grn.created_at else None,
             "items": [_grn_item_dict(i) for i in items]}
+
+
 from app.schemas.procurement import (
     SupplierCreate, SupplierUpdate, SupplierResponse,
     PurchaseRequisitionCreate, PurchaseRequisitionUpdate, PurchaseRequisitionResponse,
@@ -546,6 +551,76 @@ async def create_grn(
         item = GRNItem(**item_data.model_dump(), grn_id=grn.id)
         db.add(item)
     await db.flush()
+
+    # ── Auto-increment stock for each GRN item ──
+    warehouse_id = grn.warehouse_id
+    if not warehouse_id:
+        # Fallback to first active warehouse
+        wh_result = await db.execute(
+            select(Warehouse).where(
+                Warehouse.company_id == current_user.company_id,
+                Warehouse.is_active == True,
+            ).limit(1)
+        )
+        wh = wh_result.scalar_one_or_none()
+        if wh:
+            warehouse_id = wh.id
+
+    if warehouse_id:
+        for item_data in items_data:
+            po_item_id = getattr(item_data, "po_item_id", None)
+            accepted_qty = getattr(item_data, "accepted_qty", None) or getattr(item_data, "received_qty", 0)
+            accepted_qty = int(accepted_qty)
+
+            if accepted_qty > 0:
+                # Get the item_id from the PO item
+                po_item_result = await db.execute(
+                    select(POItem).where(POItem.id == po_item_id)
+                ) if po_item_id else None
+                po_item = po_item_result.scalar_one_or_none() if po_item_result else None
+                item_id = po_item.item_id if po_item else None
+
+                if item_id:
+                    await increment_stock(
+                        db, company_id=current_user.company_id,
+                        item_id=item_id, warehouse_id=warehouse_id,
+                        quantity=accepted_qty, reference=f"grn_{grn.id}",
+                    )
+
+    # Update PO received quantities
+    for item_data in items_data:
+        po_item_id = getattr(item_data, "po_item_id", None)
+        accepted_qty = int(getattr(item_data, "accepted_qty", 0) or getattr(item_data, "received_qty", 0))
+        if po_item_id and accepted_qty > 0:
+            po_item_result = await db.execute(
+                select(POItem).where(POItem.id == po_item_id)
+            )
+            po_item = po_item_result.scalar_one_or_none()
+            if po_item:
+                po_item.received_qty = (po_item.received_qty or 0) + accepted_qty
+
+    # Update PO status if all items fully received
+    if grn.po_id:
+        po_result = await db.execute(
+            select(PurchaseOrder).options(selectinload(PurchaseOrder.items)).where(
+                PurchaseOrder.id == grn.po_id
+            )
+        )
+        po = po_result.scalars().unique().one_or_none()
+        if po and po.items:
+            all_received = all(
+                (po_item.received_qty or 0) >= (po_item.qty or 0)
+                for po_item in po.items
+            )
+            if all_received:
+                po.status = "received"
+
+    await db.flush()
+
+    await event_bus.emit("grn.created",
+                         company_id=current_user.company_id,
+                         grn_id=grn.id,
+                         po_id=grn.po_id)
 
     items_result = await db.execute(select(GRNItem).where(GRNItem.grn_id == grn.id))
     items = items_result.scalars().all()

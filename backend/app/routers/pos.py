@@ -19,6 +19,9 @@ from app.schemas.pos import (
     POSReceiptCreate, POSReceiptUpdate, POSReceiptResponse,
 )
 from app.schemas.common import PaginatedResponse, ResponseModel
+from app.models.inventory import Warehouse
+from app.services.inventory_service import decrement_stock
+from app.services.event_bus import event_bus
 
 router = APIRouter(prefix="/pos", tags=["Point of Sale"])
 
@@ -214,6 +217,31 @@ async def create_pos_sale(
         item = POSSaleItem(**item_data.model_dump(), pos_sale_id=sale.id)
         db.add(item)
     await db.flush()
+
+    # ── Auto-decrement stock for each item ──
+    for item in items_data:
+        item_id = getattr(item, "item_id", None)
+        qty = int(getattr(item, "qty", 1) or 1)
+        if item_id:
+            # Use first active warehouse
+            wh_result = await db.execute(
+                select(Warehouse).where(
+                    Warehouse.company_id == current_user.company_id,
+                    Warehouse.is_active == True,
+                ).limit(1)
+            )
+            warehouse = wh_result.scalar_one_or_none()
+            if warehouse:
+                await decrement_stock(
+                    db, company_id=current_user.company_id,
+                    item_id=item_id, warehouse_id=warehouse.id,
+                    quantity=qty, reference="pos_sale",
+                )
+
+    # Emit event
+    await event_bus.emit("pos_sale.completed",
+                         company_id=current_user.company_id,
+                         sale_id=sale.id)
 
     items_result = await db.execute(
         select(POSSaleItem).where(POSSaleItem.pos_sale_id == sale.id)

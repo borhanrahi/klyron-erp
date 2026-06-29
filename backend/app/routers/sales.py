@@ -9,6 +9,7 @@ from app.database import get_db
 from app.routers.auth import get_current_user
 from app.dependencies.auth import require_company
 from app.models.auth import User
+from app.models.inventory import Warehouse
 from app.models.sales import (
     Customer, CustomerContract, Lead, Deal,
     Quotation, QuotationItem, SalesOrder, SalesOrderItem,
@@ -30,6 +31,9 @@ from app.schemas.sales import (
     InquiryEmailSend, InquiryEmailLogResponse,
 )
 from app.schemas.common import PaginatedResponse, ResponseModel
+from app.services.sales_service import convert_quotation_to_order, convert_estimate_to_invoice
+from app.services.inventory_service import decrement_stock
+from app.services.event_bus import event_bus
 
 router = APIRouter(prefix="/sales", tags=["Sales"])
 
@@ -869,6 +873,51 @@ async def delete_sales_order(
     return ResponseModel(message="Sales order deleted")
 
 
+# ── Quotation → Sales Order Conversion ──
+
+@router.post("/quotations/{quotation_id}/convert-to-order", response_model=ResponseModel)
+async def handle_convert_quotation_to_order(
+    quotation_id: int,
+    order_number: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Convert an approved quotation into a sales order."""
+    try:
+        order = await convert_quotation_to_order(
+            db, company_id=current_user.company_id,
+            quotation_id=quotation_id,
+            order_number=order_number,
+            created_by=current_user.id,
+        )
+        return ResponseModel(data=SalesOrderResponse.model_validate(order), message="Quotation converted to order")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── Estimate → Invoice Conversion ──
+
+@router.post("/estimates/{estimate_id}/convert-to-invoice", response_model=ResponseModel)
+async def handle_convert_estimate_to_invoice(
+    estimate_id: int,
+    invoice_number: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Convert an approved estimate into an invoice with automatic GL posting."""
+    try:
+        invoice = await convert_estimate_to_invoice(
+            db, company_id=current_user.company_id,
+            estimate_id=estimate_id,
+            invoice_number=invoice_number,
+            created_by=current_user.id,
+        )
+        from app.schemas.finance import InvoiceResponse
+        return ResponseModel(data=InvoiceResponse.model_validate(invoice), message="Estimate converted to invoice")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # ── Delivery Notes ──
 
 @router.get("/delivery-notes", response_model=PaginatedResponse)
@@ -935,6 +984,43 @@ async def create_delivery_note(
     db.add(dn)
     await db.flush()
     await db.refresh(dn)
+
+    # ── Auto-decrement stock on delivery ──
+    # Get items from the associated sales order
+    if dn.sales_order_id:
+        so_result = await db.execute(
+            select(SalesOrder).options(selectinload(SalesOrder.items)).where(
+                SalesOrder.id == dn.sales_order_id,
+                SalesOrder.company_id == current_user.company_id,
+            )
+        )
+        sales_order = so_result.scalars().unique().one_or_none()
+        if sales_order and sales_order.items:
+            wh_result = await db.execute(
+                select(Warehouse).where(
+                    Warehouse.company_id == current_user.company_id,
+                    Warehouse.is_active == True,
+                ).limit(1)
+            )
+            warehouse = wh_result.scalar_one_or_none()
+            if warehouse:
+                for so_item in sales_order.items:
+                    qty = int(so_item.qty or 1)
+                    await decrement_stock(
+                        db, company_id=current_user.company_id,
+                        item_id=so_item.item_id, warehouse_id=warehouse.id,
+                        quantity=qty, reference=f"delivery_{dn.id}",
+                    )
+
+                # Update sales order status
+                sales_order.status = "delivered"
+
+        await event_bus.emit("delivery_note.created",
+                             company_id=current_user.company_id,
+                             delivery_note_id=dn.id,
+                             sales_order_id=dn.sales_order_id)
+
+    await db.flush()
     return ResponseModel(data=DeliveryNoteResponse.model_validate(dn))
 
 

@@ -1,9 +1,12 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sa_func
 from sqlalchemy.orm import selectinload
 from datetime import datetime
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.routers.auth import get_current_user
@@ -28,6 +31,8 @@ from app.schemas.finance import (
     TaxRateCreate, TaxRateUpdate, TaxRateResponse,
 )
 from app.schemas.common import PaginatedResponse, ResponseModel
+from app.services.finance_service import post_invoice_to_gl, post_expense_to_gl, update_invoice_status
+from app.services.event_bus import event_bus
 
 router = APIRouter(prefix="/finance", tags=["Finance"])
 
@@ -476,6 +481,24 @@ async def create_invoice(
         db.add(item)
     await db.flush()
 
+    # ── Auto-posting to General Ledger ──
+    try:
+        await post_invoice_to_gl(
+            db, company_id=current_user.company_id,
+            invoice_id=invoice.id,
+            customer_id=invoice.customer_id,
+            total=invoice.total or 0,
+            subtotal=invoice.subtotal or 0,
+            tax=invoice.tax or 0,
+            created_by=current_user.id,
+        )
+    except Exception as e:
+        logger.warning("GL posting failed for invoice %s: %s", invoice.id, e)
+
+    await event_bus.emit("invoice.created",
+                         company_id=current_user.company_id,
+                         invoice_id=invoice.id)
+
     result = await db.execute(
         select(Invoice).options(selectinload(Invoice.items)).where(Invoice.id == invoice.id)
     )
@@ -503,6 +526,7 @@ async def update_invoice(
 
     update_data = data.model_dump(exclude_unset=True)
     items_data = update_data.pop("items", None)
+    paid_amount = update_data.pop("paid_amount", None)
 
     for k, v in update_data.items():
         setattr(invoice, k, v)
@@ -513,6 +537,14 @@ async def update_invoice(
         for item_data in items_data:
             item = InvoiceItem(invoice_id=invoice.id, **item_data)
             db.add(item)
+
+    if paid_amount is not None:
+        await update_invoice_status(
+            db, company_id=current_user.company_id,
+            invoice_id=invoice.id,
+            paid_amount=paid_amount,
+            created_by=current_user.id,
+        )
 
     await db.flush()
     result = await db.execute(
@@ -958,6 +990,18 @@ async def create_expense(
     db.add(expense)
     await db.flush()
     await db.refresh(expense)
+
+    # ── Auto-posting expense to General Ledger ──
+    try:
+        await post_expense_to_gl(
+            db, company_id=current_user.company_id,
+            expense_id=expense.id,
+            amount=expense.amount or 0,
+            created_by=current_user.id,
+        )
+    except Exception as e:
+        logger.warning("GL posting failed for expense %s: %s", expense.id, e)
+
     return ResponseModel(data=ExpenseResponse.model_validate(expense))
 
 
