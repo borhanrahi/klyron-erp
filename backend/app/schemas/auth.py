@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, Dict, Any
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -33,6 +33,33 @@ class UserProfileResponse(UserResponse):
     role_name: Optional[str] = None
     role_permissions: Optional[Dict[str, Any]] = None
     employee_id: Optional[int] = None
+    phone: Optional[str] = None
+    designation: Optional[str] = None
+    photo_url: Optional[str] = None
+    employee_code: Optional[str] = None
+    department_name: Optional[str] = None
+    branch_name: Optional[str] = None
+    created_at_display: Optional[str] = None
+
+
+class ProfileUpdate(BaseModel):
+    """Update current user's profile (name, phone, designation)."""
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    designation: Optional[str] = None
+
+
+class PasswordChange(BaseModel):
+    """Change password with current password verification."""
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_min_length(cls, v: str) -> str:
+        if len(v) < 6:
+            raise ValueError("Password must be at least 6 characters")
+        return v
 
 
 class Token(BaseModel):

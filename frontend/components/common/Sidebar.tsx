@@ -251,7 +251,8 @@ const GROUP_PERMISSION_PREFIXES: Record<string, string[]> = {
   "POS": ["pos.terminal", "pos.history", "pos.reports"],
   "Projects": ["projects.projects", "projects.tasks", "projects.bugs", "projects.timesheets"],
   "Support": ["support.tickets", "support.knowledge_base"],
-  "Reports": ["dashboard.reports"],
+  // Reports is visible to all users; content filtering happens on the page itself
+  //"Reports": ["dashboard.reports"],
   "Admin": ["admin.company", "admin.branches", "admin.roles", "admin.users", "admin.settings", "admin.workflows"],
   "Settings": ["settings.profile", "settings.billing", "settings.theme", "settings.notifications"],
 };

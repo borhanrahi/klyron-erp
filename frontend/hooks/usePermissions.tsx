@@ -13,6 +13,14 @@ interface UserProfile {
   company_id: number | null;
   status: string;
   employee_id?: number | null;
+  phone?: string | null;
+  designation?: string | null;
+  photo_url?: string | null;
+  employee_code?: string | null;
+  department_name?: string | null;
+  branch_name?: string | null;
+  last_login?: string | null;
+  created_at_display?: string | null;
 }
 
 interface PermissionsContextType {
