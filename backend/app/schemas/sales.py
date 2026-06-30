@@ -90,6 +90,13 @@ class LeadBase(BaseModel):
     assigned_to: Optional[int] = None
     score: int = 0
     notes: Optional[str] = None
+    # Enhanced fields
+    title: Optional[str] = None
+    company_name: Optional[str] = None
+    industry: Optional[str] = None
+    website: Optional[str] = None
+    lead_value: float = 0
+    tags: Optional[list[str]] = None
 
 
 class LeadCreate(LeadBase):
@@ -105,12 +112,149 @@ class LeadUpdate(BaseModel):
     assigned_to: Optional[int] = None
     score: Optional[int] = None
     notes: Optional[str] = None
+    title: Optional[str] = None
+    company_name: Optional[str] = None
+    industry: Optional[str] = None
+    website: Optional[str] = None
+    lead_value: Optional[float] = None
+    tags: Optional[list[str]] = None
 
 
 class LeadResponse(LeadBase):
     id: int
     company_id: Optional[int] = None
+    title: Optional[str] = None
+    company_name: Optional[str] = None
+    industry: Optional[str] = None
+    website: Optional[str] = None
+    lead_value: float = 0
+    tags: Optional[list[str]] = None
+    last_activity_at: Optional[datetime] = None
+    created_by: Optional[int] = None
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Lead Activity (Timeline) ───────────────────────────────────────────────────
+
+class LeadActivityCreate(BaseModel):
+    activity_type: str
+    description: str
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+
+
+class LeadActivityResponse(BaseModel):
+    id: int
+    lead_id: int
+    activity_type: str
+    description: Optional[str] = None
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    created_by: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Lead Task ─────────────────────────────────────────────────────────────────
+
+class LeadTaskCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    assigned_to: int
+    due_date: Optional[datetime] = None
+    priority: str = "medium"
+
+
+class LeadTaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    assigned_to: Optional[int] = None
+    due_date: Optional[datetime] = None
+    priority: Optional[str] = None
+    status: Optional[str] = None
+
+
+class LeadTaskResponse(BaseModel):
+    id: int
+    lead_id: int
+    title: str
+    description: Optional[str] = None
+    assigned_to: int
+    due_date: Optional[datetime] = None
+    priority: str
+    status: str
+    completed_at: Optional[datetime] = None
+    created_by: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Lead Assignment ───────────────────────────────────────────────────────────
+
+class LeadAssignRequest(BaseModel):
+    assigned_to: int
+    assignment_type: str = "manual"  # manual, round_robin, ratio
+    rule_id: Optional[int] = None
+
+
+class LeadBatchAssignRequest(BaseModel):
+    lead_ids: list[int]
+    assigned_to: int
+
+
+# ── Lead Assignment Rule ──────────────────────────────────────────────────────
+
+class DistributionItem(BaseModel):
+    user_id: int
+    weight: int = 1
+
+
+class AssignmentRuleCreate(BaseModel):
+    name: str
+    rule_type: str  # manual, round_robin, ratio, weighted
+    team_id: Optional[int] = None  # Restrict assignment to a specific team
+    criteria: Optional[dict] = None  # Matching criteria: {"sources": [...], "industries": [...], "min_lead_value": 0}
+    is_active: bool = True
+    distributions: list[DistributionItem] = []
+
+
+class AssignmentRuleUpdate(BaseModel):
+    name: Optional[str] = None
+    rule_type: Optional[str] = None
+    team_id: Optional[int] = None
+    criteria: Optional[dict] = None
+    is_active: Optional[bool] = None
+    distributions: Optional[list[DistributionItem]] = None
+
+
+class AssignmentDistributionResponse(BaseModel):
+    id: int
+    rule_id: int
+    user_id: int
+    weight: int
+
+    class Config:
+        from_attributes = True
+
+
+class AssignmentRuleResponse(BaseModel):
+    id: int
+    company_id: int
+    name: str
+    rule_type: str
+    team_id: Optional[int] = None
+    criteria: Optional[dict] = None
+    is_active: bool
+    created_by: Optional[int] = None
+    created_at: datetime
+    distributions: list[AssignmentDistributionResponse] = []
 
     class Config:
         from_attributes = True

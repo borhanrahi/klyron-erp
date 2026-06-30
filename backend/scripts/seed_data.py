@@ -30,10 +30,9 @@ DATABASE_URL = "postgresql+asyncpg://klyron_borhan:klyron123@localhost:5433/klyr
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def hash_password(password: str) -> str:
-    """Hash password using passlib bcrypt (same as app)."""
-    from passlib.context import CryptContext
-    ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    return ctx.hash(password)
+    """Hash password using bcrypt."""
+    import bcrypt as bcrypt_lib
+    return bcrypt_lib.hashpw(password.encode("utf-8"), bcrypt_lib.gensalt()).decode("utf-8")
 
 
 def random_date(start: date, end: date) -> date:

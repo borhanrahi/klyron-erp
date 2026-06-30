@@ -9,6 +9,7 @@ from app.database import get_db
 from app.routers.auth import get_current_user
 from app.dependencies.auth import require_company
 from app.models.auth import User
+from app.models.hr import Team, Employee, employee_teams_table
 from app.models.inventory import Warehouse
 from app.models.sales import (
     Customer, CustomerContract, Lead, Deal,
@@ -31,9 +32,26 @@ from app.schemas.sales import (
     InquiryEmailSend, InquiryEmailLogResponse,
 )
 from app.schemas.common import PaginatedResponse, ResponseModel
+from app.schemas.sales import (
+    LeadActivityCreate, LeadActivityResponse,
+    LeadTaskCreate, LeadTaskUpdate, LeadTaskResponse,
+    LeadAssignRequest, LeadBatchAssignRequest,
+    AssignmentRuleCreate, AssignmentRuleUpdate, AssignmentRuleResponse,
+    AssignmentDistributionResponse,
+)
 from app.services.sales_service import convert_quotation_to_order, convert_estimate_to_invoice
 from app.services.inventory_service import decrement_stock
+from app.services.lead_service import (
+    log_activity, assign_lead_auto, assign_lead_manual, reassign_batch,
+    create_lead_task, complete_lead_task, calculate_lead_score,
+    get_lead_team_stats, get_team_performance,
+    lead_matches_criteria, get_team_member_user_ids,
+)
 from app.services.event_bus import event_bus
+from app.models.sales import (
+    LeadActivity, LeadTask,
+    LeadAssignmentRule, LeadAssignmentDistribution, LeadAssignmentLog,
+)
 
 router = APIRouter(prefix="/sales", tags=["Sales"])
 
@@ -272,25 +290,48 @@ async def list_leads(
     per_page: int = Query(25, ge=1, le=100),
     search: Optional[str] = None,
     status: Optional[str] = None,
+    assigned_to: Optional[int] = Query(None, alias="assigned_to"),
+    source: Optional[str] = None,
+    sort_by: Optional[str] = Query("created_at", alias="sort_by"),
+    sort_order: Optional[str] = Query("desc", alias="sort_order"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_company),
 ):
-    query = select(Lead).where(
+    from sqlalchemy import or_, desc as sa_desc, asc as sa_asc
+
+    base_filter = [
         Lead.company_id == current_user.company_id,
         Lead.deleted_at.is_(None),
-    )
-    count_query = select(sa_func.count()).select_from(Lead).where(
-        Lead.company_id == current_user.company_id,
-        Lead.deleted_at.is_(None),
-    )
+    ]
+    query = select(Lead).where(*base_filter)
+    count_query = select(sa_func.count()).select_from(Lead).where(*base_filter)
 
     if search:
-        query = query.where(Lead.name.ilike(f"%{search}%"))
-        count_query = count_query.where(Lead.name.ilike(f"%{search}%"))
+        search_filter = or_(
+            Lead.name.ilike(f"%{search}%"),
+            Lead.email.ilike(f"%{search}%"),
+            Lead.phone.ilike(f"%{search}%"),
+            Lead.company_name.ilike(f"%{search}%"),
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
 
     if status:
         query = query.where(Lead.status == status)
         count_query = count_query.where(Lead.status == status)
+
+    if assigned_to:
+        query = query.where(Lead.assigned_to == assigned_to)
+        count_query = count_query.where(Lead.assigned_to == assigned_to)
+
+    if source:
+        query = query.where(Lead.source == source)
+        count_query = count_query.where(Lead.source == source)
+
+    # Sorting
+    sort_col = getattr(Lead, sort_by, Lead.created_at)
+    order_fn = sa_desc if sort_order == "desc" else sa_asc
+    query = query.order_by(order_fn(sort_col))
 
     total = (await db.execute(count_query)).scalar() or 0
     query = query.offset((page - 1) * per_page).limit(per_page)
@@ -329,10 +370,31 @@ async def create_lead(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_company),
 ):
-    lead = Lead(**data.model_dump(exclude={"company_id"}), company_id=current_user.company_id)
+    lead_data = data.model_dump(exclude={"company_id"})
+    # Auto-calculate score if not explicitly provided
+    if not lead_data.get("score"):
+        lead_data["score"] = calculate_lead_score(
+            source=lead_data.get("source"),
+            email=lead_data.get("email"),
+            phone=lead_data.get("phone"),
+            company_name=lead_data.get("company_name"),
+            lead_value=lead_data.get("lead_value", 0),
+            tags=lead_data.get("tags"),
+        )
+    lead = Lead(**lead_data, company_id=current_user.company_id, created_by=current_user.id)
     db.add(lead)
     await db.flush()
     await db.refresh(lead)
+
+    # Log creation activity
+    await log_activity(
+        db, lead_id=lead.id, company_id=current_user.company_id,
+        activity_type="system",
+        description=f"Lead created from source: {lead.source or 'direct'}",
+        created_by=current_user.id,
+    )
+
+    await db.flush()
     return ResponseModel(data=LeadResponse.model_validate(lead))
 
 
@@ -351,8 +413,57 @@ async def update_lead(
     lead = result.scalar_one_or_none()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
-    for k, v in data.model_dump(exclude_unset=True).items():
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    # Auto-recalculate score when scoring-relevant fields change (unless score is explicitly provided)
+    score_explicitly_set = "score" in update_data
+    if not score_explicitly_set:
+        score_fields = ["source", "email", "phone", "company_name", "lead_value", "tags"]
+        if any(k in update_data for k in score_fields):
+            merged = {k: getattr(lead, k, None) for k in score_fields}
+            merged.update({k: v for k, v in update_data.items() if k in score_fields})
+            update_data["score"] = calculate_lead_score(
+                source=merged.get("source"),
+                email=merged.get("email"),
+                phone=merged.get("phone"),
+                company_name=merged.get("company_name"),
+                lead_value=merged.get("lead_value", 0),
+                tags=merged.get("tags"),
+            )
+
+    # Track changes for activity log
+    tracked_fields = ["status", "score", "assigned_to", "notes"]
+    for k, v in update_data.items():
+        old_val = getattr(lead, k, None)
+        if k in tracked_fields and old_val != v:
+            if k == "status":
+                await log_activity(
+                    db, lead_id=lead.id, company_id=current_user.company_id,
+                    activity_type="status_change",
+                    description=f"Status changed from {old_val or 'none'} to {v}",
+                    created_by=current_user.id,
+                    old_value=str(old_val) if old_val else None,
+                    new_value=str(v),
+                )
+            elif k == "notes":
+                await log_activity(
+                    db, lead_id=lead.id, company_id=current_user.company_id,
+                    activity_type="note",
+                    description=f"Notes updated",
+                    created_by=current_user.id,
+                )
+            elif k == "score":
+                await log_activity(
+                    db, lead_id=lead.id, company_id=current_user.company_id,
+                    activity_type="system",
+                    description=f"Score changed from {old_val or 0} to {v}",
+                    created_by=current_user.id,
+                    old_value=str(old_val) if old_val else "0",
+                    new_value=str(v),
+                )
         setattr(lead, k, v)
+
     await db.flush()
     await db.refresh(lead)
     return ResponseModel(data=LeadResponse.model_validate(lead))
@@ -375,6 +486,494 @@ async def delete_lead(
     lead.deleted_at = datetime.utcnow()
     await db.flush()
     return ResponseModel(message="Lead deleted")
+
+
+# ── Lead Activities (Timeline) ──────────────────────────────────────────────
+
+@router.get("/leads/{lead_id}/activities", response_model=ResponseModel)
+async def list_lead_activities(
+    lead_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Get the full activity timeline for a lead."""
+    result = await db.execute(
+        select(LeadActivity)
+        .where(
+            LeadActivity.lead_id == lead_id,
+            LeadActivity.company_id == current_user.company_id,
+        )
+        .order_by(LeadActivity.created_at.desc())
+        .limit(100)
+    )
+    activities = result.scalars().all()
+    return ResponseModel(data=[LeadActivityResponse.model_validate(a) for a in activities])
+
+
+@router.post("/leads/{lead_id}/activities", response_model=ResponseModel, status_code=201)
+async def create_lead_activity(
+    lead_id: int,
+    data: LeadActivityCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Manually log an activity on a lead (e.g., a call, email, or note)."""
+    # Verify lead exists
+    lead_result = await db.execute(select(Lead).where(
+        Lead.id == lead_id,
+        Lead.company_id == current_user.company_id,
+        Lead.deleted_at.is_(None),
+    ))
+    lead = lead_result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    activity = await log_activity(
+        db, lead_id=lead_id, company_id=current_user.company_id,
+        activity_type=data.activity_type,
+        description=data.description,
+        created_by=current_user.id,
+        old_value=data.old_value,
+        new_value=data.new_value,
+    )
+    await db.flush()
+    return ResponseModel(data=LeadActivityResponse.model_validate(activity))
+
+
+# ── Lead Tasks ───────────────────────────────────────────────────────────────
+
+@router.get("/leads/{lead_id}/tasks", response_model=ResponseModel)
+async def list_lead_tasks(
+    lead_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """List all tasks for a lead."""
+    result = await db.execute(
+        select(LeadTask)
+        .where(
+            LeadTask.lead_id == lead_id,
+            LeadTask.company_id == current_user.company_id,
+        )
+        .order_by(LeadTask.created_at.desc())
+    )
+    tasks = result.scalars().all()
+    return ResponseModel(data=[LeadTaskResponse.model_validate(t) for t in tasks])
+
+
+@router.post("/leads/{lead_id}/tasks", response_model=ResponseModel, status_code=201)
+async def create_lead_task_endpoint(
+    lead_id: int,
+    data: LeadTaskCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Create a task for a lead and assign it to a team member."""
+    # Verify lead exists
+    lead_result = await db.execute(select(Lead).where(
+        Lead.id == lead_id,
+        Lead.company_id == current_user.company_id,
+        Lead.deleted_at.is_(None),
+    ))
+    lead = lead_result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    task = await create_lead_task(
+        db, lead_id=lead_id, company_id=current_user.company_id,
+        title=data.title, assigned_to=data.assigned_to,
+        created_by=current_user.id,
+        description=data.description, due_date=data.due_date,
+        priority=data.priority,
+    )
+    await db.flush()
+    return ResponseModel(data=LeadTaskResponse.model_validate(task))
+
+
+@router.put("/leads/{lead_id}/tasks/{task_id}", response_model=ResponseModel)
+async def update_lead_task(
+    lead_id: int,
+    task_id: int,
+    data: LeadTaskUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Update a lead task (status, title, etc.)."""
+    result = await db.execute(
+        select(LeadTask).where(
+            LeadTask.id == task_id,
+            LeadTask.lead_id == lead_id,
+            LeadTask.company_id == current_user.company_id,
+        )
+    )
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(task, k, v)
+
+    # If marking as completed
+    if data.status == "completed" and not task.completed_at:
+        task.completed_at = datetime.utcnow()
+        await log_activity(
+            db, lead_id=lead_id, company_id=current_user.company_id,
+            activity_type="task_completed",
+            description=f"Task completed: {task.title}",
+            created_by=current_user.id,
+        )
+
+    await db.flush()
+    await db.refresh(task)
+    return ResponseModel(data=LeadTaskResponse.model_validate(task))
+
+
+@router.post("/leads/{lead_id}/tasks/{task_id}/complete", response_model=ResponseModel)
+async def complete_lead_task_endpoint(
+    lead_id: int,
+    task_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Mark a task as completed. This updates the lead's activity timeline."""
+    # Verify lead ownership
+    lead_result = await db.execute(select(Lead).where(
+        Lead.id == lead_id,
+        Lead.company_id == current_user.company_id,
+        Lead.deleted_at.is_(None),
+    ))
+    if not lead_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    try:
+        task = await complete_lead_task(
+            db, task_id=task_id, company_id=current_user.company_id,
+            completed_by=current_user.id,
+        )
+        await db.flush()
+        return ResponseModel(data=LeadTaskResponse.model_validate(task))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# ── Lead Assignment ──────────────────────────────────────────────────────────
+
+@router.post("/leads/{lead_id}/assign", response_model=ResponseModel)
+async def assign_lead(
+    lead_id: int,
+    data: LeadAssignRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Assign a lead to a team member (manual or auto).
+
+    - Manual: Provide assigned_to directly
+    - Auto (round_robin/ratio): Leave assigned_to empty or provide rule_id
+    """
+    if data.assignment_type == "manual" and data.assigned_to:
+        try:
+            lead = await assign_lead_manual(
+                db, company_id=current_user.company_id,
+                lead_id=lead_id, assigned_to=data.assigned_to,
+                assigned_by=current_user.id,
+            )
+            await db.flush()
+            return ResponseModel(data=LeadResponse.model_validate(lead), message="Lead assigned manually")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    else:
+        # Auto-assign (round-robin or ratio)
+        try:
+            lead = await assign_lead_auto(
+                db, company_id=current_user.company_id,
+                lead_id=lead_id, assigned_by=current_user.id,
+                rule_id=data.rule_id,
+            )
+            await db.flush()
+            return ResponseModel(data=LeadResponse.model_validate(lead), message="Lead auto-assigned")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/leads/batch-assign", response_model=ResponseModel)
+async def batch_assign_leads(
+    data: LeadBatchAssignRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Batch reassign multiple leads to a specific user."""
+    count = await reassign_batch(
+        db, company_id=current_user.company_id,
+        lead_ids=data.lead_ids, assigned_to=data.assigned_to,
+        assigned_by=current_user.id,
+    )
+    await db.flush()
+    return ResponseModel(data={"assigned_count": count}, message=f"{count} leads reassigned")
+
+
+# ── Teams for Lead Assignment ───────────────────────────────────────────────
+
+@router.get("/teams", response_model=ResponseModel)
+async def list_sales_teams(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """List all teams with their members for lead assignment configuration."""
+    result = await db.execute(
+        select(Team)
+        .where(
+            Team.company_id == current_user.company_id,
+            Team.deleted_at.is_(None),
+            Team.is_active == True,
+        )
+        .order_by(Team.name)
+    )
+    teams = result.scalars().all()
+
+    if not teams:
+        return ResponseModel(data=[])
+
+    team_ids = [t.id for t in teams]
+
+    # Single query for all team members
+    member_rows = await db.execute(
+        select(
+            employee_teams_table.c.team_id,
+            Employee.id.label("employee_id"),
+            Employee.user_id,
+            Employee.employee_code,
+        )
+        .join(Employee, Employee.id == employee_teams_table.c.employee_id)
+        .where(
+            employee_teams_table.c.team_id.in_(team_ids),
+            Employee.company_id == current_user.company_id,
+            Employee.deleted_at.is_(None),
+            Employee.status == "active",
+            Employee.user_id.isnot(None),
+        )
+    )
+    members_by_team: dict[int, list[dict]] = {tid: [] for tid in team_ids}
+    for row in member_rows.all():
+        members_by_team.setdefault(row.team_id, []).append({
+            "employee_id": row.employee_id,
+            "user_id": row.user_id,
+            "employee_code": row.employee_code,
+        })
+
+    team_data = [
+        {
+            "id": t.id,
+            "name": t.name,
+            "description": t.description,
+            "lead_id": t.lead_id,
+            "member_count": len(members_by_team.get(t.id, [])),
+            "members": members_by_team.get(t.id, []),
+        }
+        for t in teams
+    ]
+
+    return ResponseModel(data=team_data)
+
+
+# ── Lead Assignment Rules (Manager Configuration) ────────────────────────────
+
+@router.get("/lead-assignment-rules", response_model=ResponseModel)
+async def list_assignment_rules(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """List all lead assignment rules for the company."""
+    result = await db.execute(
+        select(LeadAssignmentRule)
+        .options(selectinload(LeadAssignmentRule.distributions))
+        .where(LeadAssignmentRule.company_id == current_user.company_id)
+        .order_by(LeadAssignmentRule.created_at.desc())
+    )
+    rules = result.scalars().unique().all()
+    return ResponseModel(data=[AssignmentRuleResponse.model_validate(r) for r in rules])
+
+
+@router.post("/lead-assignment-rules", response_model=ResponseModel, status_code=201)
+async def create_assignment_rule(
+    data: AssignmentRuleCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Create a lead assignment rule with team member distribution."""
+    rule = LeadAssignmentRule(
+        company_id=current_user.company_id,
+        name=data.name,
+        rule_type=data.rule_type,
+        team_id=data.team_id,
+        criteria=data.criteria,
+        is_active=data.is_active,
+        created_by=current_user.id,
+    )
+    db.add(rule)
+    await db.flush()
+    await db.refresh(rule)
+
+    for dist in data.distributions:
+        d = LeadAssignmentDistribution(
+            rule_id=rule.id,
+            user_id=dist.user_id,
+            weight=dist.weight,
+        )
+        db.add(d)
+
+    await db.flush()
+
+    # Reload with distributions
+    result = await db.execute(
+        select(LeadAssignmentRule)
+        .options(selectinload(LeadAssignmentRule.distributions))
+        .where(LeadAssignmentRule.id == rule.id)
+    )
+    rule = result.scalar_one()
+    return ResponseModel(data=AssignmentRuleResponse.model_validate(rule))
+
+
+@router.put("/lead-assignment-rules/{rule_id}", response_model=ResponseModel)
+async def update_assignment_rule(
+    rule_id: int,
+    data: AssignmentRuleUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Update an assignment rule and its distributions."""
+    result = await db.execute(
+        select(LeadAssignmentRule).where(
+            LeadAssignmentRule.id == rule_id,
+            LeadAssignmentRule.company_id == current_user.company_id,
+        )
+    )
+    rule = result.scalar_one_or_none()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Assignment rule not found")
+
+    for k, v in data.model_dump(exclude_unset=True, exclude={"distributions"}).items():
+        setattr(rule, k, v)
+
+    # Replace distributions if provided
+    if data.distributions is not None:
+        from sqlalchemy import delete as sa_delete
+        await db.execute(
+            sa_delete(LeadAssignmentDistribution).where(
+                LeadAssignmentDistribution.rule_id == rule.id
+            )
+        )
+        for dist in data.distributions:
+            d = LeadAssignmentDistribution(
+                rule_id=rule.id,
+                user_id=dist.user_id,
+                weight=dist.weight,
+            )
+            db.add(d)
+
+    await db.flush()
+
+    result = await db.execute(
+        select(LeadAssignmentRule)
+        .options(selectinload(LeadAssignmentRule.distributions))
+        .where(LeadAssignmentRule.id == rule.id)
+    )
+    rule = result.scalar_one()
+    return ResponseModel(data=AssignmentRuleResponse.model_validate(rule))
+
+
+@router.delete("/lead-assignment-rules/{rule_id}", response_model=ResponseModel)
+async def delete_assignment_rule(
+    rule_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Delete an assignment rule."""
+    result = await db.execute(
+        select(LeadAssignmentRule).where(
+            LeadAssignmentRule.id == rule_id,
+            LeadAssignmentRule.company_id == current_user.company_id,
+        )
+    )
+    rule = result.scalar_one_or_none()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Assignment rule not found")
+    await db.delete(rule)
+    await db.flush()
+    return ResponseModel(message="Assignment rule deleted")
+
+
+# ── Lead Dashboard / Team Performance ───────────────────────────────────────
+
+@router.get("/leads/dashboard/stats", response_model=ResponseModel)
+async def lead_dashboard_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Get lead management dashboard stats for managers."""
+    stats = await get_lead_team_stats(db, company_id=current_user.company_id)
+    return ResponseModel(data=stats)
+
+
+@router.get("/leads/dashboard/team-performance", response_model=ResponseModel)
+async def lead_team_performance(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Get per-team-member performance stats."""
+    performance = await get_team_performance(db, company_id=current_user.company_id)
+    return ResponseModel(data=performance)
+
+
+# ── Lead → Deal Conversion ──────────────────────────────────────────────────
+
+@router.post("/leads/{lead_id}/convert-to-deal", response_model=ResponseModel)
+async def convert_lead_to_deal(
+    lead_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_company),
+):
+    """Convert a qualified lead into a deal."""
+    result = await db.execute(select(Lead).where(
+        Lead.id == lead_id,
+        Lead.company_id == current_user.company_id,
+        Lead.deleted_at.is_(None),
+    ))
+    lead = result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    if lead.converted_to_deal_id:
+        raise HTTPException(status_code=400, detail="Lead already converted to a deal")
+
+    # Create deal from lead info
+    deal = Deal(
+        company_id=current_user.company_id,
+        lead_id=lead.id,
+        title=f"Deal - {lead.name}",
+        value=lead.lead_value or 0,
+        status="open",
+        stage="qualification",
+        probability=lead.score if lead.score else 20,
+    )
+    db.add(deal)
+    await db.flush()
+    await db.refresh(deal)
+
+    # Update lead
+    lead.converted_to_deal_id = deal.id
+    lead.status = "qualified"
+
+    # Log activity
+    await log_activity(
+        db, lead_id=lead.id, company_id=current_user.company_id,
+        activity_type="system",
+        description=f"Lead converted to deal: {deal.title}",
+        created_by=current_user.id,
+        new_value=str(deal.id),
+    )
+
+    await db.flush()
+    return ResponseModel(data=DealResponse.model_validate(deal), message="Lead converted to deal")
 
 
 # ── Deals ──
