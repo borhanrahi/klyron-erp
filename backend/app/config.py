@@ -17,14 +17,8 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-    ]
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-    ]
+    CORS_ORIGINS: List[str] = ["*"]
+    ALLOWED_ORIGINS: List[str] = ["*"]
 
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
