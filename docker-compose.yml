@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: "pOA521453269!@@"
       POSTGRES_DB: klyron_erp
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -26,7 +26,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@klyron.com
       PGADMIN_DEFAULT_PASSWORD: "pOA521453269!@@"
     ports:
-      - "5050:80"
+      - "127.0.0.1:5050:80"
     depends_on:
       postgres:
         condition: service_healthy
@@ -36,7 +36,33 @@ services:
     container_name: klyron_redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
+
+  backend:
+    build: ./backend
+    container_name: klyron_backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://klyron_borhan:pOA521453269!@@@postgres:5432/klyron_erp
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+    container_name: klyron_frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:

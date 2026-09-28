@@ -11,8 +11,8 @@ from app.schemas.auth import (
     UserCreate, UserResponse, UserProfileResponse, ProfileUpdate, PasswordChange,
     Token, LoginRequest, RegisterRequest
 )
+from app.utils.hashing import verify_password, get_password_hash
 from app.utils.jwt import (
-    verify_password, get_password_hash,
     create_access_token, create_refresh_token, decode_token
 )
 
