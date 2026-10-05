@@ -1,0 +1,100 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deploy target
+        type: choice
+        options:
+          - pm2
+          - docker
+        default: pm2
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: frontend
+      - name: Typecheck
+        run: npm run typecheck
+        working-directory: frontend
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend deps
+        run: pip install -r requirements.txt
+        working-directory: backend
+      - name: Compile backend
+        run: python -m compileall -q app
+        working-directory: backend
+
+  deploy_pm2:
+    needs: test
+    if: github.event_name == 'push' || inputs.target == 'pm2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy over SSH (classic PM2)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd "${{ vars.APP_DIR }}"
+            git pull --ff-only
+
+            printf 'NEXT_PUBLIC_API_URL=%s\n' "${{ vars.NEXT_PUBLIC_API_URL }}" > frontend/.env.local
+
+            cd frontend
+            npm ci
+            npm run build
+            cd ..
+
+            cd backend
+            .venv/bin/pip install -r requirements.txt
+            cd ..
+
+            pm2 reload ecosystem.config.js --update-env
+            pm2 save
+
+  deploy_docker:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'docker'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy over SSH (Docker)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd "${{ vars.APP_DIR }}"
+            git pull --ff-only
+            docker compose up -d --build
