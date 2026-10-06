@@ -62,3 +62,8 @@ media/
 # Alembic
 alembic/versions/*.py
 !alembic/versions/.gitkeep
+.neon
+.agents
+skills-lock.json
+.trae
+.playwright-mcp

@@ -1,3 +1,4 @@
+# pyright: reportAttributeAccessIssue=false, reportGeneralTypeIssues=false
 """
 Klyron ERP - Comprehensive Module Seed Data
 ============================================
@@ -55,7 +56,7 @@ from app.models.master_data import (
     Currency, Country, State, Unit, TaxCode, PaymentTerm, Designation,
 )
 
-DATABASE_URL = "postgresql+asyncpg://klyron_borhan:klyron123@localhost:5433/klyron_erp"
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql+asyncpg://klyron_borhan:klyron123@localhost:5433/klyron_erp")
 COMPANY_ID = 1
 ADMIN_USER_ID = 135
 
@@ -909,6 +910,7 @@ async def seed_procurement(session, item_ids):
 
     # Purchase Requisitions
     pr_count = 0
+    dept_ids = (await session.execute(text("SELECT id FROM departments"))).scalars().all()
     for i in range(8):
         pr_items_data = random.sample(item_ids, k=random.randint(1, 4))
         existing = await session.execute(select(PurchaseRequisition).where(PurchaseRequisition.pr_number == f"PR-{2026}-{i+1:04d}"))
@@ -916,7 +918,7 @@ async def seed_procurement(session, item_ids):
             continue
         pr = PurchaseRequisition(
             company_id=COMPANY_ID, pr_number=f"PR-{2026}-{i+1:04d}",
-            department_id=random.randint(67, 76),
+            department_id=random.choice(dept_ids),
             requester_id=ADMIN_USER_ID,
             date=date.today() - timedelta(days=random.randint(1, 45)),
             status=random.choice(["draft", "approved", "ordered"]),
@@ -1337,6 +1339,11 @@ async def seed_support(session):
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════════════
 async def main():
+    global ADMIN_USER_ID
+    async with Session() as s:
+        ADMIN_USER_ID = (await s.execute(
+            text("SELECT id FROM users WHERE company_id = 1 ORDER BY id LIMIT 1")
+        )).scalar_one()
     print("=" * 60)
     print("  KLYRON ERP - Comprehensive Module Seed Data")
     print("=" * 60)

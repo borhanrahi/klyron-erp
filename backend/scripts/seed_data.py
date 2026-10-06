@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy import text
 import json
 
-DATABASE_URL = "postgresql+asyncpg://klyron_borhan:klyron123@localhost:5433/klyron_erp"
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql+asyncpg://klyron_borhan:klyron123@localhost:5433/klyron_erp")
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -205,6 +205,14 @@ async def seed():
                 pass  # Skip tables that don't exist
         await db.commit()
         print("  [OK] Cleaned existing data")
+
+        # ── 0.5 Company (roles/users reference company_id=1) ───────────────
+        await db.execute(text(
+            "INSERT INTO companies (id, name, status, currency, timezone) "
+            "VALUES (1, 'Klyron ERP', 'active', 'USD', 'UTC') "
+            "ON CONFLICT (id) DO NOTHING"
+        ))
+        await db.commit()
 
         # ── 1. Departments ──────────────────────────────────────────────
         print("Creating departments...")
