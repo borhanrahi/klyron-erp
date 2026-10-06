@@ -3,3 +3,10 @@ node_modules
 .git
 .env
 *.md
+frontend
+backend/.venv
+.venv
+**/__pycache__
+*.pyc
+_neon
+.neon

@@ -1,0 +1,20 @@
+# Root Dockerfile — Render's default Docker path (./Dockerfile at repo root).
+# Backend-only image: builds from backend/, ignores frontend/.
+# Port: binds $PORT when Render provides it (its router follows $PORT), else 8000.
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY backend/ .
+
+EXPOSE 8000
+
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
