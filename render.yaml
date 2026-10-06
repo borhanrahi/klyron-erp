@@ -2,7 +2,7 @@
 # Render prompts for DATABASE_URL (sync:false) before the first deploy.
 services:
   - type: web
-    name: klyron-erp-api
+    name: klyron-erp
     runtime: python
     rootDir: backend
     plan: free
