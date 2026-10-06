@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import WakeBackend from "@/components/common/WakeBackend";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,7 +24,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={inter.className} suppressHydrationWarning>{children}</body>
+      <body className={inter.className} suppressHydrationWarning>
+        <WakeBackend />
+        {children}
+      </body>
     </html>
   );
 }

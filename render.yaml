@@ -1,0 +1,28 @@
+# Render Blueprint — "New > Blueprint" in Render, pick this repo.
+# Render prompts for DATABASE_URL (sync:false) before the first deploy.
+services:
+  - type: web
+    name: klyron-erp-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      # Neon — must be the DIRECT (unpooled) endpoint, asyncpg form with ssl:
+      # postgresql+asyncpg://USER:PASS@ep-xxx.aws.neon.tech/DB?ssl=require
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: APP_DEBUG
+        value: "false"
+      # Optional — lock CORS to your Netlify URL (JSON array). Default in code is
+      # ["*"] which already works with Bearer-token auth:
+      # - key: CORS_ORIGINS
+      #   value: '["https://your-site.netlify.app"]'

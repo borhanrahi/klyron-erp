@@ -1,5 +1,40 @@
 # Deployment Guide — Klyron ERP to a Server
 
+## Quick go-live: Render (API) + Netlify (web) + Neon (DB)
+
+The repo is configured so both platforms build from a plain import — no localhost anywhere.
+
+**1. Render → New → Blueprint → pick this repo**
+- `render.yaml` provisions the API (`rootDir: backend`, Python 3.12, `/health` check).
+- It prompts for one secret: **`DATABASE_URL`** — paste the Neon *direct* endpoint in asyncpg form:
+  `postgresql+asyncpg://USER:PASS@ep-xxx.aws.neon.tech/DB?ssl=require`
+  (must end in `?ssl=require`, NOT `-pooler` host).
+- `JWT_SECRET_KEY` is generated automatically. Service URL: `https://klyron-erp.onrender.com`.
+
+**2. Netlify → Add new site → import this repo**
+- `netlify.toml` handles build (`base = frontend`) + Next.js runtime; set `NODE_VERSION = 22`.
+- Set env var **before the first build** (Site settings → Environment variables):
+
+  | Key | Value |
+  |-----|-------|
+  | `NEXT_PUBLIC_API_URL` | `https://klyron-erp.onrender.com/api/v1` |
+
+  (Netlify site: `https://klyron-erp.netlify.app`)
+
+- `NEXT_PUBLIC_*` is inlined at build time — changing it later requires a rebuild (Deploy → Retry deploy).
+
+**3. Done.** CORS defaults to `*` (Bearer-token auth, no cookies) so the Netlify site works immediately.
+Backend in-process cache (30s) + write-through invalidation + Neon keep-alive ping are already in the code.
+
+Notes:
+- Render free + Neon free both suspend when idle: first request after idle takes ~5-50s, then warm.
+- To hard-lock CORS later, set `CORS_ORIGINS` on Render to a JSON array: `'["https://site.netlify.app"]'`.
+- Latency: DB in Ohio costs ~241ms/round-trip from Asia. Moving Neon to `aws-ap-southeast-1` (Singapore) is the big speed lever; also pick Render region `singapore`.
+
+---
+
+## Legacy: self-hosted Docker runbook (original)
+
 Full runbook: local prep → Ubuntu server install → Docker deploy → HTTPS.
 
 Stack runs entirely in Docker. **No Node/Python/Postgres needed on the server.**

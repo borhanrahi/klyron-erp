@@ -2,3 +2,12 @@
   base = "frontend"
   command = "npm run build"
   publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Next.js runtime (OpenNext adapter) — auto-detects the build output.
+# NEXT_PUBLIC_API_URL is inlined at build time — set it in
+# Site settings > Environment variables before the first build.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
