@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* dark: utilities follow the .dark class only — not OS preference (single source of truth) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* Breakpoints (CUSTOM - MANDATORY) */
   --breakpoint-xs: 30rem;

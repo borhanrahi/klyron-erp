@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTheme } from "@/components/common/ThemeProvider";
 import { PageHeader } from "@/components/common/PageHeader";
 import {
   Palette,
@@ -29,7 +30,9 @@ const sidebarStyles = [
 ];
 
 export default function ThemePage() {
-  const [theme, setTheme] = useState("dark");
+  const { theme: liveTheme, setTheme: applyTheme } = useTheme();
+  const [picked, setPicked] = useState<string | null>(null);
+  const theme = picked ?? liveTheme;
   const [selectedColor, setSelectedColor] = useState("#4F46E5");
   const [sidebarStyle, setSidebarStyle] = useState("expanded");
 
@@ -65,7 +68,11 @@ export default function ThemePage() {
               return (
                 <button
                   key={mode.id}
-                  onClick={() => setTheme(mode.id)}
+                  onClick={() => {
+                    setPicked(mode.id);
+                    // ponytail: "system" resolves to light (default for everyone); add OS-follow only if asked
+                    applyTheme(mode.id === "dark" ? "dark" : "light");
+                  }}
                   className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-colors ${
                     theme === mode.id
                       ? "border-primary bg-primary/5"
