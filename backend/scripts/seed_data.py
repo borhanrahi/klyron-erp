@@ -746,8 +746,8 @@ async def seed():
             r = await db.execute(
                 text("""INSERT INTO trainings
                     (company_id, title, description, trainer, start_date, end_date,
-                     mode, status, duration_hours, max_participants)
-                VALUES (1, :t, :d, :tr, :sd, :ed, :m, :s, :dur, :mp) RETURNING id"""),
+                     mode, status, duration_hours, max_participants, training_type, cost)
+                VALUES (1, :t, :d, :tr, :sd, :ed, :m, :s, :dur, :mp, 'internal', 0) RETURNING id"""),
                 {"t": title, "d": desc, "tr": trainer, "sd": sd, "ed": ed, "m": mode, "s": status, "dur": random.randint(4, 20), "mp": max_p},
             )
             train_ids.append(r.scalar_one())
@@ -1022,11 +1022,12 @@ async def seed():
             total = random.choice([5000, 12000, 25000, 45000, 80000, 150000])
             order_status = random.choice(order_statuses)
             r = await db.execute(
-                text("INSERT INTO sales_orders (company_id, order_number, customer_id, subtotal, total, status, delivery_date) VALUES (1, :on, :cid, :st, :t, :s, :dd) RETURNING id"),
+                text("INSERT INTO sales_orders (company_id, order_number, customer_id, subtotal, tax, total, status, delivery_date) VALUES (1, :on, :cid, :st, :tx, :t, :s, :dd) RETURNING id"),
                 {
                     "on": f"SO-{2026001 + i}",
                     "cid": cust_id,
                     "st": round(total * 0.9, 2),
+                    "tx": round(total * 0.1, 2),
                     "t": total,
                     "s": order_status,
                     "dd": today + timedelta(days=random.randint(5, 30)),
@@ -1034,8 +1035,8 @@ async def seed():
             )
             order_id = r.scalar_one()
             await db.execute(
-                text("INSERT INTO sales_order_items (sales_order_id, qty, price, total) VALUES (:oid, :q, :p, :t)"),
-                {"oid": order_id, "q": random.randint(1, 10), "p": round(total * 0.9 / 5, 2), "t": total},
+                text("INSERT INTO sales_order_items (sales_order_id, qty, price, total, tax, delivered_qty) VALUES (:oid, :q, :p, :t, :tx, 0)"),
+                {"oid": order_id, "q": random.randint(1, 10), "p": round(total * 0.9 / 5, 2), "t": total, "tx": round(total * 0.1, 2)},
             )
         await db.commit()
         print("  [OK] Sales orders with items created")
@@ -1080,7 +1081,7 @@ async def seed():
         ]
         for name, acct_no, bank_name, balance in bank_data:
             await db.execute(
-                text("INSERT INTO bank_accounts (company_id, name, account_number, bank_name, balance, is_default) VALUES (1, :n, :an, :bn, :bal, :def)"),
+                text("INSERT INTO bank_accounts (company_id, name, account_number, bank_name, balance, is_default, currency) VALUES (1, :n, :an, :bn, :bal, :def, 'BDT')"),
                 {"n": name, "an": acct_no, "bn": bank_name, "bal": balance, "def": name == "DBBL Current Account"},
             )
         await db.commit()
@@ -1223,7 +1224,7 @@ async def seed():
         item_ids = []
         for item_name, cat_id, unit, cost, sell, sku in item_data:
             r = await db.execute(
-                text("INSERT INTO items (company_id, sku, name, category_id, unit, cost_price, sell_price) VALUES (1, :sku, :n, :cid, :u, :cp, :sp) RETURNING id"),
+                text("INSERT INTO items (company_id, sku, name, category_id, unit, cost_price, sell_price, is_service) VALUES (1, :sku, :n, :cid, :u, :cp, :sp, false) RETURNING id"),
                 {"sku": sku, "n": item_name, "cid": cat_id, "u": unit, "cp": cost, "sp": sell},
             )
             item_ids.append(r.scalar_one())
@@ -1234,7 +1235,7 @@ async def seed():
         wh_ids = []
         for wh_name in wh_data:
             r = await db.execute(
-                text("INSERT INTO warehouses (company_id, code, name, address) VALUES (1, :c, :n, :a) RETURNING id"),
+                text("INSERT INTO warehouses (company_id, code, name, address, is_active) VALUES (1, :c, :n, :a, true) RETURNING id"),
                 {"c": wh_name[:3].upper(), "n": wh_name, "a": f"{wh_name} Area"},
             )
             wh_ids.append(r.scalar_one())

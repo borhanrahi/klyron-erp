@@ -243,10 +243,10 @@ class AuditLogBase(BaseModel):
     company_id: Optional[int] = None
     user_id: int
     action: str
-    entity_type: str
+    entity: str
     entity_id: Optional[int] = None
-    old_json: Optional[dict] = None
-    new_json: Optional[dict] = None
+    old_values: Optional[dict] = None
+    new_values: Optional[dict] = None
     ip: Optional[str] = None
 
 
@@ -256,16 +256,16 @@ class AuditLogCreate(AuditLogBase):
 
 class AuditLogUpdate(BaseModel):
     action: Optional[str] = None
-    entity_type: Optional[str] = None
+    entity: Optional[str] = None
     entity_id: Optional[int] = None
-    old_json: Optional[dict] = None
-    new_json: Optional[dict] = None
+    old_values: Optional[dict] = None
+    new_values: Optional[dict] = None
     ip: Optional[str] = None
 
 
 class AuditLogResponse(AuditLogBase):
     id: int
-    created_at: datetime
+    timestamp: datetime
 
     class Config:
         from_attributes = True

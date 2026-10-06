@@ -39,7 +39,7 @@ class POSSale(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     session = relationship("POSSession", back_populates="sales")
-    items = relationship("POSSaleItem", back_populates="sale")
+    items = relationship("POSSaleItem", back_populates="sale", lazy="selectin")
 
 class POSSaleItem(Base):
     __tablename__ = "pos_sale_items"

@@ -51,7 +51,7 @@ async def list_teams(
 
     enriched = []
     for team in items:
-        d = TeamResponse.model_validate(team, update={"members": None})
+        d = TeamResponse.model_validate(team)
         if team.lead_id:
             lead_result = await db.execute(
                 select(User.full_name).join(Employee, Employee.user_id == User.id).where(Employee.id == team.lead_id)
@@ -73,7 +73,7 @@ async def get_team(item_id: int, db: AsyncSession = Depends(get_db), current_use
     team = result.scalar_one_or_none()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
-    d = TeamResponse.model_validate(team, update={"members": None})
+    d = TeamResponse.model_validate(team)
     if team.lead_id:
         lead_result = await db.execute(
             select(User.full_name).join(Employee, Employee.user_id == User.id).where(Employee.id == team.lead_id)

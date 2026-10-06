@@ -97,7 +97,7 @@ class GRN(Base):
     notes = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    items = relationship("GRNItem", back_populates="grn")
+    items = relationship("GRNItem", back_populates="grn", lazy="selectin")
 
 class GRNItem(Base):
     __tablename__ = "grn_items"

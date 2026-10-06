@@ -163,7 +163,7 @@ new_sections = r"""
         ]
         for name, acct_no, bank_name, balance in bank_data:
             await db.execute(
-                text("INSERT INTO bank_accounts (company_id, name, account_number, bank_name, balance, is_default) VALUES (1, :n, :an, :bn, :bal, :def)"),
+                text("INSERT INTO bank_accounts (company_id, name, account_number, bank_name, balance, is_default, currency) VALUES (1, :n, :an, :bn, :bal, :def, 'BDT')"),
                 {"n": name, "an": acct_no, "bn": bank_name, "bal": balance, "def": name == "DBBL Current Account"},
             )
         await db.commit()
@@ -317,7 +317,7 @@ new_sections = r"""
         wh_ids = []
         for wh_name in wh_data:
             r = await db.execute(
-                text("INSERT INTO warehouses (company_id, code, name, address) VALUES (1, :c, :n, :a) RETURNING id"),
+                text("INSERT INTO warehouses (company_id, code, name, address, is_active) VALUES (1, :c, :n, :a, true) RETURNING id"),
                 {"c": wh_name[:3].upper(), "n": wh_name, "a": f"{wh_name} Area"},
             )
             wh_ids.append(r.scalar_one())

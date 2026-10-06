@@ -135,7 +135,8 @@ class Team(Base):
 
     lead = relationship("Employee", foreign_keys=[lead_id])
     department = relationship("Department")
-    members = relationship("Employee", secondary=employee_teams_table, back_populates="teams")
+    # ponytail: noload — responses validate TeamResponse but members are built by hand in the router
+    members = relationship("Employee", secondary=employee_teams_table, back_populates="teams", lazy="noload")
 
 
 # ── Employee Dependents ─────────────────────────────────────────────────────
@@ -484,7 +485,7 @@ class Payroll(Base):
     paid_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    items = relationship("PayrollItem", back_populates="payroll")
+    items = relationship("PayrollItem", back_populates="payroll", lazy="selectin")
 
 
 class PayrollItem(Base):
@@ -651,7 +652,7 @@ class Training(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
-    enrollments = relationship("TrainingEnrollment", back_populates="training")
+    enrollments = relationship("TrainingEnrollment", back_populates="training", lazy="selectin")
 
 
 class TrainingEnrollment(Base):

@@ -704,7 +704,7 @@ async def my_kpis(db: AsyncSession = Depends(get_db), current_user: User = Depen
     kpis = result.scalars().all()
     return ResponseModel(data=[
         {
-            "id": k.id, "title": k.title, "description": k.description,
+            "id": k.id, "title": k.name, "description": k.description,
             "target_value": k.target_value, "actual_value": k.actual_value,
             "weight": k.weight, "period": k.period, "status": k.status,
         }
