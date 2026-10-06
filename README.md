@@ -105,6 +105,10 @@ The seed script populates the database with **25 users across 7 roles**.
 |-------|----------|------|------|----------|
 | borhanuddin.bd2026@gmail.com | `Admin@123456` | Borhan Uddin | **Admin** | Rahim Uddin (EMP001) |
 
+Demo:
+Email	demo.admin.f3bd9cc0@klyron.demo.com
+Password	Demo-cdcSKxqSwgii
+
 ### Department Managers
 
 These users see **Dashboard, HR management (employees/attendance/leaves/performance), Employee approvals, and Reports**.

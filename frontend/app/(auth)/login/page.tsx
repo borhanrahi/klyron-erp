@@ -16,6 +16,23 @@ export default function LoginPage() {
   });
 
   const [error, setError] = useState("");
+  const [showAccounts, setShowAccounts] = useState(false);
+  const [copied, setCopied] = useState("");
+
+  const copy = (key: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(""), 1200);
+  };
+
+  const demoAccounts = [
+    { role: "Admin (Demo)", email: "demo.admin.f3bd9cc0@klyron.demo.com", password: "Demo-cdcSKxqSwgii" },
+    { role: "Manager", email: "sumaiya@klyron.com", password: "password123" },
+    { role: "Supervisor", email: "kamal@klyron.com", password: "password123" },
+    { role: "HR Manager", email: "anisur@klyron.com", password: "password123" },
+    { role: "Finance Manager", email: "imran@klyron.com", password: "password123" },
+    { role: "Employee", email: "rahim@klyron.com", password: "password123" },
+  ];
 
   useEffect(() => {
     const saved = localStorage.getItem("remembered_email");
@@ -173,9 +190,15 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {/* Demo Hint */}
-            <p className="text-center text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
-              Demo mode — enter any email & password to sign in
+            {/* Demo accounts link */}
+            <p className="text-center text-xs text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => setShowAccounts(true)}
+                className="font-semibold text-primary hover:underline"
+              >
+                View demo accounts
+              </button>
             </p>
           </form>
 
@@ -207,6 +230,71 @@ export default function LoginPage() {
             </button>
           </div>
         </div>
+
+        {/* Demo Accounts Modal */}
+        {showAccounts && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowAccounts(false)}
+          >
+            <div className="absolute inset-0 bg-black/50" />
+            <div
+              className="relative w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl max-h-[80vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold">Demo accounts</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowAccounts(false)}
+                  className="text-muted-foreground hover:text-foreground text-lg leading-none"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="space-y-2">
+                {demoAccounts.map((acc) => (
+                  <div
+                    key={acc.email}
+                    className="relative rounded-lg border border-border bg-muted/50 hover:border-primary/40 transition-colors"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ email: acc.email, password: acc.password });
+                        setError("");
+                        setShowAccounts(false);
+                      }}
+                      className="w-full text-left px-3 py-2 pr-28 rounded-lg hover:bg-muted transition-colors"
+                    >
+                      <span className="text-xs font-semibold text-primary">{acc.role}</span>
+                      <div className="text-sm text-foreground truncate">{acc.email}</div>
+                    </button>
+                    <div className="absolute right-2 top-2 flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => copy(`${acc.email}:email`, acc.email)}
+                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded border border-border bg-card hover:border-primary/40 text-muted-foreground hover:text-primary"
+                      >
+                        {copied === `${acc.email}:email` ? "✓" : "Email"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => copy(`${acc.email}:pass`, acc.password)}
+                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded border border-border bg-card hover:border-primary/40 text-muted-foreground hover:text-primary"
+                      >
+                        {copied === `${acc.email}:pass` ? "✓" : "Pass"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground text-center">
+                Click a row to fill the form, or copy Email / Pass
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Footer Link */}
         <p className="mt-6 text-center text-sm text-muted-foreground">
