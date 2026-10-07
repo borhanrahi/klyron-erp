@@ -188,6 +188,11 @@ export default function LoginPage() {
                 <div className="absolute inset-0 w-full h-full bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
                 {loading ? "Signing in..." : "Sign In"}
               </button>
+              {loading && (
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  Waking the server — first sign-in can take up to ~50s
+                </p>
+              )}
             </div>
 
             {/* Demo accounts link */}
@@ -199,6 +204,9 @@ export default function LoginPage() {
               >
                 View demo accounts
               </button>
+            </p>
+            <p className="text-center text-[11px] text-muted-foreground/70">
+              Server is hosted on Render — first load may take a few sec to wake up
             </p>
           </form>
 
